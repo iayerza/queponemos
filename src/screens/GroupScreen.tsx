@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Clipboard, Alert,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Clipboard, Alert, Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -11,22 +11,28 @@ import MemberChip from '../components/MemberChip';
 import InviteModal from '../components/InviteModal';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { getPlatform } from '../constants/platforms';
+import { PLATFORMS, getPlatform, type PlatformId } from '../constants/platforms';
+import { updateGroupPlatforms } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import { MOCK_GROUP, MOCK_USERS } from '../utils/mock';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'Group'>;
 
+const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
+
 export default function GroupScreen() {
   const insets = useSafeAreaInsets();
   const nav    = useNavigation<Nav>();
   const route  = useRoute<Route>();
   const { user } = useAuthStore();
-  const { groups, setCurrentGroup, addMemberToGroup, pendingInvites } = useGroupStore();
+  const { groups, setCurrentGroup, addMemberToGroup, pendingInvites, updateGroup } = useGroupStore();
 
   const group = groups.find(g => g.id === route.params.groupId) ?? MOCK_GROUP;
-  const [inviteVisible, setInviteVisible] = useState(false);
+  const [inviteVisible,    setInviteVisible]    = useState(false);
+  const [platformsVisible, setPlatformsVisible] = useState(false);
+  const [editPlatforms,    setEditPlatforms]    = useState<PlatformId[]>(group.platforms);
+  const [savingPlatforms,  setSavingPlatforms]  = useState(false);
 
   function getMemberName(uid: string) {
     if (uid === user?.uid) return user.displayName;
@@ -48,6 +54,29 @@ export default function GroupScreen() {
     nav.navigate('Mood', { groupId: group.id });
   }
 
+  function togglePlatform(id: PlatformId) {
+    setEditPlatforms(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  }
+
+  async function savePlatforms() {
+    if (editPlatforms.length === 0) {
+      Alert.alert('Seleccioná al menos una plataforma');
+      return;
+    }
+    setSavingPlatforms(true);
+    try {
+      if (!USE_MOCK) await updateGroupPlatforms(group.id, editPlatforms);
+      updateGroup(group.id, { platforms: editPlatforms });
+      setPlatformsVisible(false);
+    } catch {
+      Alert.alert('Error', 'No se pudieron guardar los cambios');
+    } finally {
+      setSavingPlatforms(false);
+    }
+  }
+
   const groupInvites = pendingInvites.filter(i => i.groupId === group.id);
 
   return (
@@ -63,14 +92,12 @@ export default function GroupScreen() {
       <Text style={styles.eyebrow}>GRUPO</Text>
       <Text style={styles.title}>{group.name}</Text>
 
-      {/* Miembros */}
       <View style={styles.members}>
         {group.members.map(uid => (
           <MemberChip key={uid} name={getMemberName(uid)} />
         ))}
       </View>
 
-      {/* Código de invitación */}
       <View style={styles.codeBox}>
         <Text style={styles.codeLabel}>CÓDIGO DE INVITACIÓN</Text>
         <View style={styles.codeRow}>
@@ -81,7 +108,6 @@ export default function GroupScreen() {
         </View>
       </View>
 
-      {/* Acciones */}
       <TouchableOpacity style={styles.primaryBtn} onPress={handleFindMatch} activeOpacity={0.85}>
         <Text style={styles.primaryBtnText}>🎬 Encontrar algo para esta noche</Text>
       </TouchableOpacity>
@@ -90,21 +116,14 @@ export default function GroupScreen() {
         <Text style={styles.outlineBtnText}>+ Invitar al grupo</Text>
       </TouchableOpacity>
 
-      {/* Invitaciones */}
       {groupInvites.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Invitaciones enviadas</Text>
           {groupInvites.map(invite => (
             <View key={invite.email} style={styles.inviteRow}>
               <Text style={styles.inviteEmail}>{invite.email}</Text>
-              <View style={[
-                styles.inviteBadge,
-                invite.status === 'accepted' && styles.inviteBadgeAccepted,
-              ]}>
-                <Text style={[
-                  styles.inviteBadgeText,
-                  invite.status === 'accepted' && styles.inviteBadgeTextAccepted,
-                ]}>
+              <View style={[styles.inviteBadge, invite.status === 'accepted' && styles.inviteBadgeAccepted]}>
+                <Text style={[styles.inviteBadgeText, invite.status === 'accepted' && styles.inviteBadgeTextAccepted]}>
                   {invite.status === 'accepted' ? 'Aceptó' : 'Pendiente'}
                 </Text>
               </View>
@@ -115,7 +134,12 @@ export default function GroupScreen() {
 
       {/* Plataformas */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Plataformas</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Plataformas</Text>
+          <TouchableOpacity onPress={() => { setEditPlatforms(group.platforms); setPlatformsVisible(true); }}>
+            <Text style={styles.editLink}>Editar</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.platforms}>
           {group.platforms.map(id => {
             const p = getPlatform(id);
@@ -135,6 +159,60 @@ export default function GroupScreen() {
         group={group}
         onSimulateAccept={handleSimulateAccept}
       />
+
+      {/* Modal editar plataformas */}
+      <Modal
+        visible={platformsVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPlatformsVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
+            <Text style={styles.modalTitle}>Plataformas disponibles</Text>
+            <Text style={styles.modalSub}>Seleccioná las que tiene el grupo</Text>
+
+            <View style={styles.platformGrid}>
+              {PLATFORMS.map(p => {
+                const selected = editPlatforms.includes(p.id);
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={[
+                      styles.platformOption,
+                      { borderColor: selected ? p.color : Colors.border },
+                      selected && { backgroundColor: `${p.color}18` },
+                    ]}
+                    onPress={() => togglePlatform(p.id)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.platformOptionEmoji}>{p.emoji}</Text>
+                    <Text style={[styles.platformOptionName, selected && { color: p.color }]}>
+                      {p.name}
+                    </Text>
+                    {selected && <Text style={[styles.checkmark, { color: p.color }]}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.primaryBtn, savingPlatforms && { opacity: 0.6 }]}
+              onPress={savePlatforms}
+              disabled={savingPlatforms}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryBtnText}>
+                {savingPlatforms ? 'Guardando…' : 'Guardar cambios'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setPlatformsVisible(false)}>
+              <Text style={styles.cancelBtnText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -191,7 +269,9 @@ const styles = StyleSheet.create({
   },
   outlineBtnText: { color: Colors.text, fontWeight: Typography.semibold, fontSize: Typography.body },
   section: { marginBottom: 24 },
-  sectionTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.bold, marginBottom: 12 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.bold },
+  editLink: { color: Colors.accent, fontSize: Typography.small },
   inviteRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -201,12 +281,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   inviteEmail: { color: Colors.sub, fontSize: Typography.small },
-  inviteBadge: {
-    backgroundColor: Colors.s2,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
+  inviteBadge: { backgroundColor: Colors.s2, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   inviteBadgeAccepted: { backgroundColor: 'rgba(48,192,96,0.15)' },
   inviteBadgeText: { color: Colors.faint, fontSize: Typography.tiny },
   inviteBadgeTextAccepted: { color: Colors.success },
@@ -223,4 +298,33 @@ const styles = StyleSheet.create({
   },
   platformEmoji: { fontSize: 14 },
   platformName: { fontSize: Typography.small, fontWeight: Typography.medium },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: Colors.s1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+  },
+  modalTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.black, marginBottom: 4 },
+  modalSub: { color: Colors.sub, fontSize: Typography.small, marginBottom: 24 },
+  platformGrid: { gap: 10, marginBottom: 24 },
+  platformOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  platformOptionEmoji: { fontSize: 20 },
+  platformOptionName: { flex: 1, color: Colors.sub, fontSize: Typography.body, fontWeight: Typography.medium },
+  checkmark: { fontSize: 16, fontWeight: '700' },
+  cancelBtn: { alignItems: 'center', paddingVertical: 12 },
+  cancelBtnText: { color: Colors.sub, fontSize: Typography.body },
 });

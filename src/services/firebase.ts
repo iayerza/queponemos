@@ -232,6 +232,13 @@ export async function joinGroupByCode(
   return { groupId: docSnap.id, group: { id: docSnap.id, ...docSnap.data() } as GroupDoc };
 }
 
+export async function updateGroupPlatforms(
+  groupId: string,
+  platforms: PlatformId[],
+): Promise<void> {
+  await updateDoc(doc(db(), 'groups', groupId), { platforms });
+}
+
 export async function getUserGroups(uid: string): Promise<GroupDoc[]> {
   const q = query(collection(db(), 'groups'), where('members', 'array-contains', uid));
   const snap = await getDocs(q);

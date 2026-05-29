@@ -17,6 +17,7 @@ interface GroupStore {
   addMemberToGroup: (groupId: string, uid: string) => void;
   addPendingInvite: (invite: PendingInvite) => void;
   acceptInvite: (email: string) => void;
+  updateGroup: (groupId: string, patch: Partial<GroupDoc>) => void;
 }
 
 export const useGroupStore = create<GroupStore>(set => ({
@@ -43,5 +44,9 @@ export const useGroupStore = create<GroupStore>(set => ({
     pendingInvites: s.pendingInvites.map(i =>
       i.email === email ? { ...i, status: 'accepted' as const } : i
     ),
+  })),
+  updateGroup: (groupId, patch) => set(s => ({
+    groups: s.groups.map(g => g.id === groupId ? { ...g, ...patch } : g),
+    currentGroup: s.currentGroup?.id === groupId ? { ...s.currentGroup, ...patch } : s.currentGroup,
   })),
 }));
