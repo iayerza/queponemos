@@ -1,6 +1,5 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import {
-  initializeAuth,
   getAuth,
   GoogleAuthProvider,
   signInWithCredential,
@@ -8,7 +7,6 @@ import {
   onAuthStateChanged,
   Unsubscribe,
 } from 'firebase/auth';
-import { createAsyncStorage } from '@react-native-async-storage/async-storage';
 import {
   getFirestore,
   doc,
@@ -93,8 +91,6 @@ function getApp(): FirebaseApp {
     messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId:             process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
   });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  initializeAuth(app, { persistence: createAsyncStorage('auth') as any });
   return app;
 }
 
