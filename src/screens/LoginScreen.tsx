@@ -15,7 +15,7 @@ import { MOCK_USER } from '../utils/mock';
 WebBrowser.maybeCompleteAuthSession();
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
+const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_FIREBASE_CLIENT_ID ?? process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
 const FEATURES = [
   { emoji: '🤖', title: 'IA que analiza gustos reales', desc: 'No géneros genéricos, títulos reales' },
