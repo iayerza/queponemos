@@ -81,7 +81,7 @@ export interface CreateGroupOpts {
 
 let app: FirebaseApp;
 
-function getApp(): FirebaseApp {
+export function getApp(): FirebaseApp {
   if (getApps().length) return getApps()[0];
   app = initializeApp({
     apiKey:            process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -124,6 +124,27 @@ export async function loginWithGoogleCredential(idToken: string): Promise<UserPr
     onboardingDone: false,
   };
   await setDoc(doc(db(), 'users', user.uid), {
+    ...profile,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return profile;
+}
+
+export async function loginWithEmailUser(fireUser: { uid: string; email: string | null; displayName: string | null; photoURL: string | null }): Promise<UserProfile> {
+  const existing = await getUserProfile(fireUser.uid);
+  if (existing) return existing;
+
+  const profile: UserProfile = {
+    uid: fireUser.uid,
+    email: fireUser.email ?? '',
+    displayName: fireUser.displayName ?? fireUser.email?.split('@')[0] ?? 'Usuario',
+    photoURL: fireUser.photoURL,
+    ratings: {},
+    tasteProfile: DEFAULT_PROFILE,
+    onboardingDone: false,
+  };
+  await setDoc(doc(db(), 'users', fireUser.uid), {
     ...profile,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
