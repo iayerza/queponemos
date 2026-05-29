@@ -1,0 +1,123 @@
+import React from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { Colors, Typography } from '../constants/colors';
+import ResultCard from '../components/ResultCard';
+import { useMatchStore } from '../store/useMatchStore';
+import { useGroupStore } from '../store/useGroupStore';
+import { updateTitleStatus } from '../services/firebase';
+import type { RootStackParamList } from '../navigation/types';
+import type { Recommendation } from '../services/claude';
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
+
+export default function ResultsScreen() {
+  const insets = useSafeAreaInsets();
+  const nav    = useNavigation<Nav>();
+  const { currentMatch, currentMatchId, updateTitleAction } = useMatchStore();
+  const { currentGroup } = useGroupStore();
+
+  async function handleAction(idx: number, status: Recommendation['groupStatus']) {
+    updateTitleAction(0, idx, status);
+    if (!USE_MOCK && currentMatchId) {
+      const rec = currentMatch?.recommendations[idx];
+      if (rec?.tmdbId) {
+        try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as 'watched' | 'watchlist' | 'skipped'); }
+        catch { /* silenciar */ }
+      }
+    }
+  }
+
+  if (!currentMatch) {
+    return (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>No hay resultados</Text>
+        <TouchableOpacity onPress={() => nav.goBack()}>
+          <Text style={styles.backLink}>← Volver</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 24 }]}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.eyebrow}>TU MATCH</Text>
+      <Text style={styles.title}>Esta noche</Text>
+      <Text style={styles.sub}>
+        {currentGroup?.name ?? 'Tu grupo'} · {currentMatch.recommendations.length} recomendaciones
+      </Text>
+
+      {currentMatch.groupInsight ? (
+        <View style={styles.insight}>
+          <Text style={styles.insightLabel}>INSIGHT DEL GRUPO</Text>
+          <Text style={styles.insightText}>{currentMatch.groupInsight}</Text>
+        </View>
+      ) : null}
+
+      {currentMatch.recommendations.map((rec, i) => (
+        <ResultCard
+          key={`${rec.title}-${i}`}
+          rec={rec}
+          onAction={status => handleAction(i, status)}
+        />
+      ))}
+
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={() => nav.navigate('App')}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.backBtnText}>Volver al grupo</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.bg },
+  content: { paddingHorizontal: 24 },
+  empty: { flex: 1, backgroundColor: Colors.bg, justifyContent: 'center', alignItems: 'center', gap: 16 },
+  emptyText: { color: Colors.sub, fontSize: Typography.body },
+  backLink: { color: Colors.accent, fontSize: Typography.body },
+  eyebrow: {
+    color: Colors.sub,
+    fontSize: Typography.tiny,
+    fontWeight: Typography.semibold,
+    letterSpacing: 2,
+    marginBottom: 6,
+  },
+  title: { color: Colors.text, fontSize: Typography.hero, fontWeight: Typography.black, marginBottom: 4 },
+  sub: { color: Colors.sub, fontSize: Typography.small, marginBottom: 20 },
+  insight: {
+    backgroundColor: Colors.s2,
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  insightLabel: {
+    color: Colors.faint,
+    fontSize: Typography.tiny,
+    fontWeight: Typography.semibold,
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  insightText: { color: Colors.sub, fontSize: Typography.small, fontStyle: 'italic', lineHeight: 20 },
+  backBtn: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border2,
+    marginTop: 8,
+  },
+  backBtnText: { color: Colors.text, fontWeight: Typography.semibold, fontSize: Typography.body },
+});
