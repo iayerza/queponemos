@@ -43,7 +43,7 @@ export default function MatchingOrb() {
 const styles = StyleSheet.create({
   wrapper: { width: 120, height: 120, alignItems: 'center', justifyContent: 'center' },
   glowRing: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     borderRadius: 60,
     backgroundColor: Colors.accentFaint,
     shadowColor: Colors.accent,

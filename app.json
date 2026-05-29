@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "sdkVersion": "52.0.0",
     "splash": {
       "backgroundColor": "#080c14"
     },
@@ -26,10 +27,7 @@
     },
     "plugins": [
       "expo-image",
-      "expo-font",
-      [
-        "expo-linear-gradient"
-      ]
+      "expo-font"
     ]
   }
 }
