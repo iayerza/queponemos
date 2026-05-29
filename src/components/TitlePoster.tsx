@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Image } from 'expo-image';
+import { Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getPosterUrl } from '../services/tmdb';
 import { Colors, Typography } from '../constants/colors';
@@ -22,9 +22,7 @@ export default function TitlePoster({ title }: Props) {
         <Image
           source={{ uri: posterUrl }}
           style={StyleSheet.absoluteFill}
-          contentFit="cover"
-          contentPosition={{ top: '0%' }}
-          transition={300}
+          resizeMode="cover"
         />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.fallback]}>

@@ -2,12 +2,8 @@
   "permissions": {
     "allow": [
       "PowerShell(cd C:\\\\Users\\\\iayer\\\\StreamMatch; $files = @\\(\"src\\\\components\\\\BottomSheet.tsx\",\"src\\\\components\\\\MatchingOrb.tsx\",\"src\\\\components\\\\TitlePoster.tsx\",\"src\\\\screens\\\\LoginScreen.tsx\"\\); foreach \\($f in $files\\) { \\(Get-Content $f\\) -replace 'StyleSheet\\\\.absoluteFillObject', 'StyleSheet.absoluteFill' | Set-Content $f -Encoding utf8 }; \\(Get-Content src\\\\components\\\\MatchingOrb.tsx\\) -replace 'Easing\\\\.sine', 'Easing.sin' | Set-Content src\\\\components\\\\MatchingOrb.tsx -Encoding utf8; Write-Output \"Fixed\")",
-      "Bash(fnm --version)",
-      "Bash(nvm --version)",
-      "Bash(volta --version)",
-      "Bash(npx expo *)",
-      "Bash(kill %1)",
-      "Bash(wait)"
+      "Bash(git add *)",
+      "Bash(git commit -m 'fix: wrap app in GestureHandlerRootView for swipe gestures *)"
     ]
   }
 }

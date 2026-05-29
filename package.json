@@ -11,7 +11,6 @@
     "expo-auth-session": "~5.5.0",
     "expo-crypto": "~13.0.0",
     "expo-font": "~13.0.0",
-    "expo-image": "~1.13.0",
     "expo-linear-gradient": "~13.0.0",
     "expo-status-bar": "~2.0.0",
     "expo-web-browser": "~13.0.0",
