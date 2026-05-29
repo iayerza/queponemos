@@ -92,7 +92,7 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5',
       max_tokens: 1024,
       messages: [{ role: 'user', content: buildPrompt(input) }],
     }),
@@ -106,11 +106,15 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
   const data = await res.json() as { content: { text: string }[] };
   const raw = data.content[0]?.text ?? '{}';
 
+  // Strip markdown code fences if present
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+
   let parsed: { recommendations: Omit<Recommendation, 'posterPath' | 'groupStatus'>[]; groupInsight: string };
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(cleaned);
   } catch {
-    throw new Error('Claude devolvió JSON inválido');
+    console.error('Claude raw response:', raw);
+    throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
   }
 
   const recommendations: Recommendation[] = (parsed.recommendations ?? []).map(r => ({
