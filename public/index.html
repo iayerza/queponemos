@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StreamMatch — Unirse a sala</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e8e8f0;
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #16161f;
+      border: 1px solid #222233;
+      border-radius: 20px;
+      padding: 48px 40px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo {
+      font-size: 40px;
+      margin-bottom: 8px;
+    }
+    .app-name {
+      font-size: 28px;
+      font-weight: 700;
+      color: #e8c547;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .tagline {
+      font-size: 14px;
+      color: #8888aa;
+      margin-bottom: 40px;
+    }
+    .invite-box {
+      background: #111118;
+      border: 1px solid #222233;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 32px;
+    }
+    .invite-label {
+      font-size: 12px;
+      color: #8888aa;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .invite-from {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e8e8f0;
+      margin-bottom: 4px;
+    }
+    .invite-sub {
+      font-size: 13px;
+      color: #8888aa;
+    }
+    .code-badge {
+      display: inline-block;
+      background: #e8c54720;
+      color: #e8c547;
+      border: 1px solid #e8c54740;
+      border-radius: 8px;
+      padding: 6px 16px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      margin: 16px 0;
+      font-family: monospace;
+    }
+    .btn-primary {
+      display: block;
+      width: 100%;
+      background: #e8c547;
+      color: #0a0a0f;
+      border: none;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      margin-bottom: 12px;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover { background: #d4b03d; }
+    .beta-box {
+      display: none;
+      background: #111118;
+      border: 1px solid #e8c54730;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-top: 16px;
+      text-align: left;
+    }
+    .beta-box.visible { display: block; }
+    .beta-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #e8c547;
+      margin-bottom: 6px;
+    }
+    .beta-text {
+      font-size: 13px;
+      color: #8888aa;
+      line-height: 1.5;
+    }
+    .store-note {
+      font-size: 12px;
+      color: #4a4a6a;
+      margin-top: 24px;
+    }
+    #status {
+      font-size: 13px;
+      color: #e8c547;
+      margin-top: 16px;
+      min-height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">🎬</div>
+    <div class="app-name">StreamMatch</div>
+    <div class="tagline">Encontrá la película perfecta para ver juntos</div>
+
+    <div class="invite-box">
+      <div class="invite-label">Te invitaron a una sala</div>
+      <div class="invite-from" id="from-name">Alguien</div>
+      <div class="invite-sub">quiere ver algo con vos esta noche</div>
+      <div class="code-badge" id="code-display">——</div>
+    </div>
+
+    <a id="btn-open" class="btn-primary" href="#">Abrir en StreamMatch</a>
+
+    <div id="beta-box" class="beta-box">
+      <div class="beta-title">📲 ¿No tenés la app?</div>
+      <div class="beta-text">StreamMatch está en beta cerrada.<br>Pedile el archivo de instalación (.apk) a <strong id="from-name-2">quien te invitó</strong>.</div>
+    </div>
+
+    <div id="status"></div>
+    <div class="store-note">StreamMatch · Beta privada · Solo Android</div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code') || '';
+    const from = params.get('from') || '';
+
+    if (code) {
+      document.getElementById('code-display').textContent = code;
+    }
+    if (from) {
+      const name = from.includes('@') ? from.split('@')[0] : from;
+      document.getElementById('from-name').textContent = name;
+    }
+
+    const deepLink = `streammatch://join?code=${code}&from=${encodeURIComponent(from)}`;
+
+    document.getElementById('btn-open').href = deepLink;
+
+    if (from) {
+      const displayName = from.includes('@') ? from.split('@')[0] : from;
+      document.getElementById('from-name-2').textContent = displayName;
+    }
+
+    document.getElementById('btn-open').addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('status').textContent = 'Abriendo StreamMatch...';
+      window.location.href = deepLink;
+      setTimeout(() => {
+        document.getElementById('status').textContent = '¿No abrió? Necesitás tener la app instalada.';
+        document.getElementById('beta-box').classList.add('visible');
+      }, 2500);
+    });
+  </script>
+</body>
+</html>
