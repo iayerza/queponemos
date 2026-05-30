@@ -14,7 +14,7 @@ type Route = RouteProp<RootStackParamList, 'Matching'>;
 export default function MatchingScreen() {
   const nav   = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { runMatch, error } = useMatching();
+  const { runMatch, error, isLeader } = useMatching();
 
   useEffect(() => {
     runMatch().then(matchId => {
@@ -27,9 +27,14 @@ export default function MatchingScreen() {
       <MatchingOrb />
       <Text style={styles.label}>STREAMMATCH</Text>
       <Text style={styles.title}>
-        {'Analizando\nperfiles…'}
+        {isLeader ? 'Analizando\nlos dos humores…' : 'Esperando\nel resultado…'}
       </Text>
-      {error && <Text style={styles.error}>{error}</Text>}
+      <Text style={styles.sub}>
+        {isLeader
+          ? 'Claude está reconciliando sus gustos'
+          : 'Tu compañero está buscando el match'}
+      </Text>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
 }
@@ -40,7 +45,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   label: {
     color: Colors.accent,
@@ -55,10 +60,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 32,
   },
+  sub: {
+    color: Colors.sub,
+    fontSize: Typography.small,
+    textAlign: 'center',
+  },
   error: {
     color: Colors.danger,
     fontSize: Typography.small,
     textAlign: 'center',
     paddingHorizontal: 40,
+    marginTop: 8,
   },
 });

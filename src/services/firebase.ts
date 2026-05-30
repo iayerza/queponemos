@@ -52,6 +52,10 @@ export interface GroupDoc {
   inviteCode: string;
   platforms: PlatformId[];
   country: string;
+  currentSession?: {
+    moods: Record<string, MoodId>;
+    matchId?: string;
+  };
 }
 
 export interface MatchDoc {
@@ -237,6 +241,36 @@ export async function updateGroupPlatforms(
   platforms: PlatformId[],
 ): Promise<void> {
   await updateDoc(doc(db(), 'groups', groupId), { platforms });
+}
+
+export async function setSessionMood(groupId: string, uid: string, mood: MoodId): Promise<void> {
+  await updateDoc(doc(db(), 'groups', groupId), {
+    [`currentSession.moods.${uid}`]: mood,
+  });
+}
+
+export async function setSessionMatchId(groupId: string, matchId: string): Promise<void> {
+  await updateDoc(doc(db(), 'groups', groupId), {
+    'currentSession.matchId': matchId,
+  });
+}
+
+export async function getMatchById(matchId: string): Promise<MatchDoc | null> {
+  const snap = await getDoc(doc(db(), 'matches', matchId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as MatchDoc;
+}
+
+/** Poll Firestore until the leader writes a matchId into the session (max 45s). */
+export async function pollForMatchId(groupId: string): Promise<string | null> {
+  const deadline = Date.now() + 45_000;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 1500));
+    const snap = await getDoc(doc(db(), 'groups', groupId));
+    const matchId = snap.data()?.currentSession?.matchId as string | undefined;
+    if (matchId) return matchId;
+  }
+  return null;
 }
 
 export async function getUserGroups(uid: string): Promise<GroupDoc[]> {
