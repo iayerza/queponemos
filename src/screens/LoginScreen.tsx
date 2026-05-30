@@ -3,24 +3,50 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { Colors, Typography } from '../constants/colors';
+import { LogoMark } from '../components/Logo';
 import { useAuthStore } from '../store/useAuthStore';
 import { loginWithEmailUser, getApp } from '../services/firebase';
 import { MOCK_USER } from '../utils/mock';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
-const FEATURES = [
-  { emoji: '🤖', title: 'IA que analiza gustos reales', desc: 'No géneros genéricos, títulos reales' },
-  { emoji: '👥', title: 'Grupos de hasta 5 personas',   desc: 'La IA encuentra el terreno común' },
-  { emoji: '📺', title: 'Solo lo disponible hoy',       desc: 'Filtra por plataformas y país' },
-];
+// Rectángulos abstractos que simulan pósters en perspectiva
+function PosterBg() {
+  const rects = [
+    { top: 30,  left: -20, w: 90,  h: 130, rot: '-8deg',  op: 0.6 },
+    { top: 60,  left: 50,  w: 100, h: 145, rot: '3deg',   op: 0.5 },
+    { top: 10,  left: 130, w: 85,  h: 120, rot: '-5deg',  op: 0.55 },
+    { top: 80,  left: 210, w: 95,  h: 135, rot: '6deg',   op: 0.45 },
+    { top: 20,  left: 290, w: 80,  h: 115, rot: '-4deg',  op: 0.5 },
+    { top: 100, left: 360, w: 90,  h: 130, rot: '7deg',   op: 0.4 },
+  ];
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {rects.map((r, i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            top: r.top, left: r.left,
+            width: r.w, height: r.h,
+            backgroundColor: Colors.s1,
+            borderRadius: 10,
+            opacity: r.op,
+            transform: [{ rotate: r.rot }],
+            borderWidth: 0.5,
+            borderColor: Colors.border,
+          }}
+        />
+      ))}
+    </View>
+  );
+}
 
 export default function LoginScreen() {
-  const insets = useSafeAreaInsets();
+  const insets   = useSafeAreaInsets();
   const { setUser } = useAuthStore();
 
   const [email,    setEmail]    = useState('');
@@ -55,110 +81,103 @@ export default function LoginScreen() {
       else if (code === 'auth/weak-password')
         setError('La contraseña necesita al menos 6 caracteres');
       else
-        setError('Error: ' + String(e));
+        setError('Error al autenticar');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* ── Área visual superior (60%) ── */}
+      <View style={[styles.visual, { paddingTop: insets.top + 20 }]}>
+        <PosterBg />
+        {/* Gradiente simulado con View */}
+        <View style={styles.visualFade} />
+        <View style={styles.visualContent}>
+          <LogoMark size={28} />
+          <Text style={styles.headline}>La peli{'\n'}para los dos.</Text>
+          <Text style={styles.sub}>
+            Encontrá lo que quieren ver juntos{'\n'}en 30 segundos.
+          </Text>
+        </View>
+      </View>
+
+      {/* ── Card inferior (40%) ── */}
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
+        style={styles.card}
+        contentContainerStyle={[styles.cardContent, { paddingBottom: insets.bottom + 24 }]}
         bounces={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.hero}>
-          <LinearGradient colors={[Colors.s3, Colors.s2, Colors.bg]} style={StyleSheet.absoluteFill} />
-          <Text style={styles.heroEmoji}>🎬</Text>
-          <LinearGradient
-            colors={['transparent', Colors.bg]}
-            locations={[0.5, 1]}
-            style={[StyleSheet.absoluteFill, styles.heroFade]}
-          />
-          <View style={[styles.heroText, { paddingTop: insets.top + 32 }]}>
-            <Text style={styles.headline}>
-              {'Elegí qué\nver '}
-              <Text style={{ color: Colors.accent }}>juntos.</Text>
-            </Text>
-            <Text style={styles.subline}>
-              Recomendaciones de IA que tienen en cuenta los gustos reales de todos.
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.formTitle}>
+          {isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}
+        </Text>
 
-        <View style={styles.body}>
-          <Text style={styles.formTitle}>{isSignUp ? 'Crear cuenta' : 'Iniciar sesión'}</Text>
-
-          {isSignUp && (
-            <TextInput
-              style={styles.input}
-              placeholder="Nombre"
-              placeholderTextColor={Colors.faint}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-            />
-          )}
-
+        {isSignUp && (
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder="Nombre"
             placeholderTextColor={Colors.faint}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
           />
+        )}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Contraseña"
-            placeholderTextColor={Colors.faint}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor={Colors.faint}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
-          {error && <Text style={styles.errorText}>{error}</Text>}
+        <TextInput
+          style={styles.input}
+          placeholder="Contraseña"
+          placeholderTextColor={Colors.faint}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+        />
 
-          <TouchableOpacity
-            style={[styles.primaryBtn, loading && styles.btnDisabled]}
-            onPress={handleAuth}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading
-              ? <ActivityIndicator color={Colors.text} />
-              : <Text style={styles.primaryBtnText}>{isSignUp ? 'Crear cuenta' : 'Entrar'}</Text>
-            }
-          </TouchableOpacity>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          <TouchableOpacity style={styles.toggleBtn} onPress={() => { setIsSignUp(v => !v); setError(null); }}>
-            <Text style={styles.toggleText}>
-              {isSignUp ? '¿Ya tenés cuenta? Iniciá sesión' : '¿No tenés cuenta? Creá una'}
-            </Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.primaryBtn, loading && { opacity: 0.6 }]}
+          onPress={handleAuth}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          {loading
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.primaryBtnText}>
+                {isSignUp ? 'Crear cuenta' : 'Entrar'}
+              </Text>
+          }
+        </TouchableOpacity>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>características</Text>
-            <View style={styles.dividerLine} />
-          </View>
+        <TouchableOpacity
+          style={styles.toggleBtn}
+          onPress={() => { setIsSignUp(v => !v); setError(null); }}
+        >
+          <Text style={styles.toggleText}>
+            {isSignUp
+              ? '¿Ya tenés cuenta? Iniciá sesión'
+              : '¿No tenés cuenta? Creá una'}
+          </Text>
+        </TouchableOpacity>
 
-          <View style={styles.features}>
-            {FEATURES.map(f => (
-              <View key={f.title} style={styles.feature}>
-                <Text style={styles.featureEmoji}>{f.emoji}</Text>
-                <View style={styles.featureText}>
-                  <Text style={styles.featureTitle}>{f.title}</Text>
-                  <Text style={styles.featureDesc}>{f.desc}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
+        <Text style={styles.legal}>
+          Al continuar, aceptás los Términos y la Política de privacidad.
+        </Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -166,53 +185,101 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg },
-  content: { flexGrow: 1 },
-  hero: { height: 300, overflow: 'hidden', justifyContent: 'flex-end' },
-  heroEmoji: { position: 'absolute', fontSize: 160, opacity: 0.06, top: 10, alignSelf: 'center' },
-  heroFade: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 160 },
-  heroText: { paddingHorizontal: 28, paddingBottom: 20 },
-  headline: {
-    color: Colors.text,
-    fontSize: Typography.hero,
-    fontWeight: Typography.black,
-    lineHeight: 40,
-    marginBottom: 8,
+
+  // Visual area
+  visual: {
+    flex: 3,
+    backgroundColor: Colors.bg,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
   },
-  subline: { color: Colors.sub, fontSize: Typography.body, lineHeight: 22 },
-  body: { paddingHorizontal: 24, paddingTop: 16 },
-  formTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.bold, marginBottom: 16 },
-  input: {
+  visualFade: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    height: 160,
+    backgroundColor: Colors.bg,
+    opacity: 0.85,
+  },
+  visualContent: {
+    padding: 28,
+    gap: 12,
+    zIndex: 1,
+  },
+  headline: {
+    fontFamily: Typography.fontMedium,
+    fontSize: 24,
+    fontWeight: Typography.medium,
+    color: Colors.text,
+    lineHeight: 30,
+  },
+  sub: {
+    fontFamily: Typography.fontRegular,
+    fontSize: Typography.body,
+    color: Colors.sub,
+    lineHeight: 20,
+  },
+
+  // Card
+  card: {
+    flex: 2,
     backgroundColor: Colors.s1,
-    borderRadius: 10,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  cardContent: { padding: 28 },
+  formTitle: {
+    fontFamily: Typography.fontMedium,
+    fontSize: Typography.h3,
+    fontWeight: Typography.medium,
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  input: {
+    backgroundColor: Colors.s2,
+    borderRadius: Radius_md,
     padding: 14,
     color: Colors.text,
+    fontFamily: Typography.fontRegular,
     fontSize: Typography.body,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: Colors.border,
     marginBottom: 10,
   },
-  errorText: { color: Colors.danger, fontSize: Typography.small, marginBottom: 10 },
+  errorText: {
+    color: Colors.danger,
+    fontFamily: Typography.fontRegular,
+    fontSize: Typography.small,
+    marginBottom: 10,
+  },
   primaryBtn: {
     backgroundColor: Colors.accent,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: Radius_md,
+    height: 52,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 4,
     marginBottom: 14,
-    minHeight: 54,
-    justifyContent: 'center',
   },
-  btnDisabled: { opacity: 0.6 },
-  primaryBtnText: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body },
+  primaryBtnText: {
+    fontFamily: Typography.fontMedium,
+    color: Colors.text,
+    fontWeight: Typography.medium,
+    fontSize: Typography.body,
+  },
   toggleBtn: { alignItems: 'center', paddingVertical: 8, marginBottom: 20 },
-  toggleText: { color: Colors.accent, fontSize: Typography.small },
-  divider: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 10 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dividerText: { color: Colors.faint, fontSize: Typography.tiny, textTransform: 'uppercase', letterSpacing: 1 },
-  features: { gap: 18 },
-  feature: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
-  featureEmoji: { fontSize: 22, width: 34, textAlign: 'center', marginTop: 2 },
-  featureText: { flex: 1 },
-  featureTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: Typography.semibold, marginBottom: 2 },
-  featureDesc: { color: Colors.sub, fontSize: Typography.small },
+  toggleText: {
+    fontFamily: Typography.fontRegular,
+    color: Colors.accent,
+    fontSize: Typography.small,
+  },
+  legal: {
+    fontFamily: Typography.fontRegular,
+    fontSize: 11,
+    color: Colors.faint,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
 });
+
+// Radius inline (avoid import overhead para este archivo)
+const Radius_md = 12;

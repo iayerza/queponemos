@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography } from '../constants/colors';
+import { LogoWordmark } from '../components/Logo';
 import GroupCard from '../components/GroupCard';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
@@ -107,17 +108,18 @@ export default function HomeScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Hero */}
-      <Text style={styles.eyebrow}>BIENVENIDO</Text>
-      <Text style={styles.hero}>
-        {'Hola, '}
-        <Text style={{ color: Colors.accent }}>{user?.displayName ?? 'amigo'}</Text>
-      </Text>
-      <Text style={styles.sub}>¿Con quién ves algo hoy?</Text>
+      {/* Header blueprint */}
+      <View style={styles.header}>
+        <LogoWordmark markSize={20} />
+      </View>
+      <Text style={styles.headline}>¿QuePonemos hoy?</Text>
 
       {/* Grupos */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Tus grupos</Text>
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Tus grupos</Text>
+          <Text style={styles.sectionAction}>nuevo +</Text>
+        </View>
 
         {groups.length === 0 && (
           <Text style={styles.emptyText}>Todavía no tenés grupos. ¡Creá uno!</Text>
@@ -236,26 +238,41 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg },
   content: { paddingHorizontal: 24 },
-  eyebrow: {
-    color: Colors.sub,
-    fontSize: Typography.tiny,
-    fontWeight: Typography.semibold,
-    letterSpacing: 2,
-    marginBottom: 6,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 4,
+    marginBottom: 4,
   },
-  hero: {
+  headline: {
+    fontFamily: Typography.fontMedium,
+    fontSize: 26,
+    fontWeight: Typography.medium,
     color: Colors.text,
-    fontSize: Typography.hero,
-    fontWeight: Typography.black,
-    marginBottom: 6,
+    letterSpacing: -0.5,
+    marginBottom: 20,
   },
-  sub: { color: Colors.sub, fontSize: Typography.body, marginBottom: 32 },
   section: { marginBottom: 32 },
-  sectionTitle: {
-    color: Colors.text,
-    fontSize: Typography.h3,
-    fontWeight: Typography.bold,
+  sectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 14,
+  },
+  sectionTitle: {
+    fontFamily: Typography.fontMedium,
+    color: Colors.faint,
+    fontSize: Typography.tiny,
+    fontWeight: Typography.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  sectionAction: {
+    fontFamily: Typography.fontMedium,
+    color: Colors.accent,
+    fontSize: Typography.small,
+    fontWeight: Typography.medium,
   },
   emptyText: { color: Colors.faint, fontSize: Typography.small, marginBottom: 16 },
   groupBtns: { flexDirection: 'row', gap: 10 },

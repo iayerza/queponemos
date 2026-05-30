@@ -4,11 +4,16 @@ import type { GroupDoc } from '../services/firebase';
 export const MOCK_USER: UserProfile = {
   uid: 'user-main',
   email: 'ayerza@gmail.com',
-  displayName: 'ayerza',
+  displayName: 'Iayer',
   photoURL: null,
-  ratings: {},
-  tasteProfile: { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] },
-  onboardingDone: false,
+  ratings: { 278: 'loved', 155: 'loved', 550: 'seen_disliked', 13: 'loved' },
+  tasteProfile: {
+    genres: { Drama: 0.8, Thriller: 0.7, 'Ciencia Ficción': 0.6 },
+    intensity: 0.75,
+    seriesVsMovies: 0.5,
+    implicitGenres: ['Drama', 'Thriller'],
+  },
+  onboardingDone: true,  // saltear onboarding en modo mock
 };
 
 export const MOCK_USERS: Record<string, UserProfile> = {
@@ -43,11 +48,11 @@ export const MOCK_USERS: Record<string, UserProfile> = {
 };
 
 export const MOCK_GROUP: GroupDoc = {
-  id: 'g-viernes',
-  name: 'El grupo del viernes',
-  members: ['user-main', 'user-sofia', 'user-leo'],
+  id: 'g-pareja',
+  name: 'Iayer & Sofia',
+  members: ['user-main', 'user-sofia'],  // 2 personas — foco del MVP
   createdBy: 'user-main',
-  inviteCode: 'SM7VK2',
-  platforms: ['netflix', 'disney', 'hbo'],
+  inviteCode: 'QP7VK2',
+  platforms: ['netflix', 'hbo'],
   country: 'AR',
 };
