@@ -1,0 +1,6 @@
+.agents/
+.claude/
+skills-lock.json
+.firebase/
+n/
+node_modules/
