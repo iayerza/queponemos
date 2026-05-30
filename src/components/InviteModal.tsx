@@ -25,7 +25,7 @@ export default function InviteModal({ visible, onClose, group, onSimulateAccept 
   const { addPendingInvite } = useGroupStore();
   const { user }             = useAuthStore();
 
-  const qrValue = `streammatch.app/join?code=${group.inviteCode}&from=${user?.email ?? ''}`;
+  const qrValue = `queponemos.app/join?code=${group.inviteCode}&from=${user?.email ?? ''}`;
 
   function handleSend() {
     if (!email.trim()) return;

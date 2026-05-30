@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StreamMatch — Unirse a sala</title>
+  <title>Queponemos — Unirse a sala</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -131,7 +131,7 @@
 <body>
   <div class="card">
     <div class="logo">🎬</div>
-    <div class="app-name">StreamMatch</div>
+    <div class="app-name">Queponemos</div>
     <div class="tagline">Encontrá la película perfecta para ver juntos</div>
 
     <div class="invite-box">
@@ -141,15 +141,15 @@
       <div class="code-badge" id="code-display">——</div>
     </div>
 
-    <a id="btn-open" class="btn-primary" href="#">Abrir en StreamMatch</a>
+    <a id="btn-open" class="btn-primary" href="#">Abrir en Queponemos</a>
 
     <div id="beta-box" class="beta-box">
       <div class="beta-title">📲 ¿No tenés la app?</div>
-      <div class="beta-text">StreamMatch está en beta cerrada.<br>Pedile el archivo de instalación (.apk) a <strong id="from-name-2">quien te invitó</strong>.</div>
+      <div class="beta-text">Queponemos está en beta cerrada.<br>Pedile el archivo de instalación (.apk) a <strong id="from-name-2">quien te invitó</strong>.</div>
     </div>
 
     <div id="status"></div>
-    <div class="store-note">StreamMatch · Beta privada · Solo Android</div>
+    <div class="store-note">Queponemos · Beta privada · Solo Android</div>
   </div>
 
   <script>
@@ -165,7 +165,7 @@
       document.getElementById('from-name').textContent = name;
     }
 
-    const deepLink = `streammatch://join?code=${code}&from=${encodeURIComponent(from)}`;
+    const deepLink = `queponemos://join?code=${code}&from=${encodeURIComponent(from)}`;
 
     document.getElementById('btn-open').href = deepLink;
 
@@ -176,7 +176,7 @@
 
     document.getElementById('btn-open').addEventListener('click', function(e) {
       e.preventDefault();
-      document.getElementById('status').textContent = 'Abriendo StreamMatch...';
+      document.getElementById('status').textContent = 'Abriendo Queponemos...';
       window.location.href = deepLink;
       setTimeout(() => {
         document.getElementById('status').textContent = '¿No abrió? Necesitás tener la app instalada.';

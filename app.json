@@ -1,20 +1,20 @@
 {
   "expo": {
-    "name": "StreamMatch",
-    "slug": "streammatch",
+    "name": "Queponemos",
+    "slug": "queponemos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "sdkVersion": "52.0.0",
     "newArchEnabled": false,
-    "scheme": "streammatch",
+    "scheme": "queponemos",
     "splash": {
       "backgroundColor": "#080c14"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.streammatch.app"
+      "bundleIdentifier": "com.queponemos.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.streammatch.app",
+      "package": "com.queponemos.app",
       "predictiveBackGestureEnabled": false
     },
     "web": {

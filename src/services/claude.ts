@@ -56,7 +56,7 @@ function buildPrompt(input: MatchingInput): string {
     return `- ${u.displayName}: géneros favoritos [${genres}], le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
   }).join('\n');
 
-  return `Sos el motor de recomendación de StreamMatch. Analizá los perfiles de estos usuarios y recomendá 3 títulos perfectos para ver juntos esta noche.
+  return `Sos el motor de recomendación de Queponemos. Analizá los perfiles de estos usuarios y recomendá 3 títulos perfectos para ver juntos esta noche.
 
 PERFILES:
 ${userBlocks}

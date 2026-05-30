@@ -66,7 +66,7 @@ export default function OnboardingScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>StreamMatch</Text>
+        <Text style={styles.logo}>Queponemos</Text>
         <Text style={styles.counter}>{currentIndex + 1} / {titles.length}</Text>
       </View>
 

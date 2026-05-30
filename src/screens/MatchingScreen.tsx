@@ -25,7 +25,7 @@ export default function MatchingScreen() {
   return (
     <View style={styles.root}>
       <MatchingOrb />
-      <Text style={styles.label}>STREAMMATCH</Text>
+      <Text style={styles.label}>QUEPONEMOS</Text>
       <Text style={styles.title}>
         {isLeader ? 'Analizando\nlos dos humores…' : 'Esperando\nel resultado…'}
       </Text>
