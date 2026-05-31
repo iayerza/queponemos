@@ -1,13 +1,8 @@
-// Títulos de onboarding — 20 títulos balanceados por género
-// 12 series · 8 películas
+// Títulos de onboarding — 25 títulos balanceados por género
+// 15 series · 10 películas
 //
-// Distribución:
-//   Drama:             Parasite, Succession, Oppenheimer, Shōgun, Slow Horses, Chernobyl
-//   Comedia / drama:   The Bear, Fleabag, The Rehearsal, The Holdovers, Ted Lasso
-//   Romance:           Past Lives, Marriage Story, Normal People
-//   Thriller / crimen: Breaking Bad, White Lotus, Hereditary
-//   Sci-Fi (solo 2):   Severance, Everything Everywhere
-//   Fantasía / drama:  Poor Things
+// Los extremos están marcados con ★ — títulos muy claramente posicionados
+// en un género para capturar señales de gusto limpias.
 
 export const ONBOARDING_IDS: { tmdbId: number; type: 'movie' | 'tv' }[] = [
   // Drama
@@ -34,13 +29,28 @@ export const ONBOARDING_IDS: { tmdbId: number; type: 'movie' | 'tv' }[] = [
   { tmdbId: 1396,   type: 'tv'    }, // Breaking Bad
   { tmdbId: 119051, type: 'tv'    }, // The White Lotus
 
-  // Terror
-  { tmdbId: 482571, type: 'movie' }, // Hereditary
-
-  // Sci-Fi (solo 2)
+  // Sci-Fi
   { tmdbId: 95396,  type: 'tv'    }, // Severance
   { tmdbId: 545611, type: 'movie' }, // Everything Everywhere All at Once
 
   // Fantasía / drama
   { tmdbId: 792307, type: 'movie' }, // Poor Things
+
+  // ★ Extremo — terror puro
+  { tmdbId: 419430, type: 'movie' }, // Get Out
+
+  // ★ Extremo — comedia pura / feel-good
+  { tmdbId: 64216,  type: 'tv'    }, // Schitt's Creek
+
+  // ★ Extremo — acción pura
+  { tmdbId: 76341,  type: 'movie' }, // Mad Max: Fury Road
+
+  // ★ Extremo — romance clásico / rom-com
+  { tmdbId: 639,    type: 'movie' }, // When Harry Met Sally
+
+  // ★ Extremo — crimen oscuro / psicológico
+  { tmdbId: 67744,  type: 'tv'    }, // Mindhunter
+
+  // ★ Extremo — terror
+  { tmdbId: 482571, type: 'movie' }, // Hereditary
 ];
