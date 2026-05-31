@@ -1,5 +1,6 @@
 import type { PlatformId } from '../constants/platforms';
 import type { UserProfile } from './firebase';
+import { fetchTitle } from './tmdb';
 
 export type MoodId = 'chill' | 'intense' | 'laugh' | 'think' | 'cry' | 'scared';
 
@@ -117,12 +118,25 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
   }
 
-  const recommendations: Recommendation[] = (parsed.recommendations ?? []).map(r => ({
+  const baseRecs: Recommendation[] = (parsed.recommendations ?? []).map(r => ({
     ...r,
     posterPath: null,
     groupStatus: 'pending' as const,
     platform: (r.platform ?? input.platforms[0]) as PlatformId,
   }));
+
+  // Enriquecer con pósters de TMDB en paralelo
+  const recommendations = await Promise.all(
+    baseRecs.map(async rec => {
+      if (!rec.tmdbId) return rec;
+      try {
+        const tmdbData = await fetchTitle(rec.tmdbId, rec.type === 'series' ? 'tv' : 'movie');
+        return { ...rec, posterPath: tmdbData.posterPath };
+      } catch {
+        return rec;
+      }
+    })
+  );
 
   return { recommendations, groupInsight: parsed.groupInsight ?? '' };
 }
@@ -133,6 +147,7 @@ export function mockMatching(input: MatchingInput): MatchingOutput {
   return {
     recommendations: [
       {
+        tmdbId: 136315,
         title: 'The Bear',
         year: 2022,
         type: 'series',
@@ -146,6 +161,7 @@ export function mockMatching(input: MatchingInput): MatchingOutput {
         groupStatus: 'pending',
       },
       {
+        tmdbId: 99966,
         title: 'Severance',
         year: 2022,
         type: 'series',
@@ -159,6 +175,7 @@ export function mockMatching(input: MatchingInput): MatchingOutput {
         groupStatus: 'pending',
       },
       {
+        tmdbId: 545611,
         title: 'Everything Everywhere All at Once',
         year: 2022,
         type: 'movie',

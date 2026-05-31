@@ -29,6 +29,18 @@ export default function ResultsScreen() {
         catch { /* silenciar */ }
       }
     }
+    if (status === 'watched' && currentMatchId) {
+      const rec = currentMatch?.recommendations[idx];
+      if (rec) {
+        nav.navigate('PostView', {
+          title: rec.title,
+          year: rec.year,
+          posterPath: rec.posterPath,
+          matchId: currentMatchId,
+          titleIdx: idx,
+        });
+      }
+    }
   }
 
   if (!currentMatch) {

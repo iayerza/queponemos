@@ -29,6 +29,7 @@
   "devDependencies": {
     "@types/react": "~18.3.0",
     "cross-env": "^10.1.0",
+    "docx": "^9.7.1",
     "typescript": "~6.0.3"
   },
   "scripts": {

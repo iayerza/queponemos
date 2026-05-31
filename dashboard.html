@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Queponemos — Product Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #f5f4ef;
+      color: #1a1a1a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      padding: 40px;
+    }
+    h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+    .header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 32px;
+      border-bottom: 2px solid #1a1a1a;
+      padding-bottom: 16px;
+    }
+    .header-sub { color: #666; font-size: 13px; }
+    .version-badge {
+      margin-left: auto;
+      background: #e8c547;
+      color: #1a1a1a;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 4px;
+    }
+
+    /* Stats row */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .stat {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .stat-number { font-size: 36px; font-weight: 700; line-height: 1; }
+    .stat-label { color: #666; margin-top: 4px; }
+
+    /* Section grid */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #666;
+      margin: 32px 0 12px;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 8px;
+    }
+    .modules {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .module {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .module-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .item:last-child { border-bottom: none; }
+    .item-name { color: #333; }
+
+    /* Badges */
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+    .badge-done    { background: #e6f4ea; color: #2d7a3a; }
+    .badge-partial { background: #fff8e1; color: #b07800; }
+    .badge-pending { background: #fce8e8; color: #c0392b; }
+    .badge-defined { background: #e8eaf6; color: #3949ab; }
+    .badge-mock    { background: #f3e5f5; color: #7b1fa2; }
+
+    /* Stack table */
+    .stack-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; margin-bottom: 32px; }
+    .stack-table th { background: #f5f5f5; text-align: left; padding: 10px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; font-weight: 700; }
+    .stack-table td { padding: 10px 16px; border-top: 1px solid #f0f0f0; vertical-align: middle; }
+    .stack-table tr:hover td { background: #fafafa; }
+
+    /* Decisions */
+    .decisions { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 4px 0; margin-bottom: 32px; }
+    .decision-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .decision-item:last-child { border-bottom: none; }
+    .check { color: #2d7a3a; font-weight: 700; margin-right: 4px; }
+
+    /* Pending */
+    .pending-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+    .pending-chip {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 6px 14px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pending-chip::before { content: '○'; color: #ccc; }
+
+    /* Roadmap */
+    .roadmap { background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; margin-bottom: 32px; }
+    .roadmap-item {
+      display: grid;
+      grid-template-columns: 120px 1fr 110px;
+      align-items: center;
+      padding: 14px 20px;
+      border-bottom: 1px solid #f0f0f0;
+      gap: 16px;
+    }
+    .roadmap-item:last-child { border-bottom: none; }
+    .roadmap-phase { font-weight: 700; font-size: 13px; }
+    .roadmap-desc { color: #555; font-size: 12px; }
+    .badge-wip      { background: #fff8e1; color: #b07800; }
+    .badge-live     { background: #e6f4ea; color: #2d7a3a; }
+    .badge-next     { background: #e8eaf6; color: #3949ab; }
+    .badge-future   { background: #f0f0f0; color: #666; }
+
+    .footer { color: #999; font-size: 11px; text-align: center; margin-top: 40px; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Queponemos</h1>
+    <span class="header-sub">Estado del producto · Mayo 2026</span>
+    <span class="version-badge">MVP — En desarrollo</span>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-number">10</div>
+      <div class="stat-label">Pantallas implementadas</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number">11</div>
+      <div class="stat-label">Componentes UI</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number">3</div>
+      <div class="stat-label">Servicios integrados</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number">MVP</div>
+      <div class="stat-label">Fase actual</div>
+    </div>
+  </div>
+
+  <!-- Módulos -->
+  <div class="section-title">Estado por módulo</div>
+  <div class="modules">
+
+    <div class="module">
+      <div class="module-title">Autenticación</div>
+      <div class="item"><span class="item-name">S01 — Login / Email + Google</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">S02 — Onboarding 25 títulos</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">S03 — Ronda de afinación</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">Mock mode (offline/demo)</span><span class="badge badge-done">Implementado</span></div>
+    </div>
+
+    <div class="module">
+      <div class="module-title">Perfil de usuario</div>
+      <div class="item"><span class="item-name">S05 — Mi perfil</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">Géneros inferidos del onboarding</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">Géneros ocultos</span><span class="badge badge-defined">Definido</span></div>
+      <div class="item"><span class="item-name">Gráfico de evolución de gusto</span><span class="badge badge-pending">Pendiente V1.0</span></div>
+    </div>
+
+    <div class="module">
+      <div class="module-title">Grupos</div>
+      <div class="item"><span class="item-name">S06 — Mis grupos (Home)</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">S07 — Crear grupo</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">S08 — Vista de grupo (hub)</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">Invitación por QR</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">Modo familia / grupos 3-5 personas</span><span class="badge badge-pending">Pendiente V1.0</span></div>
+    </div>
+
+    <div class="module">
+      <div class="module-title">Matching</div>
+      <div class="item"><span class="item-name">S09 — Mood del momento</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">S10 — Motor Claude AI</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">S11 — 3 recomendaciones con score</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">S12 — Modo debate</span><span class="badge badge-defined">Definido</span></div>
+      <div class="item"><span class="item-name">TMDB pósters reales</span><span class="badge badge-pending">Pendiente V1.0</span></div>
+    </div>
+
+    <div class="module">
+      <div class="module-title">Post-visionado & Stats</div>
+      <div class="item"><span class="item-name">S13 — Historial de sesiones</span><span class="badge badge-done">Implementado</span></div>
+      <div class="item"><span class="item-name">Estadísticas del grupo</span><span class="badge badge-defined">Definido</span></div>
+      <div class="item"><span class="item-name">Reacción post-visionado</span><span class="badge badge-pending">Pendiente V1.0</span></div>
+    </div>
+
+    <div class="module">
+      <div class="module-title">Notificaciones</div>
+      <div class="item"><span class="item-name">Push notifications</span><span class="badge badge-pending">Pendiente V1.0</span></div>
+      <div class="item"><span class="item-name">Alertas de catálogo</span><span class="badge badge-pending">Pendiente V1.0</span></div>
+      <div class="item"><span class="item-name">Resumen semanal</span><span class="badge badge-defined">Definido</span></div>
+    </div>
+
+  </div>
+
+  <!-- Stack técnico -->
+  <div class="section-title">Stack técnico — estado real</div>
+  <table class="stack-table">
+    <thead>
+      <tr>
+        <th>Tecnología</th>
+        <th>Estado</th>
+        <th>Notas</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Expo SDK 52 / React Native 0.76</strong></td>
+        <td>Activo</td>
+        <td>Managed workflow, TypeScript</td>
+        <td><span class="badge badge-done">Integrado</span></td>
+      </tr>
+      <tr>
+        <td><strong>Firebase Auth + Firestore</strong></td>
+        <td>Activo</td>
+        <td>Email/password + Google Sign-In. SDK v12</td>
+        <td><span class="badge badge-done">Integrado</span></td>
+      </tr>
+      <tr>
+        <td><strong>Claude AI (claude-sonnet-4-20250514)</strong></td>
+        <td>Activo</td>
+        <td>Llamado desde cliente — mover a Function en V1.0</td>
+        <td><span class="badge badge-done">Integrado</span></td>
+      </tr>
+      <tr>
+        <td><strong>TMDB API</strong></td>
+        <td>Parcial</td>
+        <td>Servicio listo, pósters no usados en UI aún</td>
+        <td><span class="badge badge-partial">Parcial</span></td>
+      </tr>
+      <tr>
+        <td><strong>Zustand v5</strong></td>
+        <td>Activo</td>
+        <td>3 stores: auth, group, match</td>
+        <td><span class="badge badge-done">Integrado</span></td>
+      </tr>
+      <tr>
+        <td><strong>React Navigation v7</strong></td>
+        <td>Activo</td>
+        <td>Stack navigator tipado</td>
+        <td><span class="badge badge-done">Integrado</span></td>
+      </tr>
+      <tr>
+        <td><strong>Firebase Hosting</strong></td>
+        <td>Activo</td>
+        <td>queponemosapp.web.app — página de invite por QR</td>
+        <td><span class="badge badge-done">Integrado</span></td>
+      </tr>
+      <tr>
+        <td><strong>JustWatch</strong></td>
+        <td>Pendiente</td>
+        <td>Filtrado por plataforma/país — V1.0</td>
+        <td><span class="badge badge-pending">Pendiente</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Decisiones UX -->
+  <div class="section-title">Decisiones UX tomadas (MVP)</div>
+  <div class="decisions">
+    <div class="decision-item"><span><span class="check">✓</span> Login con email/password + Google (Firebase Auth)</span><span class="badge badge-done">Decidido</span></div>
+    <div class="decision-item"><span><span class="check">✓</span> 25 títulos en onboarding · avance automático</span><span class="badge badge-done">Decidido</span></div>
+    <div class="decision-item"><span><span class="check">✓</span> Mínimo 12 títulos valorados para habilitar matching</span><span class="badge badge-done">Decidido</span></div>
+    <div class="decision-item"><span><span class="check">✓</span> 3 opciones: Me encantó / No convenció / No la vi</span><span class="badge badge-done">Decidido</span></div>
+    <div class="decision-item"><span><span class="check">✓</span> Navegación libre con flechas en onboarding</span><span class="badge badge-done">Decidido</span></div>
+    <div class="decision-item"><span><span class="check">✓</span> Invitación por QR → queponemosapp.web.app</span><span class="badge badge-done">Decidido</span></div>
+    <div class="decision-item"><span><span class="check">✓</span> 3 recomendaciones · score 62–97% · "¿Por qué a ustedes?"</span><span class="badge badge-done">Decidido</span></div>
+    <div class="decision-item"><span><span class="check">✓</span> Mock mode completo (EXPO_PUBLIC_USE_MOCK=true)</span><span class="badge badge-done">Decidido</span></div>
+    <div class="decision-item"><span><span class="check">✓</span> Claude API llamado desde cliente en MVP (mover a Function en V1.0)</span><span class="badge badge-done">Decidido</span></div>
+  </div>
+
+  <!-- Pendiente V1.0 -->
+  <div class="section-title">Pendiente para V1.0</div>
+  <div class="pending-grid">
+    <div class="pending-chip">Mood del momento (UI pulida)</div>
+    <div class="pending-chip">Grupos 3–5 personas</div>
+    <div class="pending-chip">TMDB pósters reales</div>
+    <div class="pending-chip">JustWatch filtrado</div>
+    <div class="pending-chip">Push notifications</div>
+    <div class="pending-chip">Reacción post-visionado</div>
+    <div class="pending-chip">Claude → Firebase Function</div>
+    <div class="pending-chip">Estadísticas del grupo</div>
+    <div class="pending-chip">Modo debate</div>
+  </div>
+
+  <!-- Roadmap -->
+  <div class="section-title">Roadmap</div>
+  <div class="roadmap">
+    <div class="roadmap-item">
+      <div class="roadmap-phase">MVP</div>
+      <div class="roadmap-desc">Login + onboarding + matching Claude + 2 usuarios · Mock mode completo</div>
+      <span class="badge badge-wip">En desarrollo</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-phase">V1.0 Alpha</div>
+      <div class="roadmap-desc">Grupos reales + JustWatch + mood + pósters TMDB + Claude en backend</div>
+      <span class="badge badge-next">Pendiente</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-phase">V1.0 Beta</div>
+      <div class="roadmap-desc">Historial + stats grupales + alertas de catálogo + reacción post-visionado</div>
+      <span class="badge badge-next">Pendiente</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-phase">V1.0 Launch</div>
+      <div class="roadmap-desc">Modo familia + turno rotativo + novedades + UX final</div>
+      <span class="badge badge-next">Pendiente</span>
+    </div>
+    <div class="roadmap-item">
+      <div class="roadmap-phase">V2.0</div>
+      <div class="roadmap-desc">Módulo música · Spotify · playlists · perfil audiovisual completo</div>
+      <span class="badge badge-future">Futuro</span>
+    </div>
+  </div>
+
+  <div class="footer">Queponemos · Product Dashboard · Mayo 2026</div>
+
+</body>
+</html>

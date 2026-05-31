@@ -59,11 +59,27 @@ export function useMatching() {
 
       if (USE_MOCK || !process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY) {
         await new Promise(r => setTimeout(r, 2500));
-        output = mockMatching({
+        const mockOut = mockMatching({
           users:     memberProfiles,
           moods:     moods as Record<string, MoodId>,
           platforms: currentGroup.platforms,
         });
+        // Enriquecer mock con pósters TMDB si hay API key
+        if (process.env.EXPO_PUBLIC_TMDB_API_KEY) {
+          const { fetchTitle } = await import('../services/tmdb');
+          const enriched = await Promise.all(
+            mockOut.recommendations.map(async rec => {
+              if (!rec.tmdbId) return rec;
+              try {
+                const t = await fetchTitle(rec.tmdbId, rec.type === 'series' ? 'tv' : 'movie');
+                return { ...rec, posterPath: t.posterPath };
+              } catch { return rec; }
+            })
+          );
+          output = { ...mockOut, recommendations: enriched };
+        } else {
+          output = mockOut;
+        }
       } else {
         output = await runMatching({
           users:     memberProfiles,

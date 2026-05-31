@@ -12,6 +12,7 @@ import GroupScreen    from '../screens/GroupScreen';
 import MoodScreen     from '../screens/MoodScreen';
 import MatchingScreen from '../screens/MatchingScreen';
 import ResultsScreen  from '../screens/ResultsScreen';
+import PostViewScreen  from '../screens/PostViewScreen';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -60,6 +61,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Mood"     component={MoodScreen} />
           <Stack.Screen name="Matching" component={MatchingScreen} />
           <Stack.Screen name="Results"  component={ResultsScreen} />
+          <Stack.Screen name="PostView" component={PostViewScreen} />
         </>
       )}
     </Stack.Navigator>

@@ -6,6 +6,7 @@ export type RootStackParamList = {
   Mood: { groupId: string };
   Matching: { groupId: string };
   Results: { matchId: string };
+  PostView: { title: string; year: number; posterPath: string | null; matchId: string; titleIdx: number };
 };
 
 export type AppTabParamList = {
