@@ -66,8 +66,11 @@ export default function OnboardingScreen() {
     <View style={[styles.root, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>Queponemos</Text>
+        <Text style={styles.logo}>queponemos</Text>
         <Text style={styles.counter}>{currentIndex + 1} / {titles.length}</Text>
+        <TouchableOpacity onPress={handleFinish} style={styles.skipHeader}>
+          <Text style={styles.skipHeaderText}>Más tarde</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Progress bar */}
@@ -108,13 +111,15 @@ const styles = StyleSheet.create({
   errorSub: { color: Colors.sub, fontSize: Typography.small },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 14,
+    gap: 8,
   },
-  logo: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.black },
+  logo: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium, flex: 1 },
   counter: { color: Colors.sub, fontSize: Typography.small },
+  skipHeader: { paddingLeft: 12 },
+  skipHeaderText: { color: Colors.faint, fontSize: Typography.small },
   progressTrack: { height: 2, backgroundColor: Colors.border, marginHorizontal: 0 },
   progressFill: { height: 2, backgroundColor: Colors.accent },
   scroll: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 },

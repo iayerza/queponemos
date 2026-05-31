@@ -62,8 +62,8 @@ export default function HomeScreen() {
         setGroupName('');
         nav.navigate('Group', { groupId: fakeGroup.id });
       } else {
-        const { groupId } = await createGroup(user.uid, { name: groupName, platforms: selPlatforms, country: 'AR' });
-        const group = { id: groupId, name: groupName, members: [user.uid], createdBy: user.uid, inviteCode: '', platforms: selPlatforms, country: 'AR' };
+        const { groupId, inviteCode } = await createGroup(user.uid, { name: groupName, platforms: selPlatforms, country: 'AR' });
+        const group = { id: groupId, name: groupName, members: [user.uid], createdBy: user.uid, inviteCode, platforms: selPlatforms, country: 'AR' };
         addGroup(group);
         setCurrentGroup(group);
         setCreateModal(false);
@@ -118,7 +118,9 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>Tus grupos</Text>
-          <Text style={styles.sectionAction}>nuevo +</Text>
+          <TouchableOpacity onPress={() => setCreateModal(true)}>
+            <Text style={styles.sectionAction}>nuevo +</Text>
+          </TouchableOpacity>
         </View>
 
         {groups.length === 0 && (

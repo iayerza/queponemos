@@ -70,6 +70,14 @@ export default function ResultsScreen() {
       ))}
 
       <TouchableOpacity
+        style={styles.newSearchBtn}
+        onPress={() => currentGroup && nav.navigate('Mood', { groupId: currentGroup.id })}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.newSearchBtnText}>🔄  Nueva búsqueda</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
         style={styles.backBtn}
         onPress={() => nav.navigate('App')}
         activeOpacity={0.8}
@@ -111,13 +119,22 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   insightText: { color: Colors.sub, fontSize: Typography.small, fontStyle: 'italic', lineHeight: 20 },
+  newSearchBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  newSearchBtnText: { color: Colors.text, fontWeight: Typography.medium, fontSize: Typography.body },
   backBtn: {
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.border2,
-    marginTop: 8,
+    borderColor: Colors.border,
+    marginBottom: 8,
   },
-  backBtnText: { color: Colors.text, fontWeight: Typography.semibold, fontSize: Typography.body },
+  backBtnText: { color: Colors.sub, fontWeight: Typography.regular, fontSize: Typography.body },
 });

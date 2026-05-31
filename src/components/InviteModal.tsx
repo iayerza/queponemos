@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert,
+  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking,
 } from 'react-native';
 import BottomSheet from './BottomSheet';
 import QRCode from './QRCode';
@@ -25,12 +25,26 @@ export default function InviteModal({ visible, onClose, group, onSimulateAccept 
   const { addPendingInvite } = useGroupStore();
   const { user }             = useAuthStore();
 
-  const qrValue = `queponemos.app/join?code=${group.inviteCode}&from=${user?.email ?? ''}`;
+  const inviteLink = `https://streammatch-dev.web.app?code=${group.inviteCode}&from=${encodeURIComponent(user?.email ?? '')}`;
+  const qrValue    = inviteLink;
 
-  function handleSend() {
+  async function handleSend() {
     if (!email.trim()) return;
-    addPendingInvite({ email: email.trim(), groupId: group.id, status: 'pending' });
-    setSent(true);
+    // Abrir app de email nativa con link de invitación pre-armado
+    const from    = user?.displayName ?? user?.email ?? 'alguien';
+    const subject = encodeURIComponent(`${from} te invita a queponemos`);
+    const body    = encodeURIComponent(
+      `Hola!\n\n${from} te invitó a elegir qué ver juntos en queponemos.\n\nEntrá acá: ${inviteLink}\n\nCódigo de sala: ${group.inviteCode}`,
+    );
+    const mailto  = `mailto:${email.trim()}?subject=${subject}&body=${body}`;
+    const can = await Linking.canOpenURL(mailto);
+    if (can) {
+      await Linking.openURL(mailto);
+      addPendingInvite({ email: email.trim(), groupId: group.id, status: 'pending' });
+      setSent(true);
+    } else {
+      Alert.alert('Sin app de email', 'No se encontró una app de correo en el dispositivo.');
+    }
   }
 
   function handleSimulate() {

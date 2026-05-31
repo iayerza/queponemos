@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
 import { Colors, Typography } from '../constants/colors';
-import { LogoMark } from '../components/Logo';
+import AnimatedLogoMark from '../components/AnimatedLogoMark';
 
 interface Props {
   onComplete: () => void;
@@ -45,7 +45,7 @@ export default function SplashScreen({ onComplete }: Props) {
   return (
     <View style={styles.root}>
       <Animated.View style={{ opacity: markOpacity }}>
-        <LogoMark size={32} />
+        <AnimatedLogoMark size={40} />
       </Animated.View>
 
       <Animated.Text style={[styles.wordmark, { opacity: wordOpacity }]}>

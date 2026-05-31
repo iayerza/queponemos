@@ -171,8 +171,8 @@ export default function MoodScreen() {
         </Text>
         <Text style={styles.waitSub}>
           {allReady
-            ? 'Claude está analizando los dos humores…'
-            : 'Esperá que elija su humor esta noche'}
+            ? 'Claude está analizando los dos moods…'
+            : 'Esperá que elija su mood esta noche'}
         </Text>
 
         <View style={styles.cards}>
