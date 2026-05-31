@@ -1,56 +1,51 @@
-// Títulos de onboarding — 25 títulos balanceados por género
-// 15 series · 10 películas
+// Títulos de onboarding — 25 títulos
+// Todos en IMDB Top 250 o entre los más vistos globalmente.
+// 15 series · 10 películas — géneros balanceados.
 //
-// Los extremos están marcados con ★ — títulos muy claramente posicionados
-// en un género para capturar señales de gusto limpias.
+// Fuente de ranking: IMDB Top 250 Movies, IMDB Top 250 TV Shows (via TMDB list 8647022)
 
 export const ONBOARDING_IDS: { tmdbId: number; type: 'movie' | 'tv' }[] = [
-  // Drama
-  { tmdbId: 496243, type: 'movie' }, // Parasite
+
+  // ── DRAMA ───────────────────────────────────────────────────────────────────
+  { tmdbId: 278,    type: 'movie' }, // The Shawshank Redemption  — IMDB #1 all-time
+  { tmdbId: 4253,   type: 'tv'    }, // Band of Brothers          — IMDB #2 TV
+  { tmdbId: 87108,  type: 'tv'    }, // Chernobyl                 — IMDB #3 TV
   { tmdbId: 73586,  type: 'tv'    }, // Succession
-  { tmdbId: 872585, type: 'movie' }, // Oppenheimer
   { tmdbId: 126308, type: 'tv'    }, // Shōgun
-  { tmdbId: 84773,  type: 'tv'    }, // Slow Horses
-  { tmdbId: 87108,  type: 'tv'    }, // Chernobyl
 
-  // Comedia / drama ligero
-  { tmdbId: 136315, type: 'tv'    }, // The Bear
-  { tmdbId: 66788,  type: 'tv'    }, // Fleabag
-  { tmdbId: 130392, type: 'tv'    }, // The Rehearsal
-  { tmdbId: 753342, type: 'movie' }, // The Holdovers
+  // ── CRIMEN / THRILLER ───────────────────────────────────────────────────────
+  { tmdbId: 1396,   type: 'tv'    }, // Breaking Bad              — IMDB #1 TV
+  { tmdbId: 1398,   type: 'tv'    }, // The Sopranos              — IMDB top 10 TV
+  { tmdbId: 680,    type: 'movie' }, // Pulp Fiction              — IMDB #8 movie
+  { tmdbId: 496243, type: 'movie' }, // Parasite                  — IMDB top 30
+  { tmdbId: 93405,  type: 'tv'    }, // Squid Game                — más visto globalmente
+
+  // ── COMEDIA ─────────────────────────────────────────────────────────────────
+  { tmdbId: 2316,   type: 'tv'    }, // The Office (US)           — IMDB top 30 TV ★ extremo
+  { tmdbId: 64216,  type: 'tv'    }, // Schitt's Creek            — ★ extremo feel-good
   { tmdbId: 97546,  type: 'tv'    }, // Ted Lasso
+  { tmdbId: 66788,  type: 'tv'    }, // Fleabag
 
-  // Romance / drama romántico
-  { tmdbId: 951491, type: 'movie' }, // Past Lives
+  // ── ROMANCE ─────────────────────────────────────────────────────────────────
+  { tmdbId: 639,    type: 'movie' }, // When Harry Met Sally      — ★ extremo rom-com clásica
   { tmdbId: 492188, type: 'movie' }, // Marriage Story
   { tmdbId: 103596, type: 'tv'    }, // Normal People
 
-  // Thriller / crimen
-  { tmdbId: 1396,   type: 'tv'    }, // Breaking Bad
-  { tmdbId: 119051, type: 'tv'    }, // The White Lotus
+  // ── FANTASÍA / AVENTURA ─────────────────────────────────────────────────────
+  { tmdbId: 1399,   type: 'tv'    }, // Game of Thrones           — IMDB top 10 TV
+  { tmdbId: 129,    type: 'movie' }, // Spirited Away             — IMDB top 30 ★ extremo animación
+  { tmdbId: 155,    type: 'movie' }, // The Dark Knight           — IMDB #3
 
-  // Sci-Fi
+  // ── ACCIÓN PURA ─────────────────────────────────────────────────────────────
+  { tmdbId: 76341,  type: 'movie' }, // Mad Max: Fury Road        — ★ extremo acción
+
+  // ── TERROR ──────────────────────────────────────────────────────────────────
+  { tmdbId: 419430, type: 'movie' }, // Get Out                   — ★ extremo terror moderno
+
+  // ── SCI-FI ──────────────────────────────────────────────────────────────────
   { tmdbId: 95396,  type: 'tv'    }, // Severance
   { tmdbId: 545611, type: 'movie' }, // Everything Everywhere All at Once
 
-  // Fantasía / drama
-  { tmdbId: 792307, type: 'movie' }, // Poor Things
-
-  // ★ Extremo — terror puro
-  { tmdbId: 419430, type: 'movie' }, // Get Out
-
-  // ★ Extremo — comedia pura / feel-good
-  { tmdbId: 64216,  type: 'tv'    }, // Schitt's Creek
-
-  // ★ Extremo — acción pura
-  { tmdbId: 76341,  type: 'movie' }, // Mad Max: Fury Road
-
-  // ★ Extremo — romance clásico / rom-com
-  { tmdbId: 639,    type: 'movie' }, // When Harry Met Sally
-
-  // ★ Extremo — crimen oscuro / psicológico
-  { tmdbId: 67744,  type: 'tv'    }, // Mindhunter
-
-  // ★ Extremo — terror
-  { tmdbId: 482571, type: 'movie' }, // Hereditary
+  // ── MISTERIO / DRAMA ────────────────────────────────────────────────────────
+  { tmdbId: 119051, type: 'tv'    }, // The White Lotus
 ];
