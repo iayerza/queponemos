@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet, Clipboard, Alert, Modal,
 } from 'react-native';
@@ -12,7 +12,7 @@ import InviteModal from '../components/InviteModal';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { PLATFORMS, getPlatform, type PlatformId } from '../constants/platforms';
-import { updateGroupPlatforms } from '../services/firebase';
+import { updateGroupPlatforms, deleteGroup, fetchMemberNames } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import { MOCK_GROUP, MOCK_USERS } from '../utils/mock';
 
@@ -26,17 +26,28 @@ export default function GroupScreen() {
   const nav    = useNavigation<Nav>();
   const route  = useRoute<Route>();
   const { user } = useAuthStore();
-  const { groups, setCurrentGroup, addMemberToGroup, pendingInvites, updateGroup } = useGroupStore();
+  const { groups, setCurrentGroup, addMemberToGroup, pendingInvites, updateGroup, removeGroup } = useGroupStore();
 
   const group = groups.find(g => g.id === route.params.groupId) ?? MOCK_GROUP;
   const [inviteVisible,    setInviteVisible]    = useState(false);
   const [platformsVisible, setPlatformsVisible] = useState(false);
   const [editPlatforms,    setEditPlatforms]    = useState<PlatformId[]>(group.platforms);
   const [savingPlatforms,  setSavingPlatforms]  = useState(false);
+  const [deleting,         setDeleting]         = useState(false);
+  const [memberNames,      setMemberNames]       = useState<Record<string, string>>({});
+
+  // Cargar nombres reales de Firestore
+  useEffect(() => {
+    if (USE_MOCK) return;
+    const unknownUids = group.members.filter(uid => uid !== user?.uid);
+    if (unknownUids.length === 0) return;
+    fetchMemberNames(unknownUids).then(setMemberNames).catch(() => {});
+  }, [group.members]);
 
   function getMemberName(uid: string) {
-    if (uid === user?.uid) return user.displayName;
-    return MOCK_USERS[uid]?.displayName ?? uid;
+    if (uid === user?.uid) return user?.displayName ?? 'Vos';
+    if (USE_MOCK) return MOCK_USERS[uid]?.displayName ?? uid;
+    return memberNames[uid] ?? '…';
   }
 
   function handleCopy() {
@@ -77,7 +88,33 @@ export default function GroupScreen() {
     }
   }
 
+  function handleDeleteGroup() {
+    Alert.alert(
+      'Eliminar grupo',
+      `¿Seguro que querés eliminar "${group.name}"? Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              if (!USE_MOCK) await deleteGroup(group.id);
+              removeGroup(group.id);
+              nav.navigate('App');
+            } catch {
+              Alert.alert('Error', 'No se pudo eliminar el grupo');
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
   const groupInvites = pendingInvites.filter(i => i.groupId === group.id);
+  const isOwner = group.createdBy === user?.uid;
 
   return (
     <ScrollView
@@ -101,7 +138,7 @@ export default function GroupScreen() {
       <View style={styles.codeBox}>
         <Text style={styles.codeLabel}>CÓDIGO DE INVITACIÓN</Text>
         <View style={styles.codeRow}>
-          <Text style={styles.codeValue}>{group.inviteCode}</Text>
+          <Text style={styles.codeValue}>{group.inviteCode || '——'}</Text>
           <TouchableOpacity style={styles.copyBtn} onPress={handleCopy}>
             <Text style={styles.copyBtnText}>Copiar</Text>
           </TouchableOpacity>
@@ -153,6 +190,20 @@ export default function GroupScreen() {
         </View>
       </View>
 
+      {/* Eliminar grupo — solo para el creador */}
+      {isOwner && (
+        <TouchableOpacity
+          style={[styles.deleteBtn, deleting && { opacity: 0.5 }]}
+          onPress={handleDeleteGroup}
+          disabled={deleting}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.deleteBtnText}>
+            {deleting ? 'Eliminando…' : 'Eliminar grupo'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <InviteModal
         visible={inviteVisible}
         onClose={() => setInviteVisible(false)}
@@ -161,12 +212,7 @@ export default function GroupScreen() {
       />
 
       {/* Modal editar plataformas */}
-      <Modal
-        visible={platformsVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPlatformsVisible(false)}
-      >
+      <Modal visible={platformsVisible} transparent animationType="slide" onRequestClose={() => setPlatformsVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { paddingBottom: insets.bottom + 16 }]}>
             <Text style={styles.modalTitle}>Plataformas disponibles</Text>
@@ -178,35 +224,21 @@ export default function GroupScreen() {
                 return (
                   <TouchableOpacity
                     key={p.id}
-                    style={[
-                      styles.platformOption,
-                      { borderColor: selected ? p.color : Colors.border },
-                      selected && { backgroundColor: `${p.color}18` },
-                    ]}
+                    style={[styles.platformOption, { borderColor: selected ? p.color : Colors.border }, selected && { backgroundColor: `${p.color}18` }]}
                     onPress={() => togglePlatform(p.id)}
                     activeOpacity={0.75}
                   >
                     <Text style={styles.platformOptionEmoji}>{p.emoji}</Text>
-                    <Text style={[styles.platformOptionName, selected && { color: p.color }]}>
-                      {p.name}
-                    </Text>
+                    <Text style={[styles.platformOptionName, selected && { color: p.color }]}>{p.name}</Text>
                     {selected && <Text style={[styles.checkmark, { color: p.color }]}>✓</Text>}
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            <TouchableOpacity
-              style={[styles.primaryBtn, savingPlatforms && { opacity: 0.6 }]}
-              onPress={savePlatforms}
-              disabled={savingPlatforms}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.primaryBtnText}>
-                {savingPlatforms ? 'Guardando…' : 'Guardar cambios'}
-              </Text>
+            <TouchableOpacity style={[styles.primaryBtn, savingPlatforms && { opacity: 0.6 }]} onPress={savePlatforms} disabled={savingPlatforms} activeOpacity={0.85}>
+              <Text style={styles.primaryBtnText}>{savingPlatforms ? 'Guardando…' : 'Guardar cambios'}</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setPlatformsVisible(false)}>
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </TouchableOpacity>
@@ -225,103 +257,39 @@ const styles = StyleSheet.create({
   eyebrow: { color: Colors.sub, fontSize: Typography.tiny, letterSpacing: 2, marginBottom: 6 },
   title: { color: Colors.text, fontSize: Typography.hero, fontWeight: Typography.black, marginBottom: 20 },
   members: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 24 },
-  codeBox: {
-    backgroundColor: Colors.s1,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: 20,
-  },
-  codeLabel: {
-    color: Colors.faint,
-    fontSize: Typography.tiny,
-    fontWeight: Typography.semibold,
-    letterSpacing: 1,
-    marginBottom: 8,
-  },
+  codeBox: { backgroundColor: Colors.s1, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.border, marginBottom: 20 },
+  codeLabel: { color: Colors.faint, fontSize: Typography.tiny, fontWeight: Typography.semibold, letterSpacing: 1, marginBottom: 8 },
   codeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   codeValue: { color: Colors.accent, fontFamily: 'monospace', fontSize: 22, fontWeight: Typography.bold, letterSpacing: 4 },
-  copyBtn: {
-    backgroundColor: Colors.s2,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
+  copyBtn: { backgroundColor: Colors.s2, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
   copyBtnText: { color: Colors.sub, fontSize: Typography.small },
-  primaryBtn: {
-    backgroundColor: Colors.accent,
-    borderRadius: 12,
-    paddingVertical: 18,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
+  primaryBtn: { backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginBottom: 12 },
   primaryBtnText: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body },
-  outlineBtn: {
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border2,
-    marginBottom: 28,
-  },
+  outlineBtn: { borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border2, marginBottom: 28 },
   outlineBtnText: { color: Colors.text, fontWeight: Typography.semibold, fontSize: Typography.body },
   section: { marginBottom: 24 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.bold },
   editLink: { color: Colors.accent, fontSize: Typography.small },
-  inviteRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
+  inviteRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
   inviteEmail: { color: Colors.sub, fontSize: Typography.small },
   inviteBadge: { backgroundColor: Colors.s2, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   inviteBadgeAccepted: { backgroundColor: 'rgba(48,192,96,0.15)' },
   inviteBadgeText: { color: Colors.faint, fontSize: Typography.tiny },
   inviteBadgeTextAccepted: { color: Colors.success },
   platforms: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  platformChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.s1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-  },
+  platformChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.s1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },
   platformEmoji: { fontSize: 14 },
   platformName: { fontSize: Typography.small, fontWeight: Typography.medium },
+  deleteBtn: { marginTop: 8, borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.danger },
+  deleteBtnText: { color: Colors.danger, fontSize: Typography.body, fontWeight: Typography.medium },
   // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalSheet: {
-    backgroundColor: Colors.s1,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: Colors.s1, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
   modalTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.black, marginBottom: 4 },
   modalSub: { color: Colors.sub, fontSize: Typography.small, marginBottom: 24 },
   platformGrid: { gap: 10, marginBottom: 24 },
-  platformOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
+  platformOption: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 16, paddingVertical: 14 },
   platformOptionEmoji: { fontSize: 20 },
   platformOptionName: { flex: 1, color: Colors.sub, fontSize: Typography.body, fontWeight: Typography.medium },
   checkmark: { fontSize: 16, fontWeight: '700' },

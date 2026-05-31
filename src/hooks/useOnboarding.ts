@@ -67,7 +67,7 @@ export function useOnboarding(): OnboardingState {
     isLoading,
     error,
     rate,
-    canSkip: currentIndex >= 5,
+    canSkip: currentIndex >= 15,
     isFinished: titles.length > 0 && currentIndex >= titles.length,
   };
 }

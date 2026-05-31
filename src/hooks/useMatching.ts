@@ -86,6 +86,18 @@ export function useMatching() {
       }
 
       setCurrentMatch(output, matchId);
+
+      // Guardar en historial
+      const { addToHistory } = useMatchStore.getState();
+      addToHistory({
+        matchId,
+        groupId: currentGroup.id,
+        groupName: currentGroup.name,
+        createdAt: Date.now(),
+        recommendations: output.recommendations,
+        moods: moods as Record<string, MoodId>,
+      });
+
       return matchId;
 
     } catch (e) {

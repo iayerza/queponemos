@@ -18,6 +18,7 @@ interface GroupStore {
   addPendingInvite: (invite: PendingInvite) => void;
   acceptInvite: (email: string) => void;
   updateGroup: (groupId: string, patch: Partial<GroupDoc>) => void;
+  removeGroup: (groupId: string) => void;
 }
 
 export const useGroupStore = create<GroupStore>(set => ({
@@ -48,5 +49,9 @@ export const useGroupStore = create<GroupStore>(set => ({
   updateGroup: (groupId, patch) => set(s => ({
     groups: s.groups.map(g => g.id === groupId ? { ...g, ...patch } : g),
     currentGroup: s.currentGroup?.id === groupId ? { ...s.currentGroup, ...patch } : s.currentGroup,
+  })),
+  removeGroup: groupId => set(s => ({
+    groups: s.groups.filter(g => g.id !== groupId),
+    currentGroup: s.currentGroup?.id === groupId ? null : s.currentGroup,
   })),
 }));

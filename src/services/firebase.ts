@@ -236,6 +236,23 @@ export async function joinGroupByCode(
   return { groupId: docSnap.id, group: { id: docSnap.id, ...docSnap.data() } as GroupDoc };
 }
 
+export async function deleteGroup(groupId: string): Promise<void> {
+  const { deleteDoc } = await import('firebase/firestore');
+  await deleteDoc(doc(db(), 'groups', groupId));
+}
+
+export async function fetchMemberNames(uids: string[]): Promise<Record<string, string>> {
+  const names: Record<string, string> = {};
+  await Promise.all(uids.map(async uid => {
+    const snap = await getDoc(doc(db(), 'users', uid));
+    if (snap.exists()) {
+      const data = snap.data() as { displayName?: string; email?: string };
+      names[uid] = data.displayName || data.email?.split('@')[0] || uid;
+    }
+  }));
+  return names;
+}
+
 export async function updateGroupPlatforms(
   groupId: string,
   platforms: PlatformId[],
