@@ -140,8 +140,19 @@ export default function MoodScreen() {
     setMood(user.uid, id);
 
     if (USE_MOCK) {
-      // Mock: no partner, navigate directly
-      nav.navigate('Matching', { groupId });
+      // Mock: registramos el mood propio y simulamos que el partner elige
+      // después de 2s para mostrar la UI de espera real
+      setSessionMoods({ [user.uid]: id });
+      if (partnerUid) {
+        const mockMoods: MoodId[] = ['chill', 'laugh', 'intense', 'think', 'scared', 'cry'];
+        const partnerMock = mockMoods[Math.floor(Math.random() * mockMoods.length)];
+        setTimeout(() => {
+          setSessionMoods({ [user.uid]: id, [partnerUid]: partnerMock });
+        }, 2200);
+      } else {
+        // Solo mode: ir directo
+        nav.navigate('Matching', { groupId });
+      }
       return;
     }
     try {

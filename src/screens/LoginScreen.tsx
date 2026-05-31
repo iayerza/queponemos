@@ -92,8 +92,8 @@ export default function LoginScreen() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* ── Área visual superior (60%) ── */}
-      <View style={[styles.visual, { paddingTop: insets.top + 20 }]}>
+      {/* ── Área visual superior — altura fija ── */}
+      <View style={[styles.visual, { paddingTop: insets.top + 16 }]}>
         <PosterBg />
         {/* Gradiente simulado con View */}
         <View style={styles.visualFade} />
@@ -186,9 +186,9 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg },
 
-  // Visual area
+  // Visual area — altura fija para que el card no se vaya de pantalla
   visual: {
-    flex: 3,
+    height: 260,
     backgroundColor: Colors.bg,
     overflow: 'hidden',
     justifyContent: 'flex-end',
@@ -219,9 +219,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // Card
+  // Card — flex:1 para ocupar todo el espacio restante
   card: {
-    flex: 2,
+    flex: 1,
     backgroundColor: Colors.s1,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
