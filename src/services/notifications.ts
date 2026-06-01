@@ -34,6 +34,25 @@ export async function registerPushToken(uid: string): Promise<void> {
   }
 }
 
+export async function sendMoodSelectedNotification(
+  partnerToken: string,
+  senderName: string,
+): Promise<void> {
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: partnerToken,
+        sound: 'default',
+        title: '¡Tu compañero eligió!',
+        body: `${senderName} ya eligió su mood para esta noche`,
+        data: { type: 'mood_selected' },
+      }),
+    });
+  } catch { /* non-blocking */ }
+}
+
 export async function sendGroupVoteNotification(
   memberTokens: string[],
   groupName: string,

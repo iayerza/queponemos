@@ -13,6 +13,7 @@ import { useColors } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { setSessionMood, onGroupChange, clearGroupSession } from '../services/firebase';
+import { sendMoodSelectedNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import type { MoodId } from '../services/claude';
 
@@ -189,6 +190,10 @@ export default function MoodScreen() {
     } else {
       try {
         await setSessionMood(groupId, user.uid, id);
+        const tokens = await getGroupMemberTokens(members, user.uid);
+        if (tokens.length > 0) {
+          sendMoodSelectedNotification(tokens[0], user.displayName ?? 'Tu compañero').catch(() => {});
+        }
       } catch (e) {
         console.error('setSessionMood failed:', e);
       }
