@@ -134,6 +134,7 @@ const { addToHistory } = useMatchStore.getState();
 ### Identidad visual
 
 **Nombre**: queponemos (siempre minúscula)
+**Tagline**: "La peli para hoy." (NO "para los dos" — cambiado)
 **Concepto**: intersección de dos gustos → diagrama de Venn
 **Tono**: cálido, directo, argentino (vos/ustedes). Sin mayúsculas innecesarias.
 
