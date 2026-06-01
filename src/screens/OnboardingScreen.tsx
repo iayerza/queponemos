@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView,
+  View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Animated,
 } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography } from '../constants/colors';
+import { LogoWordmark } from '../components/Logo';
 import TitlePoster from '../components/TitlePoster';
 import RatingButtons from '../components/RatingButtons';
 import { useOnboarding } from '../hooks/useOnboarding';
@@ -11,11 +13,14 @@ import { useAuthStore } from '../store/useAuthStore';
 import { completeOnboarding, rateTitleAndUpdateProfile } from '../services/firebase';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
+const MIN_TO_SKIP = 12;
+const TOTAL = 30;
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { user, updateRatings, markOnboardingDone } = useAuthStore();
   const { titles, currentIndex, ratings, isLoading, error, rate, canSkip, isFinished } = useOnboarding();
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   async function handleFinish() {
     if (!user) return;
@@ -25,16 +30,16 @@ export default function OnboardingScreen() {
     markOnboardingDone();
   }
 
-  async function handleRate(r: Parameters<typeof rate>[0]) {
+  function handleRate(r: Parameters<typeof rate>[0]) {
     const title = titles[currentIndex];
     if (!title || !user) return;
+    fadeAnim.setValue(0);
     updateRatings(title.tmdbId, r);
     if (!USE_MOCK) {
-      try {
-        await rateTitleAndUpdateProfile(user.uid, title.tmdbId, r, title);
-      } catch { /* silenciar */ }
+      rateTitleAndUpdateProfile(user.uid, title.tmdbId, r, title).catch(() => {});
     }
     rate(r);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: true }).start();
   }
 
   useEffect(() => {
@@ -45,7 +50,7 @@ export default function OnboardingScreen() {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={Colors.accent} size="large" />
-        <Text style={styles.loadingText}>Cargando títulos…</Text>
+        <Text style={styles.loadingText}>Preparando tus títulos…</Text>
       </View>
     );
   }
@@ -53,49 +58,67 @@ export default function OnboardingScreen() {
   if (error) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>Error cargando títulos</Text>
-        <Text style={styles.errorSub}>{error}</Text>
+        <Text style={styles.errorText}>No se pudieron cargar los títulos</Text>
+        <Text style={styles.errorSub}>Verificá tu conexión e intentá de nuevo</Text>
       </View>
     );
   }
 
   const current = titles[currentIndex];
-  const progress = titles.length > 0 ? currentIndex / titles.length : 0;
+  const progressPct = titles.length > 0 ? (currentIndex / titles.length) * 100 : 0;
+  const milestonePct = (MIN_TO_SKIP / TOTAL) * 100;
+  const remaining = MIN_TO_SKIP - currentIndex;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
+
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>queponemos</Text>
-        <Text style={styles.counter}>{currentIndex + 1} / {titles.length}</Text>
-        <TouchableOpacity onPress={handleFinish} style={styles.skipHeader}>
-          <Text style={styles.skipHeaderText}>Más tarde</Text>
-        </TouchableOpacity>
+        <LogoWordmark markSize={18} />
+        <View style={styles.headerRight}>
+          <Text style={styles.counter}>{currentIndex}<Text style={styles.counterTotal}>/{titles.length}</Text></Text>
+          <TouchableOpacity onPress={handleFinish} hitSlop={12}>
+            <Text style={styles.skipHeaderText}>Más tarde</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Progress bar */}
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+      {/* Progress bar con milestone */}
+      <View style={styles.progressWrap}>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+          <View style={[styles.milestoneMark, { left: `${milestonePct}%` }]} />
+        </View>
+        <Text style={styles.progressHint}>
+          {remaining > 0
+            ? `${remaining} más para poder continuar`
+            : `${currentIndex} calificados — podés continuar`}
+        </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {current && (
-          <>
-            <TitlePoster title={current} />
-            <View style={styles.ratingSection}>
-              <RatingButtons
-                selected={ratings[current.tmdbId] ?? null}
-                onSelect={handleRate}
-              />
-            </View>
-          </>
-        )}
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View style={{ opacity: fadeAnim }}>
+          {current && (
+            <>
+              <TitlePoster title={current} />
+              <View style={styles.ratingSection}>
+                <Text style={styles.ratingQuestion}>¿La viste?</Text>
+                <RatingButtons
+                  selected={ratings[current.tmdbId] ?? null}
+                  onSelect={handleRate}
+                />
+              </View>
+            </>
+          )}
+        </Animated.View>
 
         {canSkip && (
-          <TouchableOpacity style={styles.skipBtn} onPress={handleFinish}>
-            <Text style={styles.skipText}>
-              Saltar — ya tenés suficiente contexto →
-            </Text>
+          <TouchableOpacity style={styles.skipBtn} onPress={handleFinish} activeOpacity={0.7}>
+            <Text style={styles.skipText}>Ya tenés suficiente contexto</Text>
+            <Feather name="chevron-right" size={14} color={Colors.sub} />
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -105,25 +128,67 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg },
-  center: { flex: 1, backgroundColor: Colors.bg, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  center: { flex: 1, backgroundColor: Colors.bg, justifyContent: 'center', alignItems: 'center', gap: 12, padding: 24 },
   loadingText: { color: Colors.sub, fontSize: Typography.body },
-  errorText: { color: Colors.danger, fontSize: Typography.h3, fontWeight: Typography.bold },
-  errorSub: { color: Colors.sub, fontSize: Typography.small },
+  errorText: { color: Colors.danger, fontSize: Typography.h3, fontWeight: Typography.bold, textAlign: 'center' },
+  errorSub: { color: Colors.sub, fontSize: Typography.small, textAlign: 'center' },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 14,
-    gap: 8,
+    paddingVertical: 12,
   },
-  logo: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium, flex: 1 },
-  counter: { color: Colors.sub, fontSize: Typography.small },
-  skipHeader: { paddingLeft: 12 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  counter: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium },
+  counterTotal: { color: Colors.faint, fontWeight: Typography.regular },
   skipHeaderText: { color: Colors.faint, fontSize: Typography.small },
-  progressTrack: { height: 2, backgroundColor: Colors.border, marginHorizontal: 0 },
-  progressFill: { height: 2, backgroundColor: Colors.accent },
-  scroll: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 },
-  ratingSection: { marginTop: 20 },
-  skipBtn: { marginTop: 24, alignItems: 'center', padding: 12 },
+
+  progressWrap: { paddingHorizontal: 20, marginBottom: 16 },
+  progressTrack: {
+    height: 5,
+    backgroundColor: Colors.s2,
+    borderRadius: 3,
+    overflow: 'visible',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: 5,
+    backgroundColor: Colors.accent,
+    borderRadius: 3,
+  },
+  milestoneMark: {
+    position: 'absolute',
+    top: -3,
+    width: 2,
+    height: 11,
+    backgroundColor: Colors.border,
+    borderRadius: 1,
+    marginLeft: -1,
+  },
+  progressHint: {
+    color: Colors.faint,
+    fontSize: Typography.tiny,
+  },
+
+  scroll: { paddingHorizontal: 20, paddingTop: 4 },
+  ratingSection: { marginTop: 20, gap: 12 },
+  ratingQuestion: {
+    color: Colors.sub,
+    fontSize: Typography.tiny,
+    fontWeight: Typography.medium,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+
+  skipBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 24,
+    paddingVertical: 12,
+  },
   skipText: { color: Colors.sub, fontSize: Typography.small },
 });

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Feather from '@expo/vector-icons/Feather';
 import { getPosterUrl } from '../services/tmdb';
 import { Colors, Typography } from '../constants/colors';
 import type { NormalizedTitle } from '../services/tmdb';
@@ -28,7 +29,7 @@ export default function TitlePoster({ title }: Props) {
         />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.fallback]}>
-          <Text style={styles.fallbackEmoji}>🎬</Text>
+          <Feather name="film" size={64} color={Colors.faint} />
         </View>
       )}
 
@@ -41,9 +42,11 @@ export default function TitlePoster({ title }: Props) {
 
       <View style={styles.info}>
         <Text style={styles.titleText} numberOfLines={2}>{title.title}</Text>
-        <Text style={styles.meta}>
-          {title.year} · {title.type === 'tv' ? 'Serie' : 'Película'} · ⭐ {title.rating}
-        </Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.meta}>{title.year} · {title.type === 'tv' ? 'Serie' : 'Película'} · </Text>
+          <Feather name="star" size={11} color="rgba(255,255,255,0.75)" />
+          <Text style={styles.meta}> {title.rating}</Text>
+        </View>
         <View style={styles.tags}>
           {title.genres.slice(0, 3).map(g => (
             <View key={g} style={styles.tag}>
@@ -64,9 +67,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.s2,
   },
   fallback: { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.s2 },
-  fallbackEmoji: { fontSize: 64 },
   gradient: { justifyContent: 'flex-end' },
   info: { padding: 20 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   titleText: {
     color: '#ffffff',
     fontSize: 24,
@@ -79,7 +82,6 @@ const styles = StyleSheet.create({
   meta: {
     color: 'rgba(255,255,255,0.75)',
     fontSize: Typography.small,
-    marginBottom: 10,
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
