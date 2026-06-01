@@ -105,10 +105,11 @@ export default function MoodScreen() {
   const partnerUid = isSoloRoute ? null : (members.find(uid => uid !== user?.uid) ?? null);
   const isSolo = isSoloRoute || members.length <= 1;
 
-  const [myMood,      setMyMood]      = useState<MoodId | null>(null);
+  const [myMood,       setMyMood]       = useState<MoodId | null>(null);
   const [sessionMoods, setSessionMoods] = useState<Record<string, MoodId>>({});
-  const [navigating,  setNavigating]  = useState(false);
-  const [showSkip,    setShowSkip]    = useState(false);
+  const [navigating,   setNavigating]   = useState(false);
+  const [showSkip,     setShowSkip]     = useState(false);
+  const [showContinue, setShowContinue] = useState(false);
 
   const myStoredMood  = user ? (sessionMoods[user.uid] ?? null) : null;
   const partnerMood   = partnerUid ? (sessionMoods[partnerUid] ?? null) : null;
@@ -122,6 +123,8 @@ export default function MoodScreen() {
     const { clearMoods } = useMatchStore.getState();
     clearMoods();
     setSoloMode(isSoloRoute);
+    // Clear local session state immediately to avoid stale moods
+    setSessionMoods({});
     if (!USE_MOCK && !isSoloRoute && user && currentGroup?.createdBy === user.uid) {
       clearGroupSession(groupId).catch(() => {});
     }
@@ -143,6 +146,13 @@ export default function MoodScreen() {
     const timer = setTimeout(() => setShowSkip(true), 30_000);
     return () => clearTimeout(timer);
   }, [myMood, isSolo]);
+
+  // Show manual continue button after 8s if allReady but navigation hasn't fired
+  useEffect(() => {
+    if (!allReady || navigating || isSoloRoute) return;
+    const timer = setTimeout(() => setShowContinue(true), 8_000);
+    return () => clearTimeout(timer);
+  }, [allReady, navigating, isSoloRoute]);
 
   // When both moods ready → sync to MatchStore and navigate
   useEffect(() => {
@@ -247,6 +257,19 @@ export default function MoodScreen() {
             </Text>
             <Text style={styles.readySub}>Claude va a encontrar algo perfecto para los dos</Text>
           </View>
+        )}
+
+        {showContinue && allReady && !navigating && (
+          <TouchableOpacity
+            style={styles.continueBtn}
+            onPress={() => {
+              setNavigating(true);
+              Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
+              nav.navigate('Matching', { groupId });
+            }}
+          >
+            <Text style={styles.continueBtnText}>Continuar al análisis →</Text>
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -367,4 +390,6 @@ const styles = StyleSheet.create({
   readySub: { color: Colors.sub, fontSize: Typography.small, textAlign: 'center', lineHeight: 18 },
   skipBtn: { marginTop: 24, alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 20 },
   skipText: { color: Colors.faint, fontSize: Typography.small, textDecorationLine: 'underline' },
+  continueBtn: { marginTop: 20, marginHorizontal: 24, backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
+  continueBtnText: { color: '#fff', fontWeight: Typography.medium, fontSize: Typography.body },
 });

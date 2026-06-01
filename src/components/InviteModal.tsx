@@ -67,7 +67,7 @@ export default function InviteModal({ visible, onClose, group, onSimulateAccept 
               onPress={() => setTab(t)}
             >
               <Text style={[styles.tabLabel, tab === t && styles.tabLabelActive]}>
-                {t === 'email' ? '✉️  Email' : '⬛  Código QR'}
+                {t === 'email' ? 'Email' : 'Código QR'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -79,7 +79,7 @@ export default function InviteModal({ visible, onClose, group, onSimulateAccept 
               <Text style={styles.sentTitle}>✅ Invitación enviada a</Text>
               <Text style={styles.sentEmail}>{email}</Text>
               <TouchableOpacity style={styles.primaryBtn} onPress={handleSimulate}>
-                <Text style={styles.primaryBtnText}>Simular que aceptó → Ver match</Text>
+                <Text style={styles.primaryBtnText}>Unirme al grupo</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -118,7 +118,7 @@ export default function InviteModal({ visible, onClose, group, onSimulateAccept 
             </Text>
             <Text style={styles.codeDisplay}>{group.inviteCode}</Text>
             <TouchableOpacity style={styles.primaryBtn} onPress={handleSimulate}>
-              <Text style={styles.primaryBtnText}>📷 Simular escaneo → Ver match</Text>
+              <Text style={styles.primaryBtnText}>Unirme al grupo</Text>
             </TouchableOpacity>
           </View>
         )}

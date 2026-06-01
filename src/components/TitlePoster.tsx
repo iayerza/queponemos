@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,14 +15,16 @@ interface Props {
 
 export default function TitlePoster({ title }: Props) {
   const posterUrl = getPosterUrl(title.posterPath);
+  const [imgError, setImgError] = useState(false);
 
   return (
     <View style={[styles.container, { height: POSTER_H }]}>
-      {posterUrl ? (
+      {posterUrl && !imgError ? (
         <Image
           source={{ uri: posterUrl }}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
+          onError={() => setImgError(true)}
         />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.fallback]}>

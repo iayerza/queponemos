@@ -115,7 +115,7 @@ export default function ResultsScreen() {
         onPress={() => isSolo ? nav.navigate('Mood', { solo: true }) : (currentGroup && nav.navigate('Mood', { groupId: currentGroup.id }))}
         activeOpacity={0.85}
       >
-        <Text style={styles.newSearchBtnText}>🔄  Nueva búsqueda</Text>
+        <Text style={styles.newSearchBtnText}>Nueva búsqueda</Text>
       </TouchableOpacity>
 
       <TouchableOpacity

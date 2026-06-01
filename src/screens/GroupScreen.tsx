@@ -165,7 +165,7 @@ export default function GroupScreen() {
       </View>
 
       <TouchableOpacity style={styles.primaryBtn} onPress={handleFindMatch} activeOpacity={0.85}>
-        <Text style={styles.primaryBtnText}>🎬 Encontrar algo para esta noche</Text>
+        <Text style={styles.primaryBtnText}>Encontrar algo para esta noche</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.outlineBtn} onPress={() => setInviteVisible(true)} activeOpacity={0.85}>
@@ -297,9 +297,9 @@ const styles = StyleSheet.create({
   inviteBadgeText: { color: Colors.faint, fontSize: Typography.tiny },
   inviteBadgeTextAccepted: { color: Colors.success },
   platforms: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  platformChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.s1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1 },
-  platformEmoji: { fontSize: 14 },
-  platformName: { fontSize: Typography.small, fontWeight: Typography.medium },
+  platformChip: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.s1, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1 },
+  platformEmoji: { fontSize: 22 },
+  platformName: { fontSize: Typography.body, fontWeight: Typography.medium },
   deleteBtn: { marginTop: 8, borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.danger },
   deleteBtnText: { color: Colors.danger, fontSize: Typography.body, fontWeight: Typography.medium },
   // Modal
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   modalSub: { color: Colors.sub, fontSize: Typography.small, marginBottom: 24 },
   platformGrid: { gap: 10, marginBottom: 24 },
   platformOption: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 16, paddingVertical: 14 },
-  platformOptionEmoji: { fontSize: 20 },
+  platformOptionEmoji: { fontSize: 28 },
   platformOptionName: { flex: 1, color: Colors.sub, fontSize: Typography.body, fontWeight: Typography.medium },
   checkmark: { fontSize: 16, fontWeight: '700' },
   cancelBtn: { alignItems: 'center', paddingVertical: 12 },

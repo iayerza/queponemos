@@ -401,6 +401,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border2,
   },
   joinBtnText: { color: Colors.text, fontWeight: Typography.semibold, fontSize: Typography.body },
+
   genreTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   genreTag: {
     backgroundColor: Colors.s2,
@@ -454,17 +455,17 @@ const styles = StyleSheet.create({
   platformChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: Colors.s2,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: Colors.border,
   },
   platformChipSelected: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
-  platformEmoji: { fontSize: 14 },
-  platformName: { color: Colors.text, fontSize: Typography.small },
+  platformEmoji: { fontSize: 22 },
+  platformName: { color: Colors.text, fontSize: Typography.body },
   modalBtns: { flexDirection: 'row', gap: 10 },
   cancelBtn: {
     flex: 1,
