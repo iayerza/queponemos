@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import * as Linking from 'expo-linking';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { useMatchStore } from '../store/useMatchStore';
@@ -22,9 +23,25 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
 export default function RootNavigator() {
   const { user, isLoading, setUser, setLoading } = useAuthStore();
-  const { setGroups, addGroup } = useGroupStore();
+  const { setGroups, addGroup, setPendingInviteCode } = useGroupStore();
   const { setHistory } = useMatchStore();
   const [splashDone, setSplashDone] = useState(false);
+
+  // Deep link handling
+  useEffect(() => {
+    function handleUrl(url: string) {
+      const parsed = Linking.parse(url);
+      const code = parsed.queryParams?.code;
+      if ((parsed.hostname === 'join' || parsed.path === 'join') && typeof code === 'string') {
+        setPendingInviteCode(code.toUpperCase());
+      }
+    }
+    // App opened from cold start via link
+    Linking.getInitialURL().then(url => { if (url) handleUrl(url); }).catch(() => {});
+    // App already open, link tapped
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (USE_MOCK) {

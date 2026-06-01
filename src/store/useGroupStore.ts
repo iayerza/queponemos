@@ -11,6 +11,7 @@ interface GroupStore {
   groups: GroupDoc[];
   currentGroup: GroupDoc | null;
   pendingInvites: PendingInvite[];
+  pendingInviteCode: string | null;
   setGroups: (groups: GroupDoc[]) => void;
   setCurrentGroup: (group: GroupDoc | null) => void;
   addGroup: (group: GroupDoc) => void;
@@ -19,12 +20,15 @@ interface GroupStore {
   acceptInvite: (email: string) => void;
   updateGroup: (groupId: string, patch: Partial<GroupDoc>) => void;
   removeGroup: (groupId: string) => void;
+  setPendingInviteCode: (code: string | null) => void;
 }
 
 export const useGroupStore = create<GroupStore>(set => ({
   groups: [],
   currentGroup: null,
   pendingInvites: [],
+  pendingInviteCode: null,
+  setPendingInviteCode: code => set({ pendingInviteCode: code }),
   setGroups: groups => set({ groups }),
   setCurrentGroup: group => set({ currentGroup: group }),
   addGroup: group => set(s => ({

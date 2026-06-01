@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Modal, Alert,
 } from 'react-native';
@@ -28,7 +28,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const nav    = useNavigation<Nav>();
   const { user } = useAuthStore();
-  const { groups, addGroup, setCurrentGroup } = useGroupStore();
+  const { groups, addGroup, setCurrentGroup, pendingInviteCode, setPendingInviteCode } = useGroupStore();
   const themeColors = useColors();
 
   const { setPlatforms } = useAuthStore();
@@ -42,6 +42,39 @@ export default function HomeScreen() {
   const [scannerVisible, setScannerVisible] = useState(false);
   const [soloPlatformModal, setSoloPlatformModal] = useState(false);
   const [soloPlatforms, setSoloPlatforms] = useState<PlatformId[]>([]);
+
+  // Process deep link invite code
+  useEffect(() => {
+    if (!pendingInviteCode || !user) return;
+    const code = pendingInviteCode;
+    setPendingInviteCode(null);
+    Alert.alert(
+      'Invitación recibida',
+      `Código de grupo: ${code}\n¿Querés unirte?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Unirme',
+          onPress: async () => {
+            try {
+              if (USE_MOCK) {
+                addGroup({ ...MOCK_GROUP, inviteCode: code });
+                setCurrentGroup(MOCK_GROUP);
+                nav.navigate('Group', { groupId: MOCK_GROUP.id });
+              } else {
+                const { groupId, group } = await joinGroupByCode(user.uid, code);
+                addGroup(group);
+                setCurrentGroup(group);
+                nav.navigate('Group', { groupId });
+              }
+            } catch {
+              Alert.alert('Error', 'Código inválido o el grupo ya no existe.');
+            }
+          },
+        },
+      ],
+    );
+  }, [pendingInviteCode, user]);
 
   const topGenres = Object.entries(user?.tasteProfile?.genres ?? {})
     .sort(([, a], [, b]) => b - a)

@@ -1,20 +1,34 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
 import AnimatedLogoMark from '../components/AnimatedLogoMark';
 import { useMatching } from '../hooks/useMatching';
+import { useMatchStore } from '../store/useMatchStore';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'Matching'>;
 
+function friendlyError(raw: string): string {
+  if (raw.includes('401') || raw.includes('authentication') || raw.includes('x-api-key'))
+    return 'Error de autenticación con Claude. Verificá la API key.';
+  if (raw.includes('429') || raw.includes('rate'))
+    return 'Demasiadas solicitudes. Esperá un momento y volvé a intentar.';
+  if (raw.includes('network') || raw.includes('fetch') || raw.includes('Network'))
+    return 'Sin conexión. Verificá tu internet y volvé a intentar.';
+  if (raw.includes('500') || raw.includes('overloaded'))
+    return 'Claude está ocupado ahora. Volvé a intentar en un momento.';
+  return 'Algo salió mal. Volvé a intentar.';
+}
+
 export default function MatchingScreen() {
   const nav   = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { runMatch, error, isLeader } = useMatching();
+  const { isSolo } = useMatchStore();
 
   useEffect(() => {
     runMatch().then(matchId => {
@@ -24,21 +38,33 @@ export default function MatchingScreen() {
 
   return (
     <View style={styles.root}>
-      {/* Logo animado grande sobre fondo rojo */}
       <AnimatedLogoMark size={80} />
 
       <Text style={styles.brand}>queponemos</Text>
 
       <Text style={styles.title}>
-        {isLeader ? 'Analizando\nlos dos moods…' : 'Esperando\nel resultado…'}
+        {isSolo
+          ? 'Buscando\nalgo para vos…'
+          : isLeader
+            ? 'Analizando\nlos dos moods…'
+            : 'Esperando\nel resultado…'}
       </Text>
       <Text style={styles.sub}>
-        {isLeader
-          ? 'Claude está reconciliando sus gustos'
-          : 'Tu compañero está buscando el match'}
+        {isSolo
+          ? 'Claude está eligiendo según tu perfil'
+          : isLeader
+            ? 'Claude está reconciliando sus gustos'
+            : 'Tu compañero está buscando el match'}
       </Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{friendlyError(error)}</Text>
+          <TouchableOpacity onPress={() => nav.goBack()} style={styles.retryBtn}>
+            <Text style={styles.retryText}>Volver a intentar</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -46,7 +72,7 @@ export default function MatchingScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.accent,   // fondo rojo
+    backgroundColor: Colors.accent,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 16,
@@ -71,14 +97,31 @@ const styles = StyleSheet.create({
     fontSize: Typography.small,
     textAlign: 'center',
   },
-  error: {
+  errorBox: {
+    marginTop: 8,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderRadius: 12,
+    padding: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    gap: 12,
+  },
+  errorText: {
     color: 'rgba(255,255,255,0.9)',
     fontSize: Typography.small,
     textAlign: 'center',
-    paddingHorizontal: 40,
-    marginTop: 8,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    lineHeight: 20,
+  },
+  retryBtn: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
     borderRadius: 8,
-    padding: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: Typography.small,
+    fontWeight: Typography.medium,
   },
 });
