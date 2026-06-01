@@ -76,14 +76,23 @@ export default function LoginScreen() {
       setUser(profile);
     } catch (e: unknown) {
       const code = (e as { code?: string })?.code;
+      const msg  = (e as { message?: string })?.message ?? '';
       if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential')
         setError('Email o contraseña incorrectos');
       else if (code === 'auth/email-already-in-use')
         setError('Ese email ya está registrado — iniciá sesión');
       else if (code === 'auth/weak-password')
         setError('La contraseña necesita al menos 6 caracteres');
+      else if (code === 'auth/invalid-email')
+        setError('El formato del email no es válido');
+      else if (code === 'auth/network-request-failed')
+        setError('Sin conexión — verificá tu internet');
+      else if (code === 'auth/too-many-requests')
+        setError('Demasiados intentos — esperá unos minutos');
+      else if (code === 'auth/operation-not-allowed')
+        setError('Login con email no habilitado — configurar en Firebase console');
       else
-        setError('Error al autenticar');
+        setError(`Error: ${code ?? msg}`);
     } finally {
       setLoading(false);
     }
