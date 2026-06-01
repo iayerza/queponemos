@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
+import * as ExpoNotifications from 'expo-notifications';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { useMatchStore } from '../store/useMatchStore';
 import { onAuthChange, getUserGroups, getUserHistory } from '../services/firebase';
 import { registerPushToken } from '../services/notifications';
+import { navigationRef } from './navigationRef';
 import { MOCK_USER, MOCK_GROUP } from '../utils/mock';
 import AppTabs from './AppTabs';
 import SplashScreen   from '../screens/SplashScreen';
@@ -26,6 +28,27 @@ export default function RootNavigator() {
   const { setGroups, addGroup, setPendingInviteCode } = useGroupStore();
   const { setHistory } = useMatchStore();
   const [splashDone, setSplashDone] = useState(false);
+
+  // Notification tap handling
+  useEffect(() => {
+    function handleNotificationResponse(response: ExpoNotifications.NotificationResponse) {
+      const data = response.notification.request.content.data as Record<string, unknown>;
+      if (data?.type === 'mood_selected' && typeof data.groupId === 'string') {
+        if (navigationRef.isReady()) {
+          navigationRef.navigate('Mood', { groupId: data.groupId });
+        }
+      }
+    }
+
+    // Cold start: app opened by tapping notification
+    ExpoNotifications.getLastNotificationResponseAsync()
+      .then(r => { if (r) handleNotificationResponse(r); })
+      .catch(() => {});
+
+    // App already open
+    const sub = ExpoNotifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+    return () => sub.remove();
+  }, []);
 
   // Deep link handling
   useEffect(() => {

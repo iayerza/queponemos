@@ -11,6 +11,7 @@ import {
   DMSans_500Medium,
 } from '@expo-google-fonts/dm-sans';
 import RootNavigator from './src/navigation/RootNavigator';
+import { navigationRef } from './src/navigation/navigationRef';
 import { Colors } from './src/constants/colors';
 import { ThemeProvider } from './src/context/ThemeContext';
 
@@ -26,7 +27,7 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <NavigationContainer>
+          <NavigationContainer ref={navigationRef}>
             <StatusBar style="auto" />
             <RootNavigator />
           </NavigationContainer>

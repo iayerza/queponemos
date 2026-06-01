@@ -37,6 +37,7 @@ export async function registerPushToken(uid: string): Promise<void> {
 export async function sendMoodSelectedNotification(
   partnerToken: string,
   senderName: string,
+  groupId: string,
 ): Promise<void> {
   try {
     await fetch('https://exp.host/--/api/v2/push/send', {
@@ -47,7 +48,7 @@ export async function sendMoodSelectedNotification(
         sound: 'default',
         title: '¡Tu compañero eligió!',
         body: `${senderName} ya eligió su mood para esta noche`,
-        data: { type: 'mood_selected' },
+        data: { type: 'mood_selected', groupId },
       }),
     });
   } catch { /* non-blocking */ }

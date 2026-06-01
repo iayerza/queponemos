@@ -192,7 +192,7 @@ export default function MoodScreen() {
         await setSessionMood(groupId, user.uid, id);
         const tokens = await getGroupMemberTokens(members, user.uid);
         if (tokens.length > 0) {
-          sendMoodSelectedNotification(tokens[0], user.displayName ?? 'Tu compañero').catch(() => {});
+          sendMoodSelectedNotification(tokens[0], user.displayName ?? 'Tu compañero', groupId).catch(() => {});
         }
       } catch (e) {
         console.error('setSessionMood failed:', e);
