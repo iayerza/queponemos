@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>queponemos — Mockups</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #111113;
+    font-family: 'DM Sans', sans-serif;
+    padding: 40px 24px;
+    color: #fff;
+  }
+  h1 { font-size: 13px; color: #555; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px; }
+  .screens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+    justify-content: center;
+  }
+  .screen-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .screen-label {
+    color: #555;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+  .phone {
+    width: 320px;
+    height: 680px;
+    background: #0D0D0F;
+    border-radius: 36px;
+    border: 2px solid #2A2A2E;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.8);
+  }
+  .notch {
+    width: 90px; height: 26px;
+    background: #0D0D0F;
+    border: 2px solid #2A2A2E;
+    border-radius: 0 0 14px 14px;
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+  }
+  .screen-content {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    padding-top: 36px;
+  }
+
+  /* ── Tokens ── */
+  :root {
+    --bg: #0D0D0F;
+    --s1: #1C1C20;
+    --s2: #252528;
+    --border: #2A2A2E;
+    --accent: #C8302A;
+    --accent-faint: rgba(200,48,42,0.15);
+    --accent-border: rgba(200,48,42,0.4);
+    --coral: #E8503A;
+    --text: #FFFFFF;
+    --sub: #888888;
+    --faint: #555555;
+  }
+
+  /* ── Shared components ── */
+  .eyebrow {
+    font-size: 10px; font-weight: 500;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--faint); margin-bottom: 6px;
+  }
+  .pill {
+    background: var(--s2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 11px;
+    color: var(--sub);
+  }
+  .pill.active {
+    background: var(--accent-faint);
+    border-color: var(--accent-border);
+    color: var(--accent);
+  }
+  .btn-primary {
+    background: var(--accent);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+    font-weight: 500;
+    font-size: 14px;
+    color: #fff;
+  }
+  .btn-secondary {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--sub);
+  }
+  .card {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  /* ── Platform chips ── */
+  .platform-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .plat-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--sub);
+  }
+  .plat-chip.sel {
+    background: var(--accent-faint);
+    border-color: var(--accent-border);
+    color: var(--accent);
+  }
+  .plat-chip span:first-child { font-size: 20px; }
+
+  /* ── Tab bar ── */
+  .tabbar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 58px;
+    background: var(--bg);
+    border-top: 1px solid var(--s1);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding-bottom: 4px;
+  }
+  .tab-item {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    padding: 6px 20px;
+  }
+  .tab-dot {
+    width: 4px; height: 4px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  .tab-icon { opacity: 0.35; }
+  .tab-icon.active { opacity: 1; }
+
+  /* ─────────────────────────────────────────────────────
+     SCREEN 1 — HOME
+  ───────────────────────────────────────────────────── */
+  .home-inner {
+    padding: 0 20px;
+    height: 100%;
+    overflow: hidden;
+  }
+  .home-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 0 12px;
+  }
+  .logo-mark {
+    width: 34px; height: 34px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-mark svg { width: 18px; height: 18px; }
+  .logo-text { font-size: 15px; font-weight: 500; letter-spacing: -0.2px; }
+  .logo-text span { color: var(--coral); }
+  .headline { font-size: 22px; font-weight: 500; color: var(--text); margin-bottom: 16px; letter-spacing: -0.3px; }
+
+  .solo-card {
+    background: var(--accent-faint);
+    border: 1.5px solid var(--accent-border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 22px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .solo-card-emoji { font-size: 28px; }
+  .solo-card-title { font-size: 15px; font-weight: 500; color: var(--accent); }
+  .solo-card-sub { font-size: 11px; color: var(--sub); margin-top: 2px; }
+  .solo-card-arrow { font-size: 18px; color: var(--accent); margin-left: auto; }
+
+  .section-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+  }
+  .section-title { font-size: 10px; font-weight: 500; color: var(--faint); letter-spacing: 1.5px; text-transform: uppercase; }
+  .section-action { font-size: 12px; color: var(--accent); font-weight: 500; }
+
+  .group-card {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .group-name { font-size: 15px; font-weight: 500; color: var(--text); }
+  .group-meta { font-size: 11px; color: var(--sub); margin-top: 3px; }
+  .group-arrow { color: var(--faint); font-size: 14px; }
+
+  /* ─────────────────────────────────────────────────────
+     SCREEN 2 — MOOD
+  ───────────────────────────────────────────────────── */
+  .mood-inner { padding: 0 20px; height: 100%; overflow: hidden; }
+  .mood-title { font-size: 26px; font-weight: 500; color: var(--text); line-height: 1.2; margin: 12px 0 6px; }
+  .mood-title span { color: var(--accent); }
+  .mood-sub { font-size: 13px; color: var(--sub); line-height: 1.5; margin-bottom: 20px; }
+  .mood-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .mood-btn {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .mood-btn-emoji { font-size: 26px; margin-bottom: 6px; }
+  .mood-btn-label { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+  .mood-btn-desc { font-size: 10px; color: var(--sub); line-height: 1.4; }
+
+  /* ─────────────────────────────────────────────────────
+     SCREEN 3 — MATCHING
+  ───────────────────────────────────────────────────── */
+  .matching-inner {
+    background: var(--accent);
+    height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px;
+  }
+  .match-logo {
+    width: 90px; height: 90px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 27px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .match-logo svg { width: 52px; height: 52px; }
+  .match-brand { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.6); letter-spacing: -0.2px; }
+  .match-title { font-size: 22px; font-weight: 500; color: #fff; text-align: center; line-height: 1.3; }
+  .match-sub { font-size: 12px; color: rgba(255,255,255,0.6); text-align: center; }
+
+  /* ─────────────────────────────────────────────────────
+     SCREEN 4 — RESULTS
+  ───────────────────────────────────────────────────── */
+  .results-inner { padding: 0 16px; height: 100%; overflow: hidden; }
+  .results-eyebrow { font-size: 10px; font-weight: 500; letter-spacing: 2px; color: var(--sub); margin-bottom: 4px; margin-top: 8px; }
+  .results-title { font-size: 26px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+  .results-sub { font-size: 11px; color: var(--sub); margin-bottom: 14px; }
+
+  .rec-card {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 13px;
+    margin-bottom: 10px;
+  }
+  .rec-top { display: flex; gap: 12px; margin-bottom: 10px; }
+  .rec-poster {
+    width: 64px; height: 94px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #2a2a30 0%, #1a1a22 100%);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .rec-info { flex: 1; }
+  .rec-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 5px; }
+  .rec-title { font-size: 14px; font-weight: 500; color: var(--text); line-height: 1.3; flex: 1; margin-right: 8px; }
+  .rec-badge {
+    border: 1px solid var(--accent-border);
+    border-radius: 5px;
+    padding: 1px 5px;
+    font-size: 10px; font-weight: 500;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .rec-meta { font-size: 11px; color: var(--sub); margin-bottom: 3px; }
+  .rec-platform { font-size: 11px; color: var(--sub); }
+  .rec-synopsis { font-size: 12px; color: var(--sub); line-height: 1.5; margin-bottom: 10px; }
+  .why-box {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-faint);
+    border-radius: 6px;
+    padding: 9px;
+    margin-bottom: 10px;
+  }
+  .why-label { font-size: 9px; font-weight: 500; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+  .why-text { font-size: 11px; color: var(--text); line-height: 1.4; }
+  .rec-actions { display: flex; gap: 6px; }
+  .action-btn {
+    flex: 1;
+    background: var(--s2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 9px;
+    color: var(--sub);
+  }
+  .action-btn .action-emoji { font-size: 14px; display: block; margin-bottom: 2px; }
+
+  /* ─────────────────────────────────────────────────────
+     SCREEN 5 — HISTORY
+  ───────────────────────────────────────────────────── */
+  .history-inner { padding: 0 16px; height: 100%; overflow: hidden; }
+  .hist-title { font-size: 26px; font-weight: 500; color: var(--text); margin-bottom: 14px; margin-top: 8px; }
+  .hist-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .hist-tab {
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--sub);
+    font-weight: 500;
+    background: var(--s1);
+  }
+  .hist-tab.active {
+    background: var(--accent-faint);
+    border-color: var(--accent-border);
+    color: var(--accent);
+  }
+  .hist-card {
+    background: var(--s1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 13px;
+    margin-bottom: 10px;
+  }
+  .hist-header {
+    display: flex; justify-content: space-between;
+    padding-bottom: 9px; margin-bottom: 9px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hist-date { font-size: 13px; font-weight: 500; color: var(--text); }
+  .hist-group { font-size: 11px; color: var(--sub); }
+  .hist-rec-row { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .hist-poster { width: 30px; height: 44px; border-radius: 4px; background: var(--s2); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .hist-info { flex: 1; }
+  .hist-rec-title { font-size: 12px; color: var(--text); }
+  .hist-rec-meta { font-size: 10px; color: var(--faint); }
+  .hist-badge {
+    border-radius: 5px; padding: 2px 7px;
+    font-size: 9px; font-weight: 500;
+    border: 1px solid;
+  }
+
+  /* ─────────────────────────────────────────────────────
+     SCREEN 6 — PROFILE
+  ───────────────────────────────────────────────────── */
+  .profile-inner { padding: 0 16px; height: 100%; overflow: hidden; }
+  .avatar-row { display: flex; align-items: center; gap: 14px; margin: 16px 0 16px; }
+  .avatar { width: 54px; height: 54px; border-radius: 27px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 500; color: #fff; }
+  .avatar-name { font-size: 15px; font-weight: 500; color: var(--text); }
+  .avatar-email { font-size: 11px; color: var(--sub); margin-top: 2px; }
+  .stats-row { display: flex; gap: 8px; margin-bottom: 18px; }
+  .stat-box { flex: 1; background: var(--s1); border: 1px solid var(--border); border-radius: 12px; padding: 11px; text-align: center; }
+  .stat-num { font-size: 20px; font-weight: 500; color: var(--accent); }
+  .stat-label { font-size: 10px; color: var(--sub); margin-top: 2px; }
+  .profile-section { margin-bottom: 16px; }
+  .profile-section-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 10px; }
+  .theme-row { display: flex; gap: 6px; }
+  .theme-btn { flex: 1; padding: 8px; border-radius: 9px; border: 1px solid var(--border); background: var(--s1); text-align: center; font-size: 12px; color: var(--sub); }
+  .theme-btn.active { border-color: var(--accent-border); background: var(--accent-faint); color: var(--accent); }
+
+  /* SVG icons for tabs */
+  svg { display: block; }
+</style>
+</head>
+<body>
+<h1>queponemos — pantallas principales</h1>
+<div class="screens">
+
+  <!-- ── 1. HOME ── -->
+  <div class="screen-wrap">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen-content">
+        <div class="home-inner">
+          <div class="home-header">
+            <div class="logo-mark">
+              <svg viewBox="0 0 28 28" fill="none">
+                <circle cx="10" cy="14" r="8" fill="white" fill-opacity="0.2"/>
+                <circle cx="18" cy="14" r="8" fill="white" fill-opacity="0.2"/>
+                <ellipse cx="14" cy="14" rx="4" ry="8" fill="white" fill-opacity="0.5"/>
+                <circle cx="14" cy="14" r="2.5" fill="white"/>
+              </svg>
+            </div>
+            <div class="logo-text">que<span>ponemos</span></div>
+          </div>
+          <div class="headline">¿QuePonemos hoy?</div>
+
+          <!-- Solo card -->
+          <div class="solo-card">
+            <div class="solo-card-emoji">🎬</div>
+            <div>
+              <div class="solo-card-title">¿Qué ves hoy?</div>
+              <div class="solo-card-sub">Modo solo · tus plataformas · tu mood</div>
+            </div>
+            <div class="solo-card-arrow">→</div>
+          </div>
+
+          <!-- Grupos -->
+          <div class="section-row">
+            <div class="section-title">Tus grupos</div>
+            <div class="section-action">nuevo +</div>
+          </div>
+          <div class="group-card">
+            <div>
+              <div class="group-name">Iayer & Sofia</div>
+              <div class="group-meta">2 miembros · Netflix, Max</div>
+            </div>
+            <div class="group-arrow">›</div>
+          </div>
+          <div class="platform-row" style="margin-top:14px; gap:8px;">
+            <div class="btn-primary" style="flex:1; font-size:13px; padding:13px 8px;">+ Crear grupo</div>
+            <div class="btn-secondary" style="flex:1; font-size:13px; padding:13px 8px;">Unirme</div>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab-item">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8302A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/>
+          </svg>
+          <div class="tab-dot"></div>
+        </div>
+        <div class="tab-item">
+          <svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"/><path d="M9 9h6M9 12h6M9 15h4"/>
+          </svg>
+        </div>
+        <div class="tab-item">
+          <svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Home</div>
+  </div>
+
+  <!-- ── 2. MOOD ── -->
+  <div class="screen-wrap">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen-content">
+        <div class="mood-inner">
+          <div style="font-size:10px; color:#555; font-weight:500; letter-spacing:1px; padding-top:4px;">← VOLVER</div>
+          <div class="mood-title">¿Cómo estás<br><span>esta noche?</span></div>
+          <div class="mood-sub">Tu compañero también va a elegir. Claude va a encontrar algo que les funcione a los dos.</div>
+          <div class="mood-grid">
+            <div class="mood-btn">
+              <div class="mood-btn-emoji">😌</div>
+              <div class="mood-btn-label">Tranqui</div>
+              <div class="mood-btn-desc">Relajado, sin pensar mucho</div>
+            </div>
+            <div class="mood-btn">
+              <div class="mood-btn-emoji">🔥</div>
+              <div class="mood-btn-label">Adrenalina</div>
+              <div class="mood-btn-desc">Tensión, al borde del asiento</div>
+            </div>
+            <div class="mood-btn">
+              <div class="mood-btn-emoji">😂</div>
+              <div class="mood-btn-label">Reírse</div>
+              <div class="mood-btn-desc">Comedia, algo liviano</div>
+            </div>
+            <div class="mood-btn">
+              <div class="mood-btn-emoji">🧠</div>
+              <div class="mood-btn-label">Reflexionar</div>
+              <div class="mood-btn-desc">Algo que deje pensando</div>
+            </div>
+            <div class="mood-btn">
+              <div class="mood-btn-emoji">😭</div>
+              <div class="mood-btn-label">Emocionarse</div>
+              <div class="mood-btn-desc">Drama, sentimientos</div>
+            </div>
+            <div class="mood-btn">
+              <div class="mood-btn-emoji">😱</div>
+              <div class="mood-btn-label">Asustarse</div>
+              <div class="mood-btn-desc">Terror o suspenso</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Mood</div>
+  </div>
+
+  <!-- ── 3. MATCHING ── -->
+  <div class="screen-wrap">
+    <div class="phone">
+      <div class="notch" style="border-color: rgba(255,255,255,0.15); background: #C8302A;"></div>
+      <div class="screen-content">
+        <div class="matching-inner">
+          <div class="match-logo">
+            <svg viewBox="0 0 56 56" fill="none">
+              <circle cx="20" cy="28" r="16" fill="white" fill-opacity="0.2"/>
+              <circle cx="36" cy="28" r="16" fill="white" fill-opacity="0.2"/>
+              <ellipse cx="28" cy="28" rx="8" ry="16" fill="white" fill-opacity="0.55"/>
+              <circle cx="28" cy="28" r="5" fill="white"/>
+            </svg>
+          </div>
+          <div class="match-brand">queponemos</div>
+          <div class="match-title">Analizando<br>los dos moods…</div>
+          <div class="match-sub">Claude está reconciliando sus gustos</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Matching (cargando)</div>
+  </div>
+
+  <!-- ── 4. RESULTS ── -->
+  <div class="screen-wrap">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen-content">
+        <div class="results-inner">
+          <div class="results-eyebrow">TU MATCH</div>
+          <div class="results-title">Esta noche</div>
+          <div class="results-sub">Iayer & Sofia · 3 recomendaciones</div>
+
+          <div class="rec-card">
+            <div class="rec-top">
+              <div class="rec-poster">🎬</div>
+              <div class="rec-info">
+                <div class="rec-header">
+                  <div class="rec-title">The Bear</div>
+                  <div class="rec-badge">94%</div>
+                </div>
+                <div class="rec-meta">2022 · Serie · ⭐ 8.6</div>
+                <div class="rec-platform">🔴 Netflix</div>
+              </div>
+            </div>
+            <div class="rec-synopsis">Un chef de alta cocina regresa a su ciudad natal para hacerse cargo del restaurante familiar.</div>
+            <div class="why-box">
+              <div class="why-label">¿Por qué a nosotros?</div>
+              <div class="why-text">Perfecta para Iayer y Sofia: combina tensión intensa con momentos emotivos.</div>
+            </div>
+            <div class="rec-actions">
+              <div class="action-btn"><span class="action-emoji">✅</span>La vimos</div>
+              <div class="action-btn"><span class="action-emoji">📌</span>Para después</div>
+              <div class="action-btn"><span class="action-emoji">❌</span>Pasar</div>
+            </div>
+          </div>
+
+          <div class="btn-primary" style="font-size:13px; padding:13px; margin-top:4px;">Nueva búsqueda</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab-item">
+          <svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/>
+          </svg>
+        </div>
+        <div class="tab-item">
+          <svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"/><path d="M9 9h6M9 12h6M9 15h4"/>
+          </svg>
+        </div>
+        <div class="tab-item">
+          <svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Resultados</div>
+  </div>
+
+  <!-- ── 5. HISTORY ── -->
+  <div class="screen-wrap">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen-content">
+        <div class="history-inner">
+          <div class="hist-title">Mis listas</div>
+          <div class="hist-tabs">
+            <div class="hist-tab active">Historial</div>
+            <div class="hist-tab">Para después</div>
+          </div>
+          <div class="hist-card">
+            <div class="hist-header">
+              <div class="hist-date">1 de junio</div>
+              <div class="hist-group">Iayer & Sofia</div>
+            </div>
+            <div class="hist-rec-row">
+              <div class="hist-poster">🎬</div>
+              <div class="hist-info">
+                <div class="hist-rec-title">The Bear</div>
+                <div class="hist-rec-meta">2022 · Serie</div>
+              </div>
+              <div class="hist-badge" style="border-color:#C8302A55; color:#C8302A; background: rgba(200,48,42,0.1);">Vista</div>
+            </div>
+            <div class="hist-rec-row">
+              <div class="hist-poster">📺</div>
+              <div class="hist-info">
+                <div class="hist-rec-title">Severance</div>
+                <div class="hist-rec-meta">2022 · Serie</div>
+              </div>
+              <div class="hist-badge" style="border-color:#BA751755; color:#BA7517; background: rgba(186,117,23,0.1);">Pendiente</div>
+            </div>
+          </div>
+          <div class="hist-card">
+            <div class="hist-header">
+              <div class="hist-date">28 de mayo</div>
+              <div class="hist-group">Solo</div>
+            </div>
+            <div class="hist-rec-row">
+              <div class="hist-poster">🎬</div>
+              <div class="hist-info">
+                <div class="hist-rec-title">Oppenheimer</div>
+                <div class="hist-rec-meta">2023 · Película</div>
+              </div>
+              <div class="hist-badge" style="border-color:#C8302A55; color:#C8302A; background: rgba(200,48,42,0.1);">Vista</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab-item">
+          <svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/>
+          </svg>
+        </div>
+        <div class="tab-item">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8302A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"/><path d="M9 9h6M9 12h6M9 15h4"/>
+          </svg>
+          <div class="tab-dot"></div>
+        </div>
+        <div class="tab-item">
+          <svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Historial</div>
+  </div>
+
+  <!-- ── 6. PROFILE ── -->
+  <div class="screen-wrap">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen-content">
+        <div class="profile-inner">
+          <div style="padding-top:4px; margin-bottom:4px;">
+            <div class="logo-text" style="font-size:14px;">que<span style="color:#E8503A;">ponemos</span></div>
+          </div>
+          <div class="avatar-row">
+            <div class="avatar">I</div>
+            <div>
+              <div class="avatar-name">Iayer</div>
+              <div class="avatar-email">ayerza@gmail.com</div>
+            </div>
+          </div>
+          <div class="stats-row">
+            <div class="stat-box"><div class="stat-num">18</div><div class="stat-label">calificados</div></div>
+            <div class="stat-box"><div class="stat-num">11</div><div class="stat-label">amados</div></div>
+            <div class="stat-box"><div class="stat-num">4</div><div class="stat-label">no gustaron</div></div>
+          </div>
+          <div class="profile-section">
+            <div class="profile-section-title">Tus plataformas</div>
+            <div class="platform-row">
+              <div class="plat-chip sel"><span>🔴</span><span>Netflix</span></div>
+              <div class="plat-chip sel"><span>🟣</span><span>Max</span></div>
+              <div class="plat-chip"><span>🔵</span><span>Disney+</span></div>
+            </div>
+          </div>
+          <div class="profile-section">
+            <div class="profile-section-title">Tema</div>
+            <div class="theme-row">
+              <div class="theme-btn active">Oscuro</div>
+              <div class="theme-btn">Claro</div>
+              <div class="theme-btn">Sistema</div>
+            </div>
+          </div>
+          <div class="btn-primary" style="font-size:13px; padding:13px; margin-bottom:8px;">Completar calificaciones (18/30)</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab-item">
+          <svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/>
+          </svg>
+        </div>
+        <div class="tab-item">
+          <svg class="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z"/><path d="M9 9h6M9 12h6M9 15h4"/>
+          </svg>
+        </div>
+        <div class="tab-item">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C8302A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+          <div class="tab-dot"></div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Perfil</div>
+  </div>
+
+</div>
+</body>
+</html>
