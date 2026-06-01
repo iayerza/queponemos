@@ -2,12 +2,13 @@ import { useState, useCallback } from 'react';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
   saveMatch, setSessionMatchId, pollForMatchId, getMatchById,
+  getUserProfile, addMatchToUserHistory,
 } from '../services/firebase';
 import { useAuthStore }  from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { useMatchStore } from '../store/useMatchStore';
-import { MOCK_USERS }    from '../utils/mock';
 import type { MoodId }   from '../services/claude';
+import type { UserProfile } from '../services/firebase';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
@@ -42,18 +43,17 @@ export function useMatching() {
       }
 
       // ── Leader path: call Claude, save, broadcast matchId ─────────────────
-      const memberProfiles = currentGroup.members.map(uid => {
-        if (uid === user.uid) return user;
-        return MOCK_USERS[uid] ?? {
-          uid,
-          email: '',
-          displayName: uid,
-          photoURL: null,
-          ratings: {},
-          tasteProfile: { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] },
-          onboardingDone: true,
-        };
-      });
+      const memberProfiles: UserProfile[] = await Promise.all(
+        currentGroup.members.map(async uid => {
+          if (uid === user.uid) return user;
+          if (USE_MOCK) {
+            const { MOCK_USERS } = await import('../utils/mock');
+            return MOCK_USERS[uid] ?? { uid, email: '', displayName: 'Compañero', photoURL: null, ratings: {}, tasteProfile: { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] }, onboardingDone: true };
+          }
+          const profile = await getUserProfile(uid);
+          return profile ?? { uid, email: '', displayName: 'Compañero', photoURL: null, ratings: {}, tasteProfile: { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] }, onboardingDone: true };
+        })
+      );
 
       let output: MatchingOutput;
 
@@ -103,16 +103,24 @@ export function useMatching() {
 
       setCurrentMatch(output, matchId);
 
-      // Guardar en historial
-      const { addToHistory } = useMatchStore.getState();
-      addToHistory({
+      const historyEntry = {
         matchId,
         groupId: currentGroup.id,
         groupName: currentGroup.name,
         createdAt: Date.now(),
         recommendations: output.recommendations,
         moods: moods as Record<string, MoodId>,
-      });
+      };
+
+      const { addToHistory } = useMatchStore.getState();
+      addToHistory(historyEntry);
+
+      if (!USE_MOCK) {
+        // Persist to Firestore for all group members
+        await Promise.all(
+          currentGroup.members.map(uid => addMatchToUserHistory(uid, historyEntry))
+        );
+      }
 
       return matchId;
 

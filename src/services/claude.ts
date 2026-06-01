@@ -1,6 +1,6 @@
 import type { PlatformId } from '../constants/platforms';
 import type { UserProfile } from './firebase';
-import { fetchTitle } from './tmdb';
+import { fetchTitle, searchTitles } from './tmdb';
 
 export type MoodId = 'chill' | 'intense' | 'laugh' | 'think' | 'cry' | 'scared';
 
@@ -57,7 +57,7 @@ function buildPrompt(input: MatchingInput): string {
     return `- ${u.displayName}: géneros favoritos [${genres}], le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
   }).join('\n');
 
-  return `Sos el motor de recomendación de Queponemos. Analizá los perfiles de estos usuarios y recomendá 3 títulos perfectos para ver juntos esta noche.
+  return `Sos el motor de recomendación de Queponemos. Analizá los perfiles de estos usuarios y recomendá 3 títulos DISTINTOS y variados para ver juntos esta noche. Evitá recomendar siempre los mismos títulos populares.
 
 PERFILES:
 ${userBlocks}
@@ -67,12 +67,13 @@ PLATAFORMAS DISPONIBLES: ${input.platforms.join(', ')}
 Respondé SOLO con JSON válido sin texto extra, sin markdown, sin bloques de código:
 {
   "recommendations": [{
+    "tmdbId": 12345,
     "title": "string",
     "year": 2024,
     "type": "movie",
     "genres": ["Drama"],
     "rating": 8.2,
-    "synopsis": "string",
+    "synopsis": "string en español",
     "platform": "netflix",
     "compatibilityScore": 92,
     "whyUs": "string — 2-3 oraciones mencionando a los usuarios por nombre"
@@ -125,16 +126,22 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     platform: (r.platform ?? input.platforms[0]) as PlatformId,
   }));
 
-  // Enriquecer con pósters de TMDB en paralelo
+  // Enriquecer con pósters de TMDB: primero por ID, luego búsqueda por título
   const recommendations = await Promise.all(
     baseRecs.map(async rec => {
-      if (!rec.tmdbId) return rec;
       try {
-        const tmdbData = await fetchTitle(rec.tmdbId, rec.type === 'series' ? 'tv' : 'movie');
-        return { ...rec, posterPath: tmdbData.posterPath };
-      } catch {
-        return rec;
-      }
+        if (rec.tmdbId) {
+          const tmdbData = await fetchTitle(rec.tmdbId, rec.type === 'series' ? 'tv' : 'movie');
+          return { ...rec, posterPath: tmdbData.posterPath };
+        }
+        // Fallback: search by title+year
+        const results = await searchTitles(rec.title);
+        const mediaType = rec.type === 'series' ? 'tv' : 'movie';
+        const match = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1)
+          ?? results.find(r => r.type === mediaType);
+        if (match) return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath };
+      } catch { /* ignore */ }
+      return rec;
     })
   );
 

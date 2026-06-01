@@ -18,6 +18,7 @@ interface MatchStore {
   setMood: (uid: string, mood: MoodId) => void;
   setCurrentMatch: (match: MatchingOutput, matchId: string) => void;
   addToHistory: (entry: MatchEntry) => void;
+  setHistory: (entries: MatchEntry[]) => void;
   updateTitleAction: (matchIdx: number, titleIdx: number, status: Recommendation['groupStatus']) => void;
   clearMoods: () => void;
 }
@@ -29,7 +30,8 @@ export const useMatchStore = create<MatchStore>(set => ({
   moods: {},
   setMood: (uid, mood) => set(s => ({ moods: { ...s.moods, [uid]: mood } })),
   setCurrentMatch: (match, matchId) => set({ currentMatch: match, currentMatchId: matchId }),
-  addToHistory: entry => set(s => ({ history: [entry, ...s.history] })),
+  addToHistory: entry => set(s => ({ history: [entry, ...s.history.filter(e => e.matchId !== entry.matchId)] })),
+  setHistory: entries => set({ history: entries }),
   updateTitleAction: (matchIdx, titleIdx, status) =>
     set(s => {
       if (!s.currentMatch) return s;

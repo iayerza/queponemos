@@ -5,6 +5,8 @@ import {
   signInWithCredential,
   signOut,
   onAuthStateChanged,
+  sendPasswordResetEmail,
+  sendEmailVerification,
   Unsubscribe,
 } from 'firebase/auth';
 import {
@@ -13,9 +15,11 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   collection,
   query,
   where,
+  orderBy,
   getDocs,
   onSnapshot,
   addDoc,
@@ -160,6 +164,15 @@ export async function logout(): Promise<void> {
   await signOut(auth());
 }
 
+export async function sendPasswordReset(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth(), email);
+}
+
+export async function verifyEmail(): Promise<void> {
+  const user = auth().currentUser;
+  if (user) await sendEmailVerification(user);
+}
+
 export function onAuthChange(cb: (user: UserProfile | null) => void): Unsubscribe {
   return onAuthStateChanged(auth(), async fireUser => {
     if (!fireUser) { cb(null); return; }
@@ -237,8 +250,21 @@ export async function joinGroupByCode(
 }
 
 export async function deleteGroup(groupId: string): Promise<void> {
-  const { deleteDoc } = await import('firebase/firestore');
   await deleteDoc(doc(db(), 'groups', groupId));
+}
+
+export async function clearGroupSession(groupId: string): Promise<void> {
+  await updateDoc(doc(db(), 'groups', groupId), {
+    'currentSession.moods': {},
+    'currentSession.matchId': null,
+  });
+}
+
+export async function deleteUserData(uid: string): Promise<void> {
+  await deleteDoc(doc(db(), 'users', uid));
+  const { deleteUser, getAuth } = await import('firebase/auth');
+  const currentUser = getAuth(getApp()).currentUser;
+  if (currentUser) await deleteUser(currentUser);
 }
 
 export async function fetchMemberNames(uids: string[]): Promise<Record<string, string>> {
@@ -343,6 +369,31 @@ export async function updateTitleStatus(
     r.tmdbId === tmdbId ? { ...r, groupStatus: status } : r
   );
   await updateDoc(matchRef, { recommendations: recs });
+}
+
+export interface HistoryEntry {
+  matchId: string;
+  groupId: string;
+  groupName: string;
+  createdAt: number;
+  recommendations: Recommendation[];
+  moods: Record<string, MoodId>;
+}
+
+export async function addMatchToUserHistory(
+  uid: string,
+  entry: HistoryEntry,
+): Promise<void> {
+  await setDoc(doc(db(), 'users', uid, 'history', entry.matchId), entry);
+}
+
+export async function getUserHistory(uid: string): Promise<HistoryEntry[]> {
+  const q = query(
+    collection(db(), 'users', uid, 'history'),
+    orderBy('createdAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as HistoryEntry);
 }
 
 export async function getGroupWatchlist(groupId: string): Promise<WatchlistItem[]> {

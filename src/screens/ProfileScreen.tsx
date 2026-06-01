@@ -1,16 +1,31 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import { LogoWordmark } from '../components/Logo';
 import { useAuthStore } from '../store/useAuthStore';
-import { logout } from '../services/firebase';
+import { logout, deleteUserData } from '../services/firebase';
+import type { RootStackParamList } from '../navigation/types';
+import { useTheme, type ThemePreference } from '../context/ThemeContext';
 
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const nav = useNavigation<Nav>();
   const { user, setUser } = useAuthStore();
+  const { preference, setPreference } = useTheme();
+  const themeColors = useColors();
+
+  const THEME_OPTIONS: { key: ThemePreference; label: string }[] = [
+    { key: 'dark',   label: 'Oscuro' },
+    { key: 'light',  label: 'Claro' },
+    { key: 'system', label: 'Sistema' },
+  ];
 
   const topGenres = Object.entries(user?.tasteProfile?.genres ?? {})
     .sort(([, a], [, b]) => b - a)
@@ -34,11 +49,32 @@ export default function ProfileScreen() {
     ]);
   }
 
+  async function handleDeleteAccount() {
+    Alert.alert(
+      'Eliminar cuenta',
+      'Se eliminarán todos tus datos permanentemente. Esta acción no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar', style: 'destructive',
+          onPress: async () => {
+            try {
+              if (!USE_MOCK && user) await deleteUserData(user.uid);
+              setUser(null);
+            } catch {
+              Alert.alert('Error', 'No se pudo eliminar la cuenta. Reintentá en unos minutos.');
+            }
+          },
+        },
+      ],
+    );
+  }
+
   const initial = user?.displayName?.[0]?.toUpperCase() ?? '?';
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: themeColors.bg }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }]}
       showsVerticalScrollIndicator={false}
     >
@@ -113,8 +149,40 @@ export default function ProfileScreen() {
         ))}
       </View>
 
+      {/* Tema */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Tema</Text>
+        <Text style={styles.sectionSub}>Apariencia de la app</Text>
+        <View style={styles.themeRow}>
+          {THEME_OPTIONS.map(opt => (
+            <TouchableOpacity
+              key={opt.key}
+              style={[styles.themeBtn, preference === opt.key && styles.themeBtnActive]}
+              onPress={() => setPreference(opt.key)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.themeBtnText, preference === opt.key && styles.themeBtnTextActive]}>
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {ratingCount < 30 && (
+        <TouchableOpacity style={styles.onboardingBtn} onPress={() => nav.navigate('Onboarding')} activeOpacity={0.85}>
+          <Text style={styles.onboardingBtnText}>
+            {ratingCount === 0 ? 'Completar onboarding' : `Completar calificaciones (${ratingCount}/30)`}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
         <Text style={styles.logoutText}>Cerrar sesión</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount} activeOpacity={0.8}>
+        <Text style={styles.deleteBtnText}>Eliminar cuenta</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -144,6 +212,15 @@ const styles = StyleSheet.create({
   profileRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
   profileLabel: { color: Colors.sub, fontSize: Typography.small },
   profileValue: { color: Colors.text, fontSize: Typography.small, fontWeight: Typography.medium },
-  logoutBtn: { borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, marginTop: 12 },
+  onboardingBtn: { backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginBottom: 12 },
+  onboardingBtnText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
+  logoutBtn: { borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, marginTop: 4, marginBottom: 10 },
   logoutText: { color: Colors.sub, fontSize: Typography.body },
+  deleteBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: Colors.danger, marginBottom: 8 },
+  deleteBtnText: { color: Colors.danger, fontSize: Typography.small },
+  themeRow: { flexDirection: 'row', gap: 8 },
+  themeBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.s1 },
+  themeBtnActive: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
+  themeBtnText: { color: Colors.sub, fontSize: Typography.small },
+  themeBtnTextActive: { color: Colors.accent, fontWeight: Typography.medium },
 });

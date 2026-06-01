@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import { useMatchStore } from '../store/useMatchStore';
+import { getPosterUrl } from '../services/tmdb';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   watched:   { label: 'Vista',     color: Colors.accent },
@@ -14,10 +16,11 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const { history } = useMatchStore();
+  const themeColors = useColors();
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: themeColors.bg }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}
       showsVerticalScrollIndicator={false}
     >
@@ -45,9 +48,20 @@ export default function HistoryScreen() {
             </View>
             {entry.recommendations.map(r => {
               const st = STATUS_LABELS[r.groupStatus] ?? STATUS_LABELS.pending;
+              const posterUrl = getPosterUrl(r.posterPath ?? null);
               return (
                 <View key={r.title} style={styles.recRow}>
-                  <Text style={styles.recTitle} numberOfLines={1}>{r.title}</Text>
+                  {posterUrl ? (
+                    <Image source={{ uri: posterUrl }} style={styles.recPoster} />
+                  ) : (
+                    <View style={styles.recPosterPlaceholder}>
+                      <Text style={styles.recPosterEmoji}>{r.type === 'series' ? '📺' : '🎬'}</Text>
+                    </View>
+                  )}
+                  <View style={styles.recInfo}>
+                    <Text style={styles.recTitle} numberOfLines={1}>{r.title}</Text>
+                    <Text style={styles.recMeta}>{r.year} · {r.type === 'series' ? 'Serie' : 'Película'}</Text>
+                  </View>
                   <View style={[styles.badge, { backgroundColor: `${st.color}22`, borderColor: `${st.color}66` }]}>
                     <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
                   </View>
@@ -91,13 +105,18 @@ const styles = StyleSheet.create({
   cardGroup: { color: Colors.sub, fontSize: Typography.small },
   recRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+    gap: 10,
   },
-  recTitle: { color: Colors.text, fontSize: Typography.small, flex: 1, marginRight: 10 },
+  recPoster: { width: 36, height: 52, borderRadius: 4 },
+  recPosterPlaceholder: { width: 36, height: 52, borderRadius: 4, backgroundColor: Colors.s2, alignItems: 'center', justifyContent: 'center' },
+  recPosterEmoji: { fontSize: 16 },
+  recInfo: { flex: 1, gap: 2 },
+  recTitle: { color: Colors.text, fontSize: Typography.small },
+  recMeta: { color: Colors.faint, fontSize: Typography.tiny },
   badge: {
     borderRadius: 6,
     paddingHorizontal: 8,

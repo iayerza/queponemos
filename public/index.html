@@ -3,154 +3,369 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Queponemos — Unirse a sala</title>
+  <title>Queponemos — Encontrá juntos qué ver</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg:       #0D0D0F;
+      --s1:       #141418;
+      --s2:       #1C1C22;
+      --border:   #2A2A2E;
+      --accent:   #C8302A;
+      --coral:    #E8503A;
+      --text:     #F0F0F4;
+      --sub:      #888888;
+      --faint:    #444450;
+    }
+
+    html { scroll-behavior: smooth; }
+
     body {
-      background: #0a0a0f;
-      color: #e8e8f0;
-      font-family: 'DM Sans', -apple-system, sans-serif;
-      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.5;
+    }
+
+    /* ─── Nav ─────────────────────────────── */
+    nav {
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 24px;
+      justify-content: space-between;
+      padding: 20px 40px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 100;
     }
-    .card {
-      background: #16161f;
-      border: 1px solid #222233;
-      border-radius: 20px;
-      padding: 48px 40px;
-      max-width: 420px;
-      width: 100%;
+    .wordmark {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 18px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .wordmark .que { color: var(--text); }
+    .wordmark .ponemos { color: var(--coral); }
+    .venn {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .venn svg { width: 18px; height: 12px; }
+    .nav-cta {
+      background: var(--accent);
+      color: var(--text);
+      border: none;
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: opacity .2s;
+    }
+    .nav-cta:hover { opacity: 0.85; }
+
+    /* ─── Hero ────────────────────────────── */
+    .hero {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 80px 40px 60px;
       text-align: center;
     }
-    .logo {
-      font-size: 40px;
-      margin-bottom: 8px;
-    }
-    .app-name {
-      font-size: 28px;
-      font-weight: 700;
-      color: #e8c547;
-      letter-spacing: -0.5px;
-      margin-bottom: 4px;
-    }
-    .tagline {
-      font-size: 14px;
-      color: #8888aa;
-      margin-bottom: 40px;
-    }
-    .invite-box {
-      background: #111118;
-      border: 1px solid #222233;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 32px;
-    }
-    .invite-label {
-      font-size: 12px;
-      color: #8888aa;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 8px;
-    }
-    .invite-from {
-      font-size: 18px;
-      font-weight: 600;
-      color: #e8e8f0;
-      margin-bottom: 4px;
-    }
-    .invite-sub {
-      font-size: 13px;
-      color: #8888aa;
-    }
-    .code-badge {
+    .hero-badge {
       display: inline-block;
-      background: #e8c54720;
-      color: #e8c547;
-      border: 1px solid #e8c54740;
-      border-radius: 8px;
-      padding: 6px 16px;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: 4px;
-      margin: 16px 0;
-      font-family: monospace;
+      background: rgba(200,48,42,.15);
+      color: var(--accent);
+      border: 1px solid rgba(200,48,42,.3);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
     }
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 60px);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -1px;
+      margin-bottom: 20px;
+    }
+    .hero h1 .highlight { color: var(--coral); }
+    .hero p {
+      font-size: 18px;
+      color: var(--sub);
+      max-width: 480px;
+      margin: 0 auto 40px;
+      line-height: 1.6;
+    }
+    .hero-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
     .btn-primary {
-      display: block;
-      width: 100%;
-      background: #e8c547;
-      color: #0a0a0f;
+      background: var(--accent);
+      color: var(--text);
       border: none;
       border-radius: 12px;
-      padding: 16px;
+      padding: 16px 32px;
       font-size: 16px;
       font-weight: 700;
       cursor: pointer;
       text-decoration: none;
-      margin-bottom: 12px;
-      transition: background 0.2s;
+      transition: opacity .2s;
     }
-    .btn-primary:hover { background: #d4b03d; }
-    .beta-box {
-      display: none;
-      background: #111118;
-      border: 1px solid #e8c54730;
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 16px 20px;
-      margin-top: 16px;
-      text-align: left;
+      padding: 16px 32px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color .2s;
     }
-    .beta-box.visible { display: block; }
-    .beta-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: #e8c547;
-      margin-bottom: 6px;
+    .btn-outline:hover { border-color: var(--sub); }
+
+    /* ─── How it works ───────────────────── */
+    .how {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 60px 40px;
     }
-    .beta-text {
-      font-size: 13px;
-      color: #8888aa;
-      line-height: 1.5;
-    }
-    .store-note {
+    .section-label {
+      text-align: center;
+      color: var(--faint);
       font-size: 12px;
-      color: #4a4a6a;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      text-align: center;
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 48px;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+    }
+    .step {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .step-num {
+      width: 36px; height: 36px;
+      background: rgba(200,48,42,.15);
+      border: 1px solid rgba(200,48,42,.3);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .step h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .step p { font-size: 14px; color: var(--sub); line-height: 1.5; }
+
+    /* ─── Platforms ───────────────────────── */
+    .platforms {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 40px;
+      text-align: center;
+    }
+    .platform-list {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      flex-wrap: wrap;
       margin-top: 24px;
     }
-    #status {
-      font-size: 13px;
-      color: #e8c547;
+    .platform-chip {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--sub);
+    }
+
+    /* ─── Invite section ──────────────────── */
+    .invite-section {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 60px 40px;
+      text-align: center;
+      display: none;
+    }
+    .invite-section.visible { display: block; }
+    .invite-card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px;
+    }
+    .invite-label {
+      font-size: 11px;
+      color: var(--faint);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 12px;
+    }
+    .invite-from {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .invite-sub { font-size: 14px; color: var(--sub); margin-bottom: 24px; }
+    .code-badge {
+      display: inline-block;
+      background: rgba(200,48,42,.12);
+      color: var(--accent);
+      border: 1px solid rgba(200,48,42,.3);
+      border-radius: 10px;
+      padding: 8px 20px;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 5px;
+      font-family: monospace;
+      margin-bottom: 28px;
+    }
+    #status { font-size: 13px; color: var(--accent); margin-top: 12px; min-height: 20px; }
+    .beta-note {
+      display: none;
+      background: var(--s2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
       margin-top: 16px;
-      min-height: 20px;
+      font-size: 13px;
+      color: var(--sub);
+      text-align: left;
+      line-height: 1.5;
+    }
+    .beta-note.visible { display: block; }
+    .beta-note strong { color: var(--accent); }
+
+    /* ─── Footer ──────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 40px;
+      text-align: center;
+      color: var(--faint);
+      font-size: 13px;
+    }
+
+    @media (max-width: 600px) {
+      nav { padding: 16px 20px; }
+      .hero { padding: 60px 20px 40px; }
+      .how, .platforms { padding: 40px 20px; }
+      .invite-section { padding: 40px 20px; }
+      footer { padding: 24px 20px; }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo">🎬</div>
-    <div class="app-name">Queponemos</div>
-    <div class="tagline">Encontrá la película perfecta para ver juntos</div>
 
-    <div class="invite-box">
-      <div class="invite-label">Te invitaron a una sala</div>
+  <nav>
+    <a class="wordmark" href="#">
+      <div class="venn">
+        <svg viewBox="0 0 18 12" fill="none">
+          <circle cx="6" cy="6" r="5.5" fill="white" fill-opacity=".5"/>
+          <circle cx="12" cy="6" r="5.5" fill="white" fill-opacity=".35"/>
+        </svg>
+      </div>
+      <span><span class="que">que</span><span class="ponemos">ponemos</span></span>
+    </a>
+    <a class="nav-cta" href="queponemos://">Abrir app</a>
+  </nav>
+
+  <!-- Invite section (shown only when ?code= is in URL) -->
+  <section class="invite-section" id="invite-section">
+    <div class="invite-card">
+      <div class="invite-label">Te invitaron a un grupo</div>
       <div class="invite-from" id="from-name">Alguien</div>
-      <div class="invite-sub">quiere ver algo con vos esta noche</div>
+      <div class="invite-sub">quiere saber qué ven esta noche</div>
       <div class="code-badge" id="code-display">——</div>
+      <a id="btn-open" class="btn-primary" href="#" style="display:block;width:100%;text-align:center;">Abrir en Queponemos</a>
+      <div id="status"></div>
+      <div id="beta-note" class="beta-note">
+        <strong>¿No tenés la app?</strong><br>
+        Queponemos está en beta. Pedile el instalador a <span id="from-name-2">quien te invitó</span>.
+      </div>
     </div>
+  </section>
 
-    <a id="btn-open" class="btn-primary" href="#">Abrir en Queponemos</a>
+  <!-- Main landing -->
+  <main id="main-landing">
+    <section class="hero">
+      <div class="hero-badge">IA · Grupos · Streaming</div>
+      <h1>Encontrá juntos<br><span class="highlight">qué ver esta noche</span></h1>
+      <p>Queponemos usa IA para recomendar películas y series que le gusten a <em>todos</em> en el grupo, según el mood del momento y las plataformas disponibles.</p>
+      <div class="hero-btns">
+        <a class="btn-primary" href="queponemos://">Abrir en la app</a>
+        <a class="btn-outline" href="#como-funciona">Cómo funciona</a>
+      </div>
+    </section>
 
-    <div id="beta-box" class="beta-box">
-      <div class="beta-title">📲 ¿No tenés la app?</div>
-      <div class="beta-text">Queponemos está en beta cerrada.<br>Pedile el archivo de instalación (.apk) a <strong id="from-name-2">quien te invitó</strong>.</div>
+    <section class="how" id="como-funciona">
+      <div class="section-label">El proceso</div>
+      <div class="section-title">En 3 pasos, el match perfecto</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Calificá títulos</h3>
+          <p>Al entrar, calificás 30 películas y series populares. La IA construye tu perfil de gustos.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>Elegí el mood del grupo</h3>
+          <p>¿Adrenalina? ¿Comedia? ¿Terror? Cada persona elige cómo se siente esta noche.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>Claude recomienda</h3>
+          <p>La IA cruza todos los perfiles y moods y sugiere 3 títulos perfectos para ver juntos.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="platforms">
+      <div class="section-label">Plataformas soportadas</div>
+      <div class="platform-list">
+        <div class="platform-chip">Netflix</div>
+        <div class="platform-chip">Disney+</div>
+        <div class="platform-chip">Max</div>
+        <div class="platform-chip">Prime Video</div>
+        <div class="platform-chip">Apple TV+</div>
+      </div>
     </div>
+  </main>
 
-    <div id="status"></div>
-    <div class="store-note">Queponemos · Beta privada · Solo Android</div>
-  </div>
+  <footer>
+    Queponemos · Beta privada · Hecho con Claude ♥
+  </footer>
 
   <script>
     const params = new URLSearchParams(window.location.search);
@@ -158,31 +373,31 @@
     const from = params.get('from') || '';
 
     if (code) {
+      // Show invite UI, hide main landing
+      document.getElementById('invite-section').classList.add('visible');
+      document.getElementById('main-landing').style.display = 'none';
+
       document.getElementById('code-display').textContent = code;
+
+      if (from) {
+        const name = from.includes('@') ? from.split('@')[0] : from;
+        document.getElementById('from-name').textContent = name;
+        document.getElementById('from-name-2').textContent = name;
+      }
+
+      const deepLink = `queponemos://join?code=${encodeURIComponent(code)}&from=${encodeURIComponent(from)}`;
+      document.getElementById('btn-open').href = deepLink;
+
+      document.getElementById('btn-open').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.getElementById('status').textContent = 'Abriendo Queponemos…';
+        window.location.href = deepLink;
+        setTimeout(() => {
+          document.getElementById('status').textContent = '¿No abrió? Necesitás tener la app instalada.';
+          document.getElementById('beta-note').classList.add('visible');
+        }, 2500);
+      });
     }
-    if (from) {
-      const name = from.includes('@') ? from.split('@')[0] : from;
-      document.getElementById('from-name').textContent = name;
-    }
-
-    const deepLink = `queponemos://join?code=${code}&from=${encodeURIComponent(from)}`;
-
-    document.getElementById('btn-open').href = deepLink;
-
-    if (from) {
-      const displayName = from.includes('@') ? from.split('@')[0] : from;
-      document.getElementById('from-name-2').textContent = displayName;
-    }
-
-    document.getElementById('btn-open').addEventListener('click', function(e) {
-      e.preventDefault();
-      document.getElementById('status').textContent = 'Abriendo Queponemos...';
-      window.location.href = deepLink;
-      setTimeout(() => {
-        document.getElementById('status').textContent = '¿No abrió? Necesitás tener la app instalada.';
-        document.getElementById('beta-box').classList.add('visible');
-      }, 2500);
-    });
   </script>
 </body>
 </html>

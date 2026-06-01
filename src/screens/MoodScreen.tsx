@@ -10,7 +10,7 @@ import { Colors, Typography } from '../constants/colors';
 import { useMatchStore } from '../store/useMatchStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
-import { setSessionMood, onGroupChange } from '../services/firebase';
+import { setSessionMood, onGroupChange, clearGroupSession } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import type { MoodId } from '../services/claude';
 
@@ -105,6 +105,7 @@ export default function MoodScreen() {
   const [myMood,      setMyMood]      = useState<MoodId | null>(null);
   const [sessionMoods, setSessionMoods] = useState<Record<string, MoodId>>({});
   const [navigating,  setNavigating]  = useState(false);
+  const [showSkip,    setShowSkip]    = useState(false);
 
   const myStoredMood  = user ? (sessionMoods[user.uid] ?? null) : null;
   const partnerMood   = partnerUid ? (sessionMoods[partnerUid] ?? null) : null;
@@ -112,6 +113,15 @@ export default function MoodScreen() {
 
   const myMoodData      = (myMood ?? myStoredMood) ? MOODS.find(m => m.id === (myMood ?? myStoredMood)) : null;
   const partnerMoodData = partnerMood ? MOODS.find(m => m.id === partnerMood) : null;
+
+  // Clear previous session moods when entering this screen
+  useEffect(() => {
+    const { clearMoods } = useMatchStore.getState();
+    clearMoods();
+    if (!USE_MOCK && user && currentGroup?.createdBy === user.uid) {
+      clearGroupSession(groupId).catch(() => {});
+    }
+  }, []);
 
   // Listen to Firestore session moods
   useEffect(() => {
@@ -122,6 +132,13 @@ export default function MoodScreen() {
     });
     return unsub;
   }, [groupId]);
+
+  // Show skip button after 30s of waiting for partner
+  useEffect(() => {
+    if (!myMood || isSolo) return;
+    const timer = setTimeout(() => setShowSkip(true), 30_000);
+    return () => clearTimeout(timer);
+  }, [myMood, isSolo]);
 
   // When both moods ready → sync to MatchStore and navigate
   useEffect(() => {
@@ -191,12 +208,21 @@ export default function MoodScreen() {
           </View>
 
           <MoodCard
-            label="ÉL / ELLA"
+            label="EL GRUPO"
             emoji={partnerMoodData?.emoji ?? '⏳'}
             moodLabel={partnerMoodData?.label ?? 'Eligiendo…'}
             waiting={!partnerMood}
           />
         </View>
+
+        {showSkip && !allReady && (
+          <TouchableOpacity
+            style={styles.skipBtn}
+            onPress={() => nav.navigate('Matching', { groupId })}
+          >
+            <Text style={styles.skipText}>Omitir y continuar solo</Text>
+          </TouchableOpacity>
+        )}
 
         {allReady && (
           <View style={styles.readyBadge}>
@@ -321,4 +347,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   readySub: { color: Colors.sub, fontSize: Typography.small, textAlign: 'center', lineHeight: 18 },
+  skipBtn: { marginTop: 24, alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 20 },
+  skipText: { color: Colors.faint, fontSize: Typography.small, textDecorationLine: 'underline' },
 });

@@ -12,6 +12,7 @@ import {
 } from '@expo-google-fonts/dm-sans';
 import RootNavigator from './src/navigation/RootNavigator';
 import { Colors } from './src/constants/colors';
+import { ThemeProvider } from './src/context/ThemeContext';
 
 export default function App() {
   const [fontsLoaded] = useFonts({ DMSans_400Regular, DMSans_500Medium });
@@ -24,10 +25,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <NavigationContainer>
-          <StatusBar style="light" />
-          <RootNavigator />
-        </NavigationContainer>
+        <ThemeProvider>
+          <NavigationContainer>
+            <StatusBar style="auto" />
+            <RootNavigator />
+          </NavigationContainer>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -6,12 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import { LogoWordmark } from '../components/Logo';
 import GroupCard from '../components/GroupCard';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
 import type { RootStackParamList } from '../navigation/types';
 import { createGroup, joinGroupByCode } from '../services/firebase';
+import QRScanner from '../components/QRScanner';
 import { PLATFORMS } from '../constants/platforms';
 import type { PlatformId } from '../constants/platforms';
 import { MOCK_GROUP } from '../utils/mock';
@@ -25,6 +27,7 @@ export default function HomeScreen() {
   const nav    = useNavigation<Nav>();
   const { user } = useAuthStore();
   const { groups, addGroup, setCurrentGroup } = useGroupStore();
+  const themeColors = useColors();
 
   const [createModal, setCreateModal] = useState(false);
   const [joinModal,   setJoinModal]   = useState(false);
@@ -32,6 +35,7 @@ export default function HomeScreen() {
   const [joinCode,  setJoinCode]      = useState('');
   const [selPlatforms, setSelPlatforms] = useState<PlatformId[]>(['netflix']);
   const [working, setWorking] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
 
   const topGenres = Object.entries(user?.tasteProfile?.genres ?? {})
     .sort(([, a], [, b]) => b - a)
@@ -77,6 +81,12 @@ export default function HomeScreen() {
     }
   }
 
+  async function handleScannedCode(code: string) {
+    setScannerVisible(false);
+    setJoinCode(code);
+    setJoinModal(true);
+  }
+
   async function handleJoin() {
     if (!joinCode.trim() || !user) return;
     setWorking(true);
@@ -104,7 +114,7 @@ export default function HomeScreen() {
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: themeColors.bg }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}
       showsVerticalScrollIndicator={false}
     >
@@ -213,6 +223,12 @@ export default function HomeScreen() {
               autoCapitalize="characters"
             />
             <TouchableOpacity
+              style={styles.qrBtn}
+              onPress={() => { setJoinModal(false); setScannerVisible(true); }}
+            >
+              <Text style={styles.qrBtnText}>Escanear QR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={styles.hintTouchable}
               onPress={() => setJoinCode('SM7VK2')}
             >
@@ -233,6 +249,12 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      <QRScanner
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onScan={handleScannedCode}
+      />
     </ScrollView>
   );
 }
@@ -378,6 +400,15 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: { color: Colors.text, fontWeight: Typography.bold },
   btnDisabled: { opacity: 0.4 },
-  hintTouchable: { marginTop: 10, marginBottom: 4 },
-  hintText: { color: Colors.accent, fontSize: Typography.small },
+  hintTouchable: { marginTop: 4, marginBottom: 4 },
+  hintText: { color: Colors.faint, fontSize: Typography.small },
+  qrBtn: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  qrBtnText: { color: Colors.accent, fontSize: Typography.body, fontWeight: '500' },
 });

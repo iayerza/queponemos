@@ -1,40 +1,64 @@
 // ─── Queponemos Design Tokens ────────────────────────────────────────────────
-// Blueprint V1.0 — Modo oscuro es el default
 
-export const Colors = {
-  // Fondos
-  bg:  '#0D0D0F',   // BG_DARK — fondo principal
-  s1:  '#1C1C20',   // SURFACE — cards y superficies
-  s2:  '#252528',   // SURFACE_2 — superficies secundarias
-  s3:  '#141418',   // SURFACE_3 — dentro de cards
+export interface ColorPalette {
+  bg: string; s1: string; s2: string; s3: string;
+  border: string; border2: string;
+  accent: string; accentFaint: string; accentBorder: string;
+  coral: string;
+  text: string; sub: string; faint: string;
+  success: string; warning: string; danger: string; dangerFaint: string;
+  redBg: string; redSubtle: string;
+  isDark: boolean;
+}
 
-  // Bordes
-  border:  '#2A2A2E',           // borde estándar
-  border2: '#3A2020',           // borde en contexto rojo/alerta
-
-  // Brand — Rojo Quepo (SOLO para CTAs, logo y scores)
+export const darkColors: ColorPalette = {
+  bg:  '#0D0D0F',
+  s1:  '#1C1C20',
+  s2:  '#252528',
+  s3:  '#141418',
+  border:  '#2A2A2E',
+  border2: '#3A2020',
   accent:       '#C8302A',
   accentFaint:  'rgba(200,48,42,0.15)',
   accentBorder: 'rgba(200,48,42,0.4)',
-
-  // Coral (gradientes, highlights secundarios)
   coral: '#E8503A',
-
-  // Texto
   text:  '#FFFFFF',
-  sub:   '#888888',   // texto secundario
-  faint: '#555555',   // hints, labels
-
-  // Estados
+  sub:   '#888888',
+  faint: '#555555',
   success: '#1D9E75',
   warning: '#BA7517',
   danger:  '#C8302A',
   dangerFaint: 'rgba(200,48,42,0.15)',
+  redBg:     '#1A1014',
+  redSubtle: 'rgba(200,48,42,0.12)',
+  isDark: true,
+};
 
-  // Contextos especiales
-  redBg:     '#1A1014',               // background cards de alerta
-  redSubtle: 'rgba(200,48,42,0.12)',  // match score background
-} as const;
+export const lightColors: ColorPalette = {
+  bg:  '#F5F5F7',
+  s1:  '#FFFFFF',
+  s2:  '#EBEBED',
+  s3:  '#F0F0F2',
+  border:  '#DADADE',
+  border2: '#F5D5D3',
+  accent:       '#C8302A',
+  accentFaint:  'rgba(200,48,42,0.10)',
+  accentBorder: 'rgba(200,48,42,0.35)',
+  coral: '#E8503A',
+  text:  '#111114',
+  sub:   '#666670',
+  faint: '#AAAABC',
+  success: '#1D9E75',
+  warning: '#BA7517',
+  danger:  '#C8302A',
+  dangerFaint: 'rgba(200,48,42,0.10)',
+  redBg:     '#FFF0F0',
+  redSubtle: 'rgba(200,48,42,0.08)',
+  isDark: false,
+};
+
+// Default dark export for backward compat (static stylesheets, components)
+export const Colors = darkColors;
 
 // ─── Tipografía ───────────────────────────────────────────────────────────────
 // Regla: solo pesos 400 y 500. Nunca 600, 700 ni 900.

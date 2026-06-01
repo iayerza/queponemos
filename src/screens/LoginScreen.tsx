@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  ActivityIndicator, TextInput, KeyboardAvoidingView, Platform,
+  ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { Colors, Typography } from '../constants/colors';
 import { LogoMark } from '../components/Logo';
 import { useAuthStore } from '../store/useAuthStore';
-import { loginWithEmailUser, getApp } from '../services/firebase';
+import { loginWithEmailUser, getApp, sendPasswordReset } from '../services/firebase';
 import { MOCK_USER } from '../utils/mock';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
@@ -67,6 +67,8 @@ export default function LoginScreen() {
       if (isSignUp) {
         cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         if (name.trim()) await updateProfile(cred.user, { displayName: name.trim() });
+        // Send verification email silently
+        try { await sendEmailVerification(cred.user); } catch { /* non-blocking */ }
       } else {
         cred = await signInWithEmailAndPassword(auth, email.trim(), password);
       }
@@ -82,6 +84,19 @@ export default function LoginScreen() {
         setError('La contraseña necesita al menos 6 caracteres');
       else
         setError('Error al autenticar');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) { setError('Ingresá tu email primero'); return; }
+    setLoading(true);
+    try {
+      await sendPasswordReset(email.trim());
+      Alert.alert('Email enviado', `Revisá ${email.trim()} para restablecer tu contraseña.`);
+    } catch {
+      setError('No se pudo enviar el email. Verificá la dirección.');
     } finally {
       setLoading(false);
     }
@@ -175,6 +190,12 @@ export default function LoginScreen() {
           </Text>
         </TouchableOpacity>
 
+        {!isSignUp && (
+          <TouchableOpacity style={styles.forgotBtn} onPress={handleForgotPassword}>
+            <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
+          </TouchableOpacity>
+        )}
+
         <Text style={styles.legal}>
           Al continuar, aceptás los Términos y la Política de privacidad.
         </Text>
@@ -182,6 +203,8 @@ export default function LoginScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+const Radius_md = 12;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg },
@@ -266,12 +289,14 @@ const styles = StyleSheet.create({
     fontWeight: Typography.medium,
     fontSize: Typography.body,
   },
-  toggleBtn: { alignItems: 'center', paddingVertical: 8, marginBottom: 20 },
+  toggleBtn: { alignItems: 'center', paddingVertical: 8, marginBottom: 8 },
   toggleText: {
     fontFamily: Typography.fontRegular,
     color: Colors.accent,
     fontSize: Typography.small,
   },
+  forgotBtn: { alignItems: 'center', paddingVertical: 6, marginBottom: 16 },
+  forgotText: { fontFamily: Typography.fontRegular, color: Colors.faint, fontSize: Typography.small, textDecorationLine: 'underline' },
   legal: {
     fontFamily: Typography.fontRegular,
     fontSize: 11,
@@ -280,6 +305,3 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
 });
-
-// Radius inline (avoid import overhead para este archivo)
-const Radius_md = 12;

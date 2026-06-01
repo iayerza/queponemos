@@ -1,9 +1,10 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import ResultCard from '../components/ResultCard';
 import { useMatchStore } from '../store/useMatchStore';
 import { useGroupStore } from '../store/useGroupStore';
@@ -19,8 +20,16 @@ export default function ResultsScreen() {
   const nav    = useNavigation<Nav>();
   const { currentMatch, currentMatchId, updateTitleAction } = useMatchStore();
   const { currentGroup } = useGroupStore();
+  const themeColors = useColors();
+  const fadeAnims = useRef(
+    Array.from({ length: 3 }, () => new Animated.Value(1))
+  ).current;
 
   async function handleAction(idx: number, status: Recommendation['groupStatus']) {
+    const anim = fadeAnims[idx];
+    if (anim) {
+      Animated.timing(anim, { toValue: 0.3, duration: 200, useNativeDriver: true }).start();
+    }
     updateTitleAction(0, idx, status);
     if (!USE_MOCK && currentMatchId) {
       const rec = currentMatch?.recommendations[idx];
@@ -56,7 +65,7 @@ export default function ResultsScreen() {
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: themeColors.bg }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 24 }]}
       showsVerticalScrollIndicator={false}
     >
@@ -74,11 +83,12 @@ export default function ResultsScreen() {
       ) : null}
 
       {currentMatch.recommendations.map((rec, i) => (
-        <ResultCard
-          key={`${rec.title}-${i}`}
-          rec={rec}
-          onAction={status => handleAction(i, status)}
-        />
+        <Animated.View key={`${rec.title}-${i}`} style={{ opacity: fadeAnims[i] }}>
+          <ResultCard
+            rec={rec}
+            onAction={status => handleAction(i, status)}
+          />
+        </Animated.View>
       ))}
 
       <TouchableOpacity

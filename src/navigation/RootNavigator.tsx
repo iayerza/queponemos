@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
-import { onAuthChange, getUserGroups } from '../services/firebase';
+import { useMatchStore } from '../store/useMatchStore';
+import { onAuthChange, getUserGroups, getUserHistory } from '../services/firebase';
+import { registerPushToken } from '../services/notifications';
 import { MOCK_USER, MOCK_GROUP } from '../utils/mock';
 import AppTabs from './AppTabs';
 import SplashScreen   from '../screens/SplashScreen';
@@ -21,6 +23,7 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 export default function RootNavigator() {
   const { user, isLoading, setUser, setLoading } = useAuthStore();
   const { setGroups, addGroup } = useGroupStore();
+  const { setHistory } = useMatchStore();
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
@@ -35,8 +38,13 @@ export default function RootNavigator() {
       setUser(u);
       if (u) {
         try {
-          const groups = await getUserGroups(u.uid);
+          const [groups, history] = await Promise.all([
+            getUserGroups(u.uid),
+            getUserHistory(u.uid),
+          ]);
           setGroups(groups);
+          if (history.length > 0) setHistory(history);
+          registerPushToken(u.uid).catch(() => {});
         } catch { /* silenciar */ }
       }
     });

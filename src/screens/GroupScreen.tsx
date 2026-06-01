@@ -12,7 +12,8 @@ import InviteModal from '../components/InviteModal';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { PLATFORMS, getPlatform, type PlatformId } from '../constants/platforms';
-import { updateGroupPlatforms, deleteGroup, fetchMemberNames } from '../services/firebase';
+import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange } from '../services/firebase';
+import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import { MOCK_GROUP, MOCK_USERS } from '../utils/mock';
 
@@ -28,13 +29,25 @@ export default function GroupScreen() {
   const { user } = useAuthStore();
   const { groups, setCurrentGroup, addMemberToGroup, pendingInvites, updateGroup, removeGroup } = useGroupStore();
 
-  const group = groups.find(g => g.id === route.params.groupId) ?? MOCK_GROUP;
+  const baseGroup = groups.find(g => g.id === route.params.groupId) ?? MOCK_GROUP;
+  const [liveGroup, setLiveGroup] = useState(baseGroup);
+  const group = liveGroup;
   const [inviteVisible,    setInviteVisible]    = useState(false);
   const [platformsVisible, setPlatformsVisible] = useState(false);
   const [editPlatforms,    setEditPlatforms]    = useState<PlatformId[]>(group.platforms);
   const [savingPlatforms,  setSavingPlatforms]  = useState(false);
   const [deleting,         setDeleting]         = useState(false);
   const [memberNames,      setMemberNames]       = useState<Record<string, string>>({});
+
+  // Real-time group listener
+  useEffect(() => {
+    if (USE_MOCK) return;
+    const unsub = onGroupChange(route.params.groupId, updated => {
+      setLiveGroup(updated);
+      updateGroup(updated.id, updated);
+    });
+    return unsub;
+  }, [route.params.groupId]);
 
   // Cargar nombres reales de Firestore
   useEffect(() => {
@@ -55,9 +68,15 @@ export default function GroupScreen() {
     Alert.alert('Copiado', 'Código copiado al portapapeles');
   }
 
-  function handleFindMatch() {
+  async function handleFindMatch() {
     setCurrentGroup(group);
     nav.navigate('Mood', { groupId: group.id });
+    if (!USE_MOCK && user) {
+      try {
+        const tokens = await getGroupMemberTokens(group.members, user.uid);
+        if (tokens.length > 0) await sendGroupVoteNotification(tokens, group.name);
+      } catch { /* non-blocking */ }
+    }
   }
 
   function handleSimulateAccept() {
