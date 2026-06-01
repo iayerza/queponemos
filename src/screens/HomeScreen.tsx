@@ -305,7 +305,7 @@ export default function HomeScreen() {
               style={styles.hintTouchable}
               onPress={() => setJoinCode('SM7VK2')}
             >
-              <Text style={styles.hintText}>💡 Demo: probá con SM7VK2</Text>
+              <Text style={styles.hintText}>Demo: probá con SM7VK2</Text>
             </TouchableOpacity>
             <View style={styles.modalBtns}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setJoinModal(false)}>

@@ -282,7 +282,7 @@ export default function MoodScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: themeColors.bg }]}>
       <TouchableOpacity style={styles.back} onPress={() => nav.goBack()}>
-        <Text style={styles.backText}>← VOLVER</Text>
+        <Feather name="arrow-left" size={18} color={Colors.sub} />
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -319,8 +319,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg },
 
   // Picking
-  back:     { paddingHorizontal: 24, paddingVertical: 12 },
-  backText: { color: Colors.sub, fontSize: Typography.tiny, fontWeight: Typography.semibold, letterSpacing: 1 },
+  back: { paddingHorizontal: 24, paddingVertical: 12, alignSelf: 'flex-start' },
   scroll:   { paddingHorizontal: 24, paddingBottom: 40 },
   title: {
     color: Colors.text,

@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -76,7 +77,11 @@ export default function PostViewScreen() {
         <View style={styles.starsRow}>
           {STARS.map(s => (
             <TouchableOpacity key={s} onPress={() => setRating(s)} activeOpacity={0.7}>
-              <Text style={[styles.star, s <= rating && styles.starActive]}>★</Text>
+              <FontAwesome
+                name={s <= rating ? 'star' : 'star-o'}
+                size={38}
+                color={s <= rating ? Colors.accent : Colors.border}
+              />
             </TouchableOpacity>
           ))}
         </View>
@@ -102,7 +107,8 @@ export default function PostViewScreen() {
         {/* Acciones */}
         {saved ? (
           <View style={styles.savedBox}>
-            <Text style={styles.savedText}>✓ Guardado</Text>
+            <Feather name="check-circle" size={32} color={Colors.accent} />
+          <Text style={styles.savedText}>Guardado</Text>
           </View>
         ) : (
           <>
@@ -175,9 +181,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 12,
   },
-  starsRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  star: { fontSize: 40, color: Colors.border },
-  starActive: { color: Colors.accent },
+  starsRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
   ratingLabel: { color: Colors.accent, fontSize: Typography.small, fontWeight: Typography.medium, marginBottom: 4 },
   input: {
     backgroundColor: Colors.s1,
@@ -213,6 +217,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     alignItems: 'center',
     paddingVertical: 16,
+    gap: 10,
   },
-  savedText: { color: Colors.accent, fontSize: Typography.h3, fontWeight: Typography.bold },
+  savedText: { color: Colors.accent, fontSize: Typography.body, fontWeight: Typography.medium },
 });

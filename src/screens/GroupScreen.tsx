@@ -7,6 +7,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
+import Feather from '@expo/vector-icons/Feather';
 import MemberChip from '../components/MemberChip';
 import InviteModal from '../components/InviteModal';
 import { useGroupStore } from '../store/useGroupStore';
@@ -143,7 +144,7 @@ export default function GroupScreen() {
       showsVerticalScrollIndicator={false}
     >
       <TouchableOpacity style={styles.back} onPress={() => nav.goBack()}>
-        <Text style={styles.backText}>← VOLVER</Text>
+        <Feather name="arrow-left" size={18} color={Colors.sub} />
       </TouchableOpacity>
 
       <Text style={styles.eyebrow}>GRUPO</Text>
@@ -272,8 +273,7 @@ export default function GroupScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg },
   content: { paddingHorizontal: 24 },
-  back: { marginBottom: 20 },
-  backText: { color: Colors.sub, fontSize: Typography.tiny, fontWeight: Typography.semibold, letterSpacing: 1 },
+  back: { marginBottom: 20, alignSelf: 'flex-start', padding: 4 },
   eyebrow: { color: Colors.sub, fontSize: Typography.tiny, letterSpacing: 2, marginBottom: 6 },
   title: { color: Colors.text, fontSize: Typography.hero, fontWeight: Typography.black, marginBottom: 20 },
   members: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 24 },
