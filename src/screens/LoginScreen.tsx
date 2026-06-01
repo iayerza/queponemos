@@ -114,7 +114,7 @@ export default function LoginScreen() {
         <View style={styles.visualFade} />
         <View style={styles.visualContent}>
           <LogoMark size={28} />
-          <Text style={styles.headline}>La peli{'\n'}para los dos.</Text>
+          <Text style={styles.headline}>La peli{'\n'}para hoy.</Text>
           <Text style={styles.sub}>
             Encontrá lo que quieren ver juntos{'\n'}en 30 segundos.
           </Text>

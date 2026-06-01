@@ -53,7 +53,7 @@ export default function SplashScreen({ onComplete }: Props) {
       </Animated.Text>
 
       <Animated.Text style={[styles.tagline, { opacity: taglineOpacity }]}>
-        La peli para los dos.
+        La peli para hoy.
       </Animated.Text>
     </View>
   );
