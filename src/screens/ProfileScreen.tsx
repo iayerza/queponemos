@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -7,9 +7,11 @@ import { Colors, Typography } from '../constants/colors';
 import { useColors } from '../context/ThemeContext';
 import { LogoWordmark } from '../components/Logo';
 import { useAuthStore } from '../store/useAuthStore';
-import { logout, deleteUserData } from '../services/firebase';
+import { logout, deleteUserData, updateUserPlatforms } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import { useTheme, type ThemePreference } from '../context/ThemeContext';
+import { PLATFORMS } from '../constants/platforms';
+import type { PlatformId } from '../constants/platforms';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
@@ -17,9 +19,12 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<Nav>();
-  const { user, setUser } = useAuthStore();
+  const { user, setUser, setPlatforms } = useAuthStore();
   const { preference, setPreference } = useTheme();
   const themeColors = useColors();
+
+  const [selPlatforms, setSelPlatforms] = useState<PlatformId[]>(user?.platforms ?? []);
+  const [savingPlatforms, setSavingPlatforms] = useState(false);
 
   const THEME_OPTIONS: { key: ThemePreference; label: string }[] = [
     { key: 'dark',   label: 'Oscuro' },
@@ -68,6 +73,23 @@ export default function ProfileScreen() {
         },
       ],
     );
+  }
+
+  async function handleSavePlatforms() {
+    if (!user) return;
+    setSavingPlatforms(true);
+    try {
+      if (!USE_MOCK) await updateUserPlatforms(user.uid, selPlatforms);
+      setPlatforms(selPlatforms);
+    } catch {
+      Alert.alert('Error', 'No se pudieron guardar las plataformas.');
+    } finally {
+      setSavingPlatforms(false);
+    }
+  }
+
+  function togglePlatform(id: PlatformId) {
+    setSelPlatforms(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
   }
 
   const initial = user?.displayName?.[0]?.toUpperCase() ?? '?';
@@ -149,6 +171,35 @@ export default function ProfileScreen() {
         ))}
       </View>
 
+      {/* Plataformas */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Tus plataformas</Text>
+        <Text style={styles.sectionSub}>Usadas en el modo solo</Text>
+        <View style={styles.platformGrid}>
+          {PLATFORMS.map(p => (
+            <TouchableOpacity
+              key={p.id}
+              style={[styles.platformChip, selPlatforms.includes(p.id) && styles.platformChipSelected]}
+              onPress={() => togglePlatform(p.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.platformEmoji}>{p.emoji}</Text>
+              <Text style={[styles.platformName, selPlatforms.includes(p.id) && styles.platformNameSelected]}>{p.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {JSON.stringify(selPlatforms) !== JSON.stringify(user?.platforms ?? []) && (
+          <TouchableOpacity
+            style={[styles.savePlatformsBtn, savingPlatforms && styles.btnDisabled]}
+            onPress={handleSavePlatforms}
+            disabled={savingPlatforms}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.savePlatformsBtnText}>{savingPlatforms ? 'Guardando…' : 'Guardar plataformas'}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {/* Tema */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Tema</Text>
@@ -218,6 +269,25 @@ const styles = StyleSheet.create({
   logoutText: { color: Colors.sub, fontSize: Typography.body },
   deleteBtn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: Colors.danger, marginBottom: 8 },
   deleteBtnText: { color: Colors.danger, fontSize: Typography.small },
+  platformGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  platformChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.s2,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  platformChipSelected: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
+  platformEmoji: { fontSize: 14 },
+  platformName: { color: Colors.sub, fontSize: Typography.small },
+  platformNameSelected: { color: Colors.accent, fontWeight: Typography.medium },
+  savePlatformsBtn: { backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  savePlatformsBtnText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
+  btnDisabled: { opacity: 0.4 },
   themeRow: { flexDirection: 'row', gap: 8 },
   themeBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.s1 },
   themeBtnActive: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },

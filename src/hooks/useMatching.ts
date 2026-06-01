@@ -15,20 +15,21 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 export function useMatching() {
   const [error, setError] = useState<string | null>(null);
 
-  const { user }                   = useAuthStore();
-  const { currentGroup }           = useGroupStore();
-  const { moods, setCurrentMatch } = useMatchStore();
+  const { user }                          = useAuthStore();
+  const { currentGroup }                  = useGroupStore();
+  const { moods, setCurrentMatch, isSolo } = useMatchStore();
 
   // The group creator is always the "leader" who calls Claude.
-  const isLeader = !currentGroup || user?.uid === currentGroup.createdBy;
+  const isLeader = isSolo || !currentGroup || user?.uid === currentGroup.createdBy;
 
   const runMatch = useCallback(async (): Promise<string | null> => {
-    if (!user || !currentGroup) return null;
+    if (!user) return null;
+    if (!isSolo && !currentGroup) return null;
     setError(null);
 
     try {
       // ── Follower path: wait for leader to produce a matchId ────────────────
-      if (!isLeader && !USE_MOCK) {
+      if (!isLeader && !USE_MOCK && currentGroup) {
         const matchId = await pollForMatchId(currentGroup.id);
         if (!matchId) throw new Error('El tiempo de espera agotó. Intentá de nuevo.');
 
@@ -42,16 +43,24 @@ export function useMatching() {
         return matchId;
       }
 
-      // ── Leader path: call Claude, save, broadcast matchId ─────────────────
+      // ── Leader / Solo path: call Claude, save, broadcast matchId ──────────
+      const platforms = isSolo
+        ? (user.platforms ?? ['netflix'])
+        : (currentGroup?.platforms ?? ['netflix']);
+
+      const members = isSolo
+        ? [user.uid]
+        : (currentGroup?.members ?? [user.uid]);
+
       const memberProfiles: UserProfile[] = await Promise.all(
-        currentGroup.members.map(async uid => {
+        members.map(async uid => {
           if (uid === user.uid) return user;
           if (USE_MOCK) {
             const { MOCK_USERS } = await import('../utils/mock');
-            return MOCK_USERS[uid] ?? { uid, email: '', displayName: 'Compañero', photoURL: null, ratings: {}, tasteProfile: { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] }, onboardingDone: true };
+            return MOCK_USERS[uid] ?? { uid, email: '', displayName: 'Compañero', photoURL: null, ratings: {}, tasteProfile: { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] }, onboardingDone: true, platforms: [] };
           }
           const profile = await getUserProfile(uid);
-          return profile ?? { uid, email: '', displayName: 'Compañero', photoURL: null, ratings: {}, tasteProfile: { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] }, onboardingDone: true };
+          return profile ?? { uid, email: '', displayName: 'Compañero', photoURL: null, ratings: {}, tasteProfile: { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] }, onboardingDone: true, platforms: [] };
         })
       );
 
@@ -62,9 +71,8 @@ export function useMatching() {
         const mockOut = mockMatching({
           users:     memberProfiles,
           moods:     moods as Record<string, MoodId>,
-          platforms: currentGroup.platforms,
+          platforms,
         });
-        // Enriquecer mock con pósters TMDB si hay API key
         if (process.env.EXPO_PUBLIC_TMDB_API_KEY) {
           const { fetchTitle } = await import('../services/tmdb');
           const enriched = await Promise.all(
@@ -84,29 +92,32 @@ export function useMatching() {
         output = await runMatching({
           users:     memberProfiles,
           moods:     moods as Record<string, MoodId>,
-          platforms: currentGroup.platforms,
+          platforms,
         });
       }
 
       let matchId = `local-${Date.now()}`;
 
       if (!USE_MOCK) {
-        matchId = await saveMatch(
-          currentGroup.id,
-          currentGroup.members,
-          output.recommendations,
-          moods as Record<string, MoodId>,
-        );
-        // Signal the follower that results are ready
-        await setSessionMatchId(currentGroup.id, matchId);
+        if (isSolo) {
+          matchId = `solo-${Date.now()}`;
+        } else if (currentGroup) {
+          matchId = await saveMatch(
+            currentGroup.id,
+            members,
+            output.recommendations,
+            moods as Record<string, MoodId>,
+          );
+          await setSessionMatchId(currentGroup.id, matchId);
+        }
       }
 
       setCurrentMatch(output, matchId);
 
       const historyEntry = {
         matchId,
-        groupId: currentGroup.id,
-        groupName: currentGroup.name,
+        groupId: isSolo ? `solo-${user.uid}` : (currentGroup?.id ?? 'solo'),
+        groupName: isSolo ? 'Solo' : (currentGroup?.name ?? 'Solo'),
         createdAt: Date.now(),
         recommendations: output.recommendations,
         moods: moods as Record<string, MoodId>,
@@ -116,10 +127,12 @@ export function useMatching() {
       addToHistory(historyEntry);
 
       if (!USE_MOCK) {
-        // Persist to Firestore for all group members
-        await Promise.all(
-          currentGroup.members.map(uid => addMatchToUserHistory(uid, historyEntry))
-        );
+        await addMatchToUserHistory(user.uid, historyEntry);
+        if (!isSolo && currentGroup) {
+          await Promise.all(
+            members.filter(uid => uid !== user.uid).map(uid => addMatchToUserHistory(uid, historyEntry))
+          );
+        }
       }
 
       return matchId;
@@ -128,7 +141,7 @@ export function useMatching() {
       setError(String(e));
       return null;
     }
-  }, [user, currentGroup, moods, isLeader]);
+  }, [user, currentGroup, moods, isLeader, isSolo]);
 
   return { runMatch, error, isLeader };
 }

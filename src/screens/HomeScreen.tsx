@@ -12,7 +12,7 @@ import GroupCard from '../components/GroupCard';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
 import type { RootStackParamList } from '../navigation/types';
-import { createGroup, joinGroupByCode } from '../services/firebase';
+import { createGroup, joinGroupByCode, updateUserPlatforms } from '../services/firebase';
 import QRScanner from '../components/QRScanner';
 import { PLATFORMS } from '../constants/platforms';
 import type { PlatformId } from '../constants/platforms';
@@ -29,6 +29,8 @@ export default function HomeScreen() {
   const { groups, addGroup, setCurrentGroup } = useGroupStore();
   const themeColors = useColors();
 
+  const { setPlatforms } = useAuthStore();
+
   const [createModal, setCreateModal] = useState(false);
   const [joinModal,   setJoinModal]   = useState(false);
   const [groupName, setGroupName]     = useState('');
@@ -36,6 +38,8 @@ export default function HomeScreen() {
   const [selPlatforms, setSelPlatforms] = useState<PlatformId[]>(['netflix']);
   const [working, setWorking] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
+  const [soloPlatformModal, setSoloPlatformModal] = useState(false);
+  const [soloPlatforms, setSoloPlatforms] = useState<PlatformId[]>([]);
 
   const topGenres = Object.entries(user?.tasteProfile?.genres ?? {})
     .sort(([, a], [, b]) => b - a)
@@ -81,6 +85,26 @@ export default function HomeScreen() {
     }
   }
 
+  function handleSoloPress() {
+    const hasPlatforms = (user?.platforms ?? []).length > 0;
+    if (hasPlatforms) {
+      nav.navigate('Mood', { solo: true });
+    } else {
+      setSoloPlatforms(['netflix']);
+      setSoloPlatformModal(true);
+    }
+  }
+
+  async function handleSoloPlatformSave() {
+    if (!user || soloPlatforms.length === 0) return;
+    try {
+      if (!USE_MOCK) await updateUserPlatforms(user.uid, soloPlatforms);
+      setPlatforms(soloPlatforms);
+    } catch { /* silenciar */ }
+    setSoloPlatformModal(false);
+    nav.navigate('Mood', { solo: true });
+  }
+
   async function handleScannedCode(code: string) {
     setScannerVisible(false);
     setJoinCode(code);
@@ -123,6 +147,18 @@ export default function HomeScreen() {
         <LogoWordmark markSize={20} />
       </View>
       <Text style={styles.headline}>¿QuePonemos hoy?</Text>
+
+      {/* Solo card */}
+      <TouchableOpacity style={styles.soloCard} onPress={handleSoloPress} activeOpacity={0.85}>
+        <View style={styles.soloCardInner}>
+          <Text style={styles.soloCardEmoji}>🎬</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.soloCardTitle}>¿Qué ves hoy?</Text>
+            <Text style={styles.soloCardSub}>Modo solo · tus plataformas · tu mood</Text>
+          </View>
+          <Text style={styles.soloCardArrow}>→</Text>
+        </View>
+      </TouchableOpacity>
 
       {/* Grupos */}
       <View style={styles.section}>
@@ -250,6 +286,40 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
+      {/* Modal plataformas solo */}
+      <Modal visible={soloPlatformModal} transparent animationType="slide" onRequestClose={() => setSoloPlatformModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modal}>
+            <Text style={styles.modalTitle}>¿En qué plataformas estás?</Text>
+            <Text style={styles.modalSubtitle}>Seleccioná las que tenés para que Claude te recomiende algo disponible</Text>
+            <View style={styles.platformGrid}>
+              {PLATFORMS.map(p => (
+                <TouchableOpacity
+                  key={p.id}
+                  style={[styles.platformChip, soloPlatforms.includes(p.id) && styles.platformChipSelected]}
+                  onPress={() => setSoloPlatforms(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])}
+                >
+                  <Text style={styles.platformEmoji}>{p.emoji}</Text>
+                  <Text style={styles.platformName}>{p.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setSoloPlatformModal(false)}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmBtn, soloPlatforms.length === 0 && styles.btnDisabled]}
+                onPress={handleSoloPlatformSave}
+                disabled={soloPlatforms.length === 0}
+              >
+                <Text style={styles.confirmBtnText}>Continuar →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <QRScanner
         visible={scannerVisible}
         onClose={() => setScannerVisible(false)}
@@ -298,6 +368,19 @@ const styles = StyleSheet.create({
     fontSize: Typography.small,
     fontWeight: Typography.medium,
   },
+  soloCard: {
+    backgroundColor: Colors.accentFaint,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.accentBorder,
+    padding: 18,
+    marginBottom: 28,
+  },
+  soloCardInner: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  soloCardEmoji: { fontSize: 32 },
+  soloCardTitle: { color: Colors.accent, fontSize: Typography.h3, fontWeight: Typography.bold },
+  soloCardSub: { color: Colors.sub, fontSize: Typography.small, marginTop: 2 },
+  soloCardArrow: { color: Colors.accent, fontSize: 20, fontWeight: Typography.bold },
   emptyText: { color: Colors.faint, fontSize: Typography.small, marginBottom: 16 },
   groupBtns: { flexDirection: 'row', gap: 10 },
   createBtn: {

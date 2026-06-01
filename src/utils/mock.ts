@@ -13,7 +13,8 @@ export const MOCK_USER: UserProfile = {
     seriesVsMovies: 0.5,
     implicitGenres: ['Drama', 'Thriller'],
   },
-  onboardingDone: true,  // saltear onboarding en modo mock
+  onboardingDone: true,
+  platforms: ['netflix', 'hbo'],
 };
 
 export const MOCK_USERS: Record<string, UserProfile> = {
@@ -30,6 +31,7 @@ export const MOCK_USERS: Record<string, UserProfile> = {
       implicitGenres: ['Drama'],
     },
     onboardingDone: true,
+    platforms: ['netflix', 'disney'],
   },
   'user-leo': {
     uid: 'user-leo',
@@ -44,6 +46,7 @@ export const MOCK_USERS: Record<string, UserProfile> = {
       implicitGenres: ['Thriller', 'Ciencia Ficción'],
     },
     onboardingDone: true,
+    platforms: ['netflix', 'prime'],
   },
 };
 

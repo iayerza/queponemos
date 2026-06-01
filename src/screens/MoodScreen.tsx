@@ -8,6 +8,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
 import { useMatchStore } from '../store/useMatchStore';
+import { useColors } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { setSessionMood, onGroupChange, clearGroupSession } from '../services/firebase';
@@ -95,12 +96,14 @@ export default function MoodScreen() {
   const route  = useRoute<Route>();
   const { user }         = useAuthStore();
   const { currentGroup } = useGroupStore();
-  const { setMood }      = useMatchStore();
+  const { setMood, setSoloMode } = useMatchStore();
+  const themeColors = useColors();
 
-  const groupId = route.params.groupId;
-  const members = currentGroup?.members ?? [];
-  const partnerUid = members.find(uid => uid !== user?.uid) ?? null;
-  const isSolo = members.length <= 1;
+  const isSoloRoute = route.params.solo === true;
+  const groupId = route.params.groupId ?? `solo-${user?.uid ?? 'anon'}`;
+  const members = isSoloRoute ? (user ? [user.uid] : []) : (currentGroup?.members ?? []);
+  const partnerUid = isSoloRoute ? null : (members.find(uid => uid !== user?.uid) ?? null);
+  const isSolo = isSoloRoute || members.length <= 1;
 
   const [myMood,      setMyMood]      = useState<MoodId | null>(null);
   const [sessionMoods, setSessionMoods] = useState<Record<string, MoodId>>({});
@@ -118,20 +121,21 @@ export default function MoodScreen() {
   useEffect(() => {
     const { clearMoods } = useMatchStore.getState();
     clearMoods();
-    if (!USE_MOCK && user && currentGroup?.createdBy === user.uid) {
+    setSoloMode(isSoloRoute);
+    if (!USE_MOCK && !isSoloRoute && user && currentGroup?.createdBy === user.uid) {
       clearGroupSession(groupId).catch(() => {});
     }
   }, []);
 
-  // Listen to Firestore session moods
+  // Listen to Firestore session moods (solo mode skips this)
   useEffect(() => {
-    if (USE_MOCK) return;
+    if (USE_MOCK || isSoloRoute) return;
     const unsub = onGroupChange(groupId, g => {
       const moods = g.currentSession?.moods ?? {};
       setSessionMoods(moods);
     });
     return unsub;
-  }, [groupId]);
+  }, [groupId, isSoloRoute]);
 
   // Show skip button after 30s of waiting for partner
   useEffect(() => {
@@ -157,8 +161,6 @@ export default function MoodScreen() {
     setMood(user.uid, id);
 
     if (USE_MOCK) {
-      // Mock: registramos el mood propio y simulamos que el partner elige
-      // después de 2s para mostrar la UI de espera real
       setSessionMoods({ [user.uid]: id });
       if (partnerUid) {
         const mockMoods: MoodId[] = ['chill', 'laugh', 'intense', 'think', 'scared', 'cry'];
@@ -166,23 +168,37 @@ export default function MoodScreen() {
         setTimeout(() => {
           setSessionMoods({ [user.uid]: id, [partnerUid]: partnerMock });
         }, 2200);
-      } else {
-        // Solo mode: ir directo
-        nav.navigate('Matching', { groupId });
       }
       return;
     }
-    try {
-      await setSessionMood(groupId, user.uid, id);
-    } catch (e) {
-      console.error('setSessionMood failed:', e);
+    if (isSoloRoute) {
+      setSessionMoods({ [user.uid]: id });
+    } else {
+      try {
+        await setSessionMood(groupId, user.uid, id);
+      } catch (e) {
+        console.error('setSessionMood failed:', e);
+      }
     }
   }
 
   // ── Waiting view (after mood picked) ───────────────────────────────────────
   if (myMood) {
+    if (isSoloRoute) {
+      return (
+        <View style={[styles.root, { paddingTop: insets.top + 20, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }]}>
+          <Text style={styles.waitTitle}>✨ Perfecto</Text>
+          <Text style={styles.waitSub}>Claude está buscando algo para vos…</Text>
+          <View style={[styles.readyBadge, { marginTop: 0, alignSelf: 'stretch' }]}>
+            <Text style={styles.readyText}>{myMoodData?.emoji}  {myMoodData?.label}</Text>
+            <Text style={styles.readySub}>Modo solo · tus plataformas</Text>
+          </View>
+        </View>
+      );
+    }
+
     return (
-      <View style={[styles.root, { paddingTop: insets.top + 20 }]}>
+      <View style={[styles.root, { paddingTop: insets.top + 20, backgroundColor: themeColors.bg }]}>
         <Text style={styles.waitTitle}>
           {allReady ? '¡Listos! ✨' : '¿Cómo está\ntu compañero?'}
         </Text>
@@ -238,7 +254,7 @@ export default function MoodScreen() {
 
   // ── Picking view ────────────────────────────────────────────────────────────
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: themeColors.bg }]}>
       <TouchableOpacity style={styles.back} onPress={() => nav.goBack()}>
         <Text style={styles.backText}>← VOLVER</Text>
       </TouchableOpacity>
@@ -249,7 +265,9 @@ export default function MoodScreen() {
           <Text style={{ color: Colors.accent }}>esta noche?</Text>
         </Text>
         <Text style={styles.sub}>
-          Tu compañero también va a elegir. Claude va a encontrar algo que les funcione a los dos.
+          {isSoloRoute
+            ? 'Claude va a encontrar algo perfecto para vos en tus plataformas.'
+            : 'Tu compañero también va a elegir. Claude va a encontrar algo que les funcione a los dos.'}
         </Text>
 
         <View style={styles.grid}>

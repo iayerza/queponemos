@@ -38,6 +38,19 @@ import { recalculateTasteProfile } from '../utils/tasteProfile';
 export type Rating = 'loved' | 'seen_disliked' | 'not_seen';
 export type TitleStatus = 'watched' | 'watchlist' | 'skipped' | 'pending';
 
+export interface PersonalWatchlistItem {
+  tmdbId: number;
+  title: string;
+  year: number;
+  type: 'movie' | 'series';
+  posterPath: string | null;
+  genres: string[];
+  platform: PlatformId;
+  synopsis: string;
+  rating: number;
+  addedAt: number;
+}
+
 export interface UserProfile {
   uid: string;
   email: string;
@@ -46,6 +59,7 @@ export interface UserProfile {
   ratings: Record<number, Rating>;
   tasteProfile: TasteProfile;
   onboardingDone: boolean;
+  platforms: PlatformId[];
 }
 
 export interface GroupDoc {
@@ -130,6 +144,7 @@ export async function loginWithGoogleCredential(idToken: string): Promise<UserPr
     ratings: {},
     tasteProfile: DEFAULT_PROFILE,
     onboardingDone: false,
+    platforms: [],
   };
   await setDoc(doc(db(), 'users', user.uid), {
     ...profile,
@@ -151,6 +166,7 @@ export async function loginWithEmailUser(fireUser: { uid: string; email: string 
     ratings: {},
     tasteProfile: DEFAULT_PROFILE,
     onboardingDone: false,
+    platforms: [],
   };
   await setDoc(doc(db(), 'users', fireUser.uid), {
     ...profile,
@@ -394,6 +410,36 @@ export async function getUserHistory(uid: string): Promise<HistoryEntry[]> {
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => d.data() as HistoryEntry);
+}
+
+export async function updateUserPlatforms(
+  uid: string,
+  platforms: PlatformId[],
+): Promise<void> {
+  await updateDoc(doc(db(), 'users', uid), { platforms });
+}
+
+export async function addToPersonalWatchlist(
+  uid: string,
+  item: PersonalWatchlistItem,
+): Promise<void> {
+  await setDoc(doc(db(), 'users', uid, 'watchlist', String(item.tmdbId)), item);
+}
+
+export async function getPersonalWatchlist(uid: string): Promise<PersonalWatchlistItem[]> {
+  const q = query(
+    collection(db(), 'users', uid, 'watchlist'),
+    orderBy('addedAt', 'desc'),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as PersonalWatchlistItem);
+}
+
+export async function removeFromPersonalWatchlist(
+  uid: string,
+  tmdbId: number,
+): Promise<void> {
+  await deleteDoc(doc(db(), 'users', uid, 'watchlist', String(tmdbId)));
 }
 
 export async function getGroupWatchlist(groupId: string): Promise<WatchlistItem[]> {

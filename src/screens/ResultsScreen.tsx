@@ -8,7 +8,8 @@ import { useColors } from '../context/ThemeContext';
 import ResultCard from '../components/ResultCard';
 import { useMatchStore } from '../store/useMatchStore';
 import { useGroupStore } from '../store/useGroupStore';
-import { updateTitleStatus } from '../services/firebase';
+import { useAuthStore } from '../store/useAuthStore';
+import { updateTitleStatus, addToPersonalWatchlist } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import type { Recommendation } from '../services/claude';
 
@@ -18,8 +19,9 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 export default function ResultsScreen() {
   const insets = useSafeAreaInsets();
   const nav    = useNavigation<Nav>();
-  const { currentMatch, currentMatchId, updateTitleAction } = useMatchStore();
+  const { currentMatch, currentMatchId, updateTitleAction, isSolo } = useMatchStore();
   const { currentGroup } = useGroupStore();
+  const { user } = useAuthStore();
   const themeColors = useColors();
   const fadeAnims = useRef(
     Array.from({ length: 3 }, () => new Animated.Value(1))
@@ -33,9 +35,26 @@ export default function ResultsScreen() {
     updateTitleAction(0, idx, status);
     if (!USE_MOCK && currentMatchId) {
       const rec = currentMatch?.recommendations[idx];
-      if (rec?.tmdbId) {
-        try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as 'watched' | 'watchlist' | 'skipped'); }
-        catch { /* silenciar */ }
+      if (rec) {
+        if (status === 'watchlist' && isSolo && user) {
+          try {
+            await addToPersonalWatchlist(user.uid, {
+              tmdbId: rec.tmdbId ?? 0,
+              title: rec.title,
+              year: rec.year,
+              type: rec.type,
+              posterPath: rec.posterPath,
+              genres: rec.genres,
+              platform: rec.platform,
+              synopsis: rec.synopsis,
+              rating: rec.rating,
+              addedAt: Date.now(),
+            });
+          } catch { /* silenciar */ }
+        } else if (rec.tmdbId) {
+          try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as 'watched' | 'watchlist' | 'skipped'); }
+          catch { /* silenciar */ }
+        }
       }
     }
     if (status === 'watched' && currentMatchId) {
@@ -72,7 +91,7 @@ export default function ResultsScreen() {
       <Text style={styles.eyebrow}>TU MATCH</Text>
       <Text style={styles.title}>Esta noche</Text>
       <Text style={styles.sub}>
-        {currentGroup?.name ?? 'Tu grupo'} · {currentMatch.recommendations.length} recomendaciones
+        {isSolo ? 'Solo' : (currentGroup?.name ?? 'Tu grupo')} · {currentMatch.recommendations.length} recomendaciones
       </Text>
 
       {currentMatch.groupInsight ? (
@@ -93,7 +112,7 @@ export default function ResultsScreen() {
 
       <TouchableOpacity
         style={styles.newSearchBtn}
-        onPress={() => currentGroup && nav.navigate('Mood', { groupId: currentGroup.id })}
+        onPress={() => isSolo ? nav.navigate('Mood', { solo: true }) : (currentGroup && nav.navigate('Mood', { groupId: currentGroup.id }))}
         activeOpacity={0.85}
       >
         <Text style={styles.newSearchBtnText}>🔄  Nueva búsqueda</Text>
@@ -104,7 +123,7 @@ export default function ResultsScreen() {
         onPress={() => nav.navigate('App')}
         activeOpacity={0.8}
       >
-        <Text style={styles.backBtnText}>Volver al grupo</Text>
+        <Text style={styles.backBtnText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
