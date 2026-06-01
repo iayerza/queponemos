@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { Colors, Typography } from '../constants/colors';
 import type { GroupDoc } from '../services/firebase';
 import { getPlatform } from '../constants/platforms';
@@ -15,7 +16,7 @@ export default function GroupCard({ group, onPress }: Props) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.75}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarEmoji}>🎬</Text>
+        <Feather name="users" size={18} color={Colors.sub} />
       </View>
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>{group.name}</Text>
@@ -23,7 +24,7 @@ export default function GroupCard({ group, onPress }: Props) {
           {group.members.length} personas · {platformNames}
         </Text>
       </View>
-      <Text style={styles.chevron}>›</Text>
+      <Feather name="chevron-right" size={20} color={Colors.sub} />
     </TouchableOpacity>
   );
 }
@@ -48,9 +49,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  avatarEmoji: { fontSize: 20 },
   info: { flex: 1 },
   name: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body, marginBottom: 2 },
   meta: { color: Colors.sub, fontSize: Typography.small },
-  chevron: { color: Colors.sub, fontSize: 22 },
 });

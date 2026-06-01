@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { Colors, Typography } from '../constants/colors';
 import { getPlatform } from '../constants/platforms';
 import { getPosterUrl } from '../services/tmdb';
+import PlatformLogo from './PlatformLogo';
 import type { Recommendation } from '../services/claude';
 
 interface Props {
@@ -10,10 +12,12 @@ interface Props {
   onAction: (status: Recommendation['groupStatus']) => void;
 }
 
-const ACTIONS: { status: Recommendation['groupStatus']; emoji: string; label: string }[] = [
-  { status: 'watched',   emoji: '✅', label: 'La vimos' },
-  { status: 'watchlist', emoji: '📌', label: 'Para después' },
-  { status: 'skipped',   emoji: '❌', label: 'Pasar' },
+type FeatherName = React.ComponentProps<typeof Feather>['name'];
+
+const ACTIONS: { status: Recommendation['groupStatus']; icon: FeatherName; label: string }[] = [
+  { status: 'watched',   icon: 'check-circle', label: 'La vimos' },
+  { status: 'watchlist', icon: 'bookmark',      label: 'Para después' },
+  { status: 'skipped',   icon: 'x-circle',     label: 'Pasar' },
 ];
 
 export default function ResultCard({ rec, onAction }: Props) {
@@ -27,7 +31,7 @@ export default function ResultCard({ rec, onAction }: Props) {
           <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
         ) : (
           <View style={styles.posterPlaceholder}>
-            <Text style={styles.posterEmoji}>{rec.type === 'series' ? '📺' : '🎬'}</Text>
+            <Feather name={rec.type === 'series' ? 'tv' : 'film'} size={26} color={Colors.faint} />
           </View>
         )}
         <View style={styles.topInfo}>
@@ -37,13 +41,15 @@ export default function ResultCard({ rec, onAction }: Props) {
               <Text style={styles.badgeText}>{rec.compatibilityScore}%</Text>
             </View>
           </View>
-          <Text style={styles.meta}>
-            {rec.year}  ·  {rec.type === 'series' ? 'Serie' : 'Película'}  ·  ⭐ {rec.rating}
-          </Text>
-          <Text style={styles.metaPlatform}>
-            <Text style={{ color: platform.color }}>{platform.emoji}</Text>
-            {'  '}{platform.name}
-          </Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.meta}>{rec.year}  ·  {rec.type === 'series' ? 'Serie' : 'Película'}  ·  </Text>
+            <Feather name="star" size={11} color={Colors.sub} />
+            <Text style={styles.meta}>  {rec.rating}</Text>
+          </View>
+          <View style={styles.platformRow}>
+            <PlatformLogo id={platform.id} size={18} />
+            <Text style={styles.metaPlatform}>  {platform.name}</Text>
+          </View>
         </View>
       </View>
 
@@ -55,19 +61,22 @@ export default function ResultCard({ rec, onAction }: Props) {
       </View>
 
       <View style={styles.actions}>
-        {ACTIONS.map(a => (
-          <TouchableOpacity
-            key={a.status}
-            style={[styles.actionBtn, rec.groupStatus === a.status && styles.actionActive]}
-            onPress={() => onAction(a.status)}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.actionEmoji}>{a.emoji}</Text>
-            <Text style={[styles.actionLabel, rec.groupStatus === a.status && styles.actionLabelActive]}>
-              {a.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {ACTIONS.map(a => {
+          const isActive = rec.groupStatus === a.status;
+          return (
+            <TouchableOpacity
+              key={a.status}
+              style={[styles.actionBtn, isActive && styles.actionActive]}
+              onPress={() => onAction(a.status)}
+              activeOpacity={0.75}
+            >
+              <Feather name={a.icon} size={16} color={isActive ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
+              <Text style={[styles.actionLabel, isActive && styles.actionLabelActive]}>
+                {a.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -89,7 +98,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.s2,
     alignItems: 'center', justifyContent: 'center',
   },
-  posterEmoji: { fontSize: 28 },
   topInfo: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
   title: {
@@ -108,8 +116,10 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   badgeText: { color: Colors.accent, fontSize: Typography.tiny, fontWeight: Typography.semibold },
-  meta: { color: Colors.sub, fontSize: Typography.small, marginBottom: 4 },
-  metaPlatform: { color: Colors.sub, fontSize: Typography.small, marginBottom: 0 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  meta: { color: Colors.sub, fontSize: Typography.small },
+  platformRow: { flexDirection: 'row', alignItems: 'center' },
+  metaPlatform: { color: Colors.sub, fontSize: Typography.small },
   synopsis: { color: Colors.sub, fontSize: Typography.body, lineHeight: 20, marginBottom: 12 },
   whyBox: {
     borderLeftWidth: 3,
@@ -138,7 +148,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   actionActive: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
-  actionEmoji: { fontSize: 16, marginBottom: 2 },
   actionLabel: { fontSize: Typography.tiny, color: Colors.sub },
   actionLabelActive: { color: Colors.accent },
 });

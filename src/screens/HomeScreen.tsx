@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Modal, Alert,
 } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,6 +10,7 @@ import { Colors, Typography } from '../constants/colors';
 import { useColors } from '../context/ThemeContext';
 import { LogoWordmark } from '../components/Logo';
 import GroupCard from '../components/GroupCard';
+import PlatformLogo from '../components/PlatformLogo';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
 import type { RootStackParamList } from '../navigation/types';
@@ -151,12 +153,14 @@ export default function HomeScreen() {
       {/* Solo card */}
       <TouchableOpacity style={styles.soloCard} onPress={handleSoloPress} activeOpacity={0.85}>
         <View style={styles.soloCardInner}>
-          <Text style={styles.soloCardEmoji}>🎬</Text>
+          <View style={styles.soloCardIcon}>
+            <Feather name="play-circle" size={22} color={Colors.accent} />
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.soloCardTitle}>¿Qué ves hoy?</Text>
             <Text style={styles.soloCardSub}>Modo solo · tus plataformas · tu mood</Text>
           </View>
-          <Text style={styles.soloCardArrow}>→</Text>
+          <Feather name="chevron-right" size={20} color={Colors.sub} />
         </View>
       </TouchableOpacity>
 
@@ -182,7 +186,7 @@ export default function HomeScreen() {
             <Text style={styles.createBtnText}>+ Crear grupo</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
-            <Text style={styles.joinBtnText}>🔗 Unirme</Text>
+            <Text style={styles.joinBtnText}>Unirme</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -224,7 +228,7 @@ export default function HomeScreen() {
                   style={[styles.platformChip, selPlatforms.includes(p.id) && styles.platformChipSelected]}
                   onPress={() => togglePlatform(p.id)}
                 >
-                  <Text style={styles.platformEmoji}>{p.emoji}</Text>
+                  <PlatformLogo id={p.id} size={24} />
                   <Text style={styles.platformName}>{p.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -299,7 +303,7 @@ export default function HomeScreen() {
                   style={[styles.platformChip, soloPlatforms.includes(p.id) && styles.platformChipSelected]}
                   onPress={() => setSoloPlatforms(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])}
                 >
-                  <Text style={styles.platformEmoji}>{p.emoji}</Text>
+                  <PlatformLogo id={p.id} size={24} />
                   <Text style={styles.platformName}>{p.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -377,10 +381,9 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   soloCardInner: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  soloCardEmoji: { fontSize: 32 },
+  soloCardIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.accentFaint, alignItems: 'center', justifyContent: 'center' },
   soloCardTitle: { color: Colors.accent, fontSize: Typography.h3, fontWeight: Typography.bold },
   soloCardSub: { color: Colors.sub, fontSize: Typography.small, marginTop: 2 },
-  soloCardArrow: { color: Colors.accent, fontSize: 20, fontWeight: Typography.bold },
   emptyText: { color: Colors.faint, fontSize: Typography.small, marginBottom: 16 },
   groupBtns: { flexDirection: 'row', gap: 10 },
   createBtn: {
@@ -464,7 +467,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   platformChipSelected: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
-  platformEmoji: { fontSize: 22 },
   platformName: { color: Colors.text, fontSize: Typography.body },
   modalBtns: { flexDirection: 'row', gap: 10 },
   cancelBtn: {

@@ -12,6 +12,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { useTheme, type ThemePreference } from '../context/ThemeContext';
 import { PLATFORMS } from '../constants/platforms';
 import type { PlatformId } from '../constants/platforms';
+import PlatformLogo from '../components/PlatformLogo';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
@@ -183,7 +184,7 @@ export default function ProfileScreen() {
               onPress={() => togglePlatform(p.id)}
               activeOpacity={0.8}
             >
-              <Text style={styles.platformEmoji}>{p.emoji}</Text>
+              <PlatformLogo id={p.id} size={24} />
               <Text style={[styles.platformName, selPlatforms.includes(p.id) && styles.platformNameSelected]}>{p.name}</Text>
             </TouchableOpacity>
           ))}
@@ -282,7 +283,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   platformChipSelected: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
-  platformEmoji: { fontSize: 22 },
   platformName: { color: Colors.sub, fontSize: Typography.body },
   platformNameSelected: { color: Colors.accent, fontWeight: Typography.medium },
   savePlatformsBtn: { backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },

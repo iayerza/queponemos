@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Image, TextInput,
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -61,7 +62,7 @@ export default function PostViewScreen() {
             <Image source={{ uri: posterUrl }} style={styles.poster} resizeMode="cover" />
           ) : (
             <View style={styles.posterPlaceholder}>
-              <Text style={styles.posterEmoji}>🎬</Text>
+              <Feather name="film" size={22} color={Colors.faint} />
             </View>
           )}
           <View style={styles.titleInfo}>
@@ -163,7 +164,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.s2,
     alignItems: 'center', justifyContent: 'center',
   },
-  posterEmoji: { fontSize: 24 },
   titleInfo: { flex: 1 },
   titleText: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.bold, marginBottom: 4 },
   yearText: { color: Colors.sub, fontSize: Typography.small },

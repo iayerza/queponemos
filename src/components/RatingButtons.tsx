@@ -1,12 +1,15 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { Colors, Typography } from '../constants/colors';
 import type { Rating } from '../services/firebase';
 
-const BUTTONS: { rating: Rating; emoji: string; label: string }[] = [
-  { rating: 'loved',         emoji: '❤️', label: 'Me encantó' },
-  { rating: 'seen_disliked', emoji: '😕', label: 'No me gustó' },
-  { rating: 'not_seen',      emoji: '👀', label: 'No la vi' },
+type FeatherName = React.ComponentProps<typeof Feather>['name'];
+
+const BUTTONS: { rating: Rating; icon: FeatherName; label: string }[] = [
+  { rating: 'loved',         icon: 'heart',       label: 'Me encantó' },
+  { rating: 'seen_disliked', icon: 'thumbs-down',  label: 'No me gustó' },
+  { rating: 'not_seen',      icon: 'eye',          label: 'No la vi' },
 ];
 
 interface Props {
@@ -17,19 +20,22 @@ interface Props {
 export default function RatingButtons({ selected, onSelect }: Props) {
   return (
     <View style={styles.row}>
-      {BUTTONS.map(b => (
-        <TouchableOpacity
-          key={b.rating}
-          style={[styles.btn, selected === b.rating && styles.selected]}
-          onPress={() => onSelect(b.rating)}
-          activeOpacity={0.75}
-        >
-          <Text style={styles.emoji}>{b.emoji}</Text>
-          <Text style={[styles.label, selected === b.rating && styles.labelSelected]}>
-            {b.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
+      {BUTTONS.map(b => {
+        const isSelected = selected === b.rating;
+        return (
+          <TouchableOpacity
+            key={b.rating}
+            style={[styles.btn, isSelected && styles.selected]}
+            onPress={() => onSelect(b.rating)}
+            activeOpacity={0.75}
+          >
+            <Feather name={b.icon} size={22} color={isSelected ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
+            <Text style={[styles.label, isSelected && styles.labelSelected]}>
+              {b.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
@@ -49,7 +55,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.accentBorder,
     backgroundColor: Colors.accentFaint,
   },
-  emoji: { fontSize: 22, marginBottom: 4 },
   label: { fontSize: Typography.tiny, color: Colors.sub, textAlign: 'center' },
   labelSelected: { color: Colors.accent },
 });

@@ -12,6 +12,7 @@ import InviteModal from '../components/InviteModal';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { PLATFORMS, getPlatform, type PlatformId } from '../constants/platforms';
+import PlatformLogo from '../components/PlatformLogo';
 import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange } from '../services/firebase';
 import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
@@ -201,7 +202,7 @@ export default function GroupScreen() {
             const p = getPlatform(id);
             return (
               <View key={id} style={[styles.platformChip, { borderColor: `${p.color}66` }]}>
-                <Text style={styles.platformEmoji}>{p.emoji}</Text>
+                <PlatformLogo id={id} size={24} />
                 <Text style={[styles.platformName, { color: p.color }]}>{p.name}</Text>
               </View>
             );
@@ -247,7 +248,7 @@ export default function GroupScreen() {
                     onPress={() => togglePlatform(p.id)}
                     activeOpacity={0.75}
                   >
-                    <Text style={styles.platformOptionEmoji}>{p.emoji}</Text>
+                    <PlatformLogo id={p.id} size={28} />
                     <Text style={[styles.platformOptionName, selected && { color: p.color }]}>{p.name}</Text>
                     {selected && <Text style={[styles.checkmark, { color: p.color }]}>✓</Text>}
                   </TouchableOpacity>
@@ -298,7 +299,6 @@ const styles = StyleSheet.create({
   inviteBadgeTextAccepted: { color: Colors.success },
   platforms: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   platformChip: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.s1, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1 },
-  platformEmoji: { fontSize: 22 },
   platformName: { fontSize: Typography.body, fontWeight: Typography.medium },
   deleteBtn: { marginTop: 8, borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.danger },
   deleteBtnText: { color: Colors.danger, fontSize: Typography.body, fontWeight: Typography.medium },

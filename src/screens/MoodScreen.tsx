@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated,
 } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,14 +18,15 @@ import type { MoodId } from '../services/claude';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'Mood'>;
+type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
-const MOODS: { id: MoodId; emoji: string; label: string; desc: string }[] = [
-  { id: 'chill',   emoji: '😌', label: 'Tranqui',     desc: 'Relajado, sin pensar mucho' },
-  { id: 'intense', emoji: '🔥', label: 'Adrenalina',  desc: 'Tensión, al borde del asiento' },
-  { id: 'laugh',   emoji: '😂', label: 'Reírse',      desc: 'Comedia, algo liviano' },
-  { id: 'think',   emoji: '🧠', label: 'Reflexionar', desc: 'Algo que deje pensando' },
-  { id: 'cry',     emoji: '😭', label: 'Emocionarse', desc: 'Drama, sentimientos' },
-  { id: 'scared',  emoji: '😱', label: 'Asustarse',   desc: 'Terror o suspenso' },
+const MOODS: { id: MoodId; icon: FeatherName; label: string; desc: string }[] = [
+  { id: 'chill',   icon: 'wind',           label: 'Tranqui',     desc: 'Relajado, sin pensar mucho' },
+  { id: 'intense', icon: 'zap',            label: 'Adrenalina',  desc: 'Tensión, al borde del asiento' },
+  { id: 'laugh',   icon: 'smile',          label: 'Reírse',      desc: 'Comedia, algo liviano' },
+  { id: 'think',   icon: 'book-open',      label: 'Reflexionar', desc: 'Algo que deje pensando' },
+  { id: 'cry',     icon: 'cloud-rain',     label: 'Emocionarse', desc: 'Drama, sentimientos' },
+  { id: 'scared',  icon: 'alert-triangle', label: 'Asustarse',   desc: 'Terror o suspenso' },
 ];
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
@@ -44,9 +46,9 @@ const dotStyles = StyleSheet.create({
 
 // ─── Mood card (shown in waiting view) ───────────────────────────────────────
 function MoodCard({
-  label, emoji, moodLabel, waiting,
+  label, iconName, moodLabel, waiting,
 }: {
-  label: string; emoji: string; moodLabel: string; waiting?: boolean;
+  label: string; iconName: FeatherName; moodLabel: string; waiting?: boolean;
 }) {
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -64,9 +66,13 @@ function MoodCard({
   return (
     <View style={[cardStyles.card, waiting && cardStyles.cardWaiting]}>
       <Text style={cardStyles.who}>{label}</Text>
-      <Animated.Text style={[cardStyles.emoji, waiting && { opacity: pulse }]}>
-        {emoji}
-      </Animated.Text>
+      <Animated.View style={[{ marginBottom: 10 }, waiting && { opacity: pulse }]}>
+        <Feather
+          name={iconName}
+          size={36}
+          color={waiting ? Colors.sub : Colors.accent}
+        />
+      </Animated.View>
       <Text style={[cardStyles.mood, waiting && cardStyles.moodWaiting]}>{moodLabel}</Text>
     </View>
   );
@@ -83,9 +89,8 @@ const cardStyles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   cardWaiting: { borderColor: Colors.border, backgroundColor: Colors.s2 },
-  who:   { color: Colors.sub, fontSize: Typography.tiny, letterSpacing: 1, marginBottom: 12 },
-  emoji: { fontSize: 40, marginBottom: 10 },
-  mood:  { color: Colors.accent, fontWeight: Typography.bold, fontSize: Typography.small, textAlign: 'center' },
+  who:  { color: Colors.sub, fontSize: Typography.tiny, letterSpacing: 1, marginBottom: 12 },
+  mood: { color: Colors.accent, fontWeight: Typography.bold, fontSize: Typography.small, textAlign: 'center' },
   moodWaiting: { color: Colors.sub },
 });
 
@@ -123,7 +128,6 @@ export default function MoodScreen() {
     const { clearMoods } = useMatchStore.getState();
     clearMoods();
     setSoloMode(isSoloRoute);
-    // Clear local session state immediately to avoid stale moods
     setSessionMoods({});
     if (!USE_MOCK && !isSoloRoute && user && currentGroup?.createdBy === user.uid) {
       clearGroupSession(groupId).catch(() => {});
@@ -158,7 +162,6 @@ export default function MoodScreen() {
   useEffect(() => {
     if (!allReady || navigating || !myMood) return;
     setNavigating(true);
-    // Push all session moods into MatchStore so useMatching can read them
     Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
     setTimeout(() => {
       nav.navigate('Matching', { groupId });
@@ -197,10 +200,10 @@ export default function MoodScreen() {
     if (isSoloRoute) {
       return (
         <View style={[styles.root, { paddingTop: insets.top + 20, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }]}>
-          <Text style={styles.waitTitle}>✨ Perfecto</Text>
+          <Text style={styles.waitTitle}>Perfecto</Text>
           <Text style={styles.waitSub}>Claude está buscando algo para vos…</Text>
           <View style={[styles.readyBadge, { marginTop: 0, alignSelf: 'stretch' }]}>
-            <Text style={styles.readyText}>{myMoodData?.emoji}  {myMoodData?.label}</Text>
+            <Text style={styles.readyText}>{myMoodData?.label}</Text>
             <Text style={styles.readySub}>Modo solo · tus plataformas</Text>
           </View>
         </View>
@@ -210,7 +213,7 @@ export default function MoodScreen() {
     return (
       <View style={[styles.root, { paddingTop: insets.top + 20, backgroundColor: themeColors.bg }]}>
         <Text style={styles.waitTitle}>
-          {allReady ? '¡Listos! ✨' : '¿Cómo está\ntu compañero?'}
+          {allReady ? '¡Listos!' : '¿Cómo está\ntu compañero?'}
         </Text>
         <Text style={styles.waitSub}>
           {allReady
@@ -221,13 +224,13 @@ export default function MoodScreen() {
         <View style={styles.cards}>
           <MoodCard
             label="VOS"
-            emoji={myMoodData?.emoji ?? ''}
+            iconName={myMoodData?.icon ?? 'smile'}
             moodLabel={myMoodData?.label ?? ''}
           />
 
           <View style={styles.vsCol}>
             {allReady ? (
-              <Text style={styles.vsReady}>✨</Text>
+              <Feather name="star" size={22} color={Colors.accent} />
             ) : (
               <PulsingDots />
             )}
@@ -235,7 +238,7 @@ export default function MoodScreen() {
 
           <MoodCard
             label="EL GRUPO"
-            emoji={partnerMoodData?.emoji ?? '⏳'}
+            iconName={partnerMoodData?.icon ?? 'clock'}
             moodLabel={partnerMoodData?.label ?? 'Eligiendo…'}
             waiting={!partnerMood}
           />
@@ -253,7 +256,7 @@ export default function MoodScreen() {
         {allReady && (
           <View style={styles.readyBadge}>
             <Text style={styles.readyText}>
-              {myMoodData?.emoji} {myMoodData?.label}  ×  {partnerMoodData?.emoji} {partnerMoodData?.label}
+              {myMoodData?.label}  ×  {partnerMoodData?.label}
             </Text>
             <Text style={styles.readySub}>Claude va a encontrar algo perfecto para los dos</Text>
           </View>
@@ -268,7 +271,7 @@ export default function MoodScreen() {
               nav.navigate('Matching', { groupId });
             }}
           >
-            <Text style={styles.continueBtnText}>Continuar al análisis →</Text>
+            <Text style={styles.continueBtnText}>Continuar al análisis</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -301,7 +304,7 @@ export default function MoodScreen() {
               onPress={() => handleSelect(m.id)}
               activeOpacity={0.8}
             >
-              <Text style={styles.moodEmoji}>{m.emoji}</Text>
+              <Feather name={m.icon} size={28} color={Colors.sub} style={styles.moodIcon} />
               <Text style={styles.moodLabel}>{m.label}</Text>
               <Text style={styles.moodDesc}>{m.desc}</Text>
             </TouchableOpacity>
@@ -337,7 +340,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  moodEmoji: { fontSize: 28, marginBottom: 8 },
+  moodIcon: { marginBottom: 8 },
   moodLabel: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body, marginBottom: 4 },
   moodDesc:  { color: Colors.sub, fontSize: Typography.tiny, lineHeight: 16 },
 
@@ -369,7 +372,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  vsReady: { fontSize: 24 },
   readyBadge: {
     marginTop: 36,
     marginHorizontal: 24,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Typography } from '../constants/colors';
 import { useColors } from '../context/ThemeContext';
@@ -11,6 +12,7 @@ import {
   type PersonalWatchlistItem,
 } from '../services/firebase';
 import { getPlatform } from '../constants/platforms';
+import PlatformLogo from '../components/PlatformLogo';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
@@ -95,7 +97,7 @@ export default function HistoryScreen() {
         >
           {history.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>📋</Text>
+              <Feather name="list" size={48} color={Colors.faint} />
               <Text style={styles.emptyTitle}>Todavía sin matches</Text>
               <Text style={styles.emptyDesc}>
                 Cuando hagas tu primer match, va a aparecer acá.
@@ -121,7 +123,7 @@ export default function HistoryScreen() {
                         <Image source={{ uri: posterUrl }} style={styles.recPoster} />
                       ) : (
                         <View style={styles.recPosterPlaceholder}>
-                          <Text style={styles.recPosterEmoji}>{r.type === 'series' ? '📺' : '🎬'}</Text>
+                          <Feather name={r.type === 'series' ? 'tv' : 'film'} size={14} color={Colors.faint} />
                         </View>
                       )}
                       <View style={styles.recInfo}>
@@ -150,7 +152,7 @@ export default function HistoryScreen() {
             <Text style={styles.loadingText}>Cargando…</Text>
           ) : watchlist.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>🕐</Text>
+              <Feather name="clock" size={48} color={Colors.faint} />
               <Text style={styles.emptyTitle}>Tu lista está vacía</Text>
               <Text style={styles.emptyDesc}>
                 Cuando marques algo como "Para después" en el modo solo, va a aparecer acá.
@@ -166,14 +168,14 @@ export default function HistoryScreen() {
                     <Image source={{ uri: posterUrl }} style={styles.watchlistPoster} />
                   ) : (
                     <View style={[styles.watchlistPoster, styles.watchlistPosterPlaceholder]}>
-                      <Text style={{ fontSize: 28 }}>{item.type === 'series' ? '📺' : '🎬'}</Text>
+                      <Feather name={item.type === 'series' ? 'tv' : 'film'} size={26} color={Colors.faint} />
                     </View>
                   )}
                   <View style={styles.watchlistInfo}>
                     <Text style={styles.watchlistTitle} numberOfLines={2}>{item.title}</Text>
                     <Text style={styles.watchlistMeta}>{item.year} · {item.type === 'series' ? 'Serie' : 'Película'}</Text>
                     <View style={styles.platformRow}>
-                      <Text style={styles.platformEmoji}>{platform.emoji}</Text>
+                      <PlatformLogo id={item.platform} size={16} />
                       <Text style={styles.platformName}>{platform.name}</Text>
                     </View>
                     <Text style={styles.watchlistSynopsis} numberOfLines={2}>{item.synopsis}</Text>
@@ -215,7 +217,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 24, paddingTop: 20 },
   loadingText: { color: Colors.faint, textAlign: 'center', marginTop: 40 },
   empty: { marginTop: 60, alignItems: 'center', gap: 12 },
-  emptyEmoji: { fontSize: 48 },
+  emptyIcon: { marginBottom: 4 },
   emptyTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.bold },
   emptyDesc: { color: Colors.sub, fontSize: Typography.small, textAlign: 'center', lineHeight: 20 },
   card: {
@@ -247,7 +249,6 @@ const styles = StyleSheet.create({
   },
   recPoster: { width: 36, height: 52, borderRadius: 4 },
   recPosterPlaceholder: { width: 36, height: 52, borderRadius: 4, backgroundColor: Colors.s2, alignItems: 'center', justifyContent: 'center' },
-  recPosterEmoji: { fontSize: 16 },
   recInfo: { flex: 1, gap: 2 },
   recTitle: { color: Colors.text, fontSize: Typography.small },
   recMeta: { color: Colors.faint, fontSize: Typography.tiny },
@@ -275,7 +276,6 @@ const styles = StyleSheet.create({
   watchlistTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: Typography.bold, lineHeight: 20 },
   watchlistMeta: { color: Colors.faint, fontSize: Typography.tiny },
   platformRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  platformEmoji: { fontSize: 12 },
   platformName: { color: Colors.sub, fontSize: Typography.tiny },
   watchlistSynopsis: { color: Colors.sub, fontSize: Typography.tiny, lineHeight: 16, marginTop: 4 },
   removeBtn: { padding: 4 },
