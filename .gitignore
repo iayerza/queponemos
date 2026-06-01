@@ -40,3 +40,4 @@ yarn-error.*
 # generated native folders (managed by expo prebuild)
 /ios
 /android
+.claude/worktrees/
