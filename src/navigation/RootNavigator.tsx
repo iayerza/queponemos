@@ -9,6 +9,7 @@ import { onAuthChange, getUserGroups, getUserHistory } from '../services/firebas
 import { registerPushToken } from '../services/notifications';
 import { navigationRef } from './navigationRef';
 import { MOCK_USER, MOCK_GROUP } from '../utils/mock';
+import { fetchProviderLogoUrls } from '../services/tmdb';
 import AppTabs from './AppTabs';
 import SplashScreen   from '../screens/SplashScreen';
 import LoginScreen    from '../screens/LoginScreen';
@@ -49,6 +50,9 @@ export default function RootNavigator() {
     const sub = ExpoNotifications.addNotificationResponseReceivedListener(handleNotificationResponse);
     return () => sub.remove();
   }, []);
+
+  // Pre-fetch platform logos (fire and forget)
+  useEffect(() => { fetchProviderLogoUrls().catch(() => {}); }, []);
 
   // Deep link handling
   useEffect(() => {

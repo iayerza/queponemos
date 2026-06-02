@@ -77,6 +77,39 @@ export function getPosterUrl(posterPath: string | null): string | null {
   return posterPath ? `${TMDB_IMG}${posterPath}` : null;
 }
 
+// ─── Watch provider logos ────────────────────────────────────────────────────
+
+const PLATFORM_PROVIDER_IDS: Record<string, number> = {
+  netflix: 8,
+  prime:   9,
+  disney:  337,
+  apple:   350,
+  hbo:     1899,
+};
+
+let _logoUrls: Record<string, string> | null = null;
+let _fetching: Promise<Record<string, string>> | null = null;
+
+export function fetchProviderLogoUrls(): Promise<Record<string, string>> {
+  if (_logoUrls) return Promise.resolve(_logoUrls);
+  if (!_fetching) {
+    _fetching = (tmdbGet('/watch/providers/movie?watch_region=US') as Promise<{
+      results: Array<{ provider_id: number; logo_path: string }>;
+    }>)
+      .then(data => {
+        const map: Record<string, string> = {};
+        for (const [platformId, providerId] of Object.entries(PLATFORM_PROVIDER_IDS)) {
+          const p = data.results.find(r => r.provider_id === providerId);
+          if (p?.logo_path) map[platformId] = `https://image.tmdb.org/t/p/w92${p.logo_path}`;
+        }
+        _logoUrls = map;
+        return map;
+      })
+      .catch(() => ({}));
+  }
+  return _fetching;
+}
+
 export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
   const data = await tmdbGet(`/search/multi?query=${encodeURIComponent(query)}`) as {
     results: Record<string, unknown>[];
