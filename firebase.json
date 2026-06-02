@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "queponemos",
     "public": "public",
     "ignore": [
       "firebase.json",
