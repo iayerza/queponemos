@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Alert,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -141,7 +141,11 @@ export default function MoodScreen() {
   useEffect(() => {
     if (USE_MOCK || isSoloRoute) return;
     const unsub = onGroupChange(groupId, g => {
-      if (!g) return;
+      if (!g) {
+        Alert.alert('Grupo eliminado', 'El creador eliminó este grupo.');
+        nav.navigate('App');
+        return;
+      }
       const moods = g.currentSession?.moods ?? {};
       setSessionMoods(moods);
     });

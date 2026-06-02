@@ -24,9 +24,11 @@ export default function InviteModal({ visible, onClose, group, onSimulateAccept 
 
   async function handleShare() {
     const from = user?.displayName ?? user?.email ?? 'alguien';
-    await Share.share({
-      message: `${from} te invita a queponemos\n\nElegí qué ver juntos: ${inviteLink}\nCódigo: ${group.inviteCode}`,
-    });
+    try {
+      await Share.share({
+        message: `${from} te invita a queponemos\n\nElegí qué ver juntos: ${inviteLink}\nCódigo: ${group.inviteCode}`,
+      });
+    } catch { /* usuario canceló o el SO no tiene apps disponibles */ }
   }
 
   function handleCopyLink() {
