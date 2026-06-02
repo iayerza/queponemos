@@ -46,20 +46,21 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: -0.2px;
       text-decoration: none;
     }
     .wordmark .que { color: var(--text); }
     .wordmark .ponemos { color: var(--coral); }
     .venn {
-      width: 28px; height: 28px;
+      width: 34px; height: 34px;
       background: var(--accent);
-      border-radius: 6px;
+      border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
-    .venn svg { width: 18px; height: 12px; }
+    .venn svg { width: 22px; height: 16px; }
     .nav-cta {
       background: var(--accent);
       color: var(--text);
@@ -81,31 +82,36 @@
       padding: 80px 40px 60px;
       text-align: center;
     }
-    .hero-badge {
-      display: inline-block;
-      background: rgba(200,48,42,.15);
-      color: var(--accent);
-      border: 1px solid rgba(200,48,42,.3);
-      border-radius: 20px;
-      padding: 5px 14px;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: .5px;
-      text-transform: uppercase;
-      margin-bottom: 24px;
+    .hero-logo { margin-bottom: 28px; }
+    .hero-venn {
+      width: 80px; height: 80px;
+      background: var(--accent);
+      border-radius: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
+    .hero-venn svg { width: 52px; height: 38px; }
     .hero h1 {
-      font-size: clamp(36px, 6vw, 60px);
-      font-weight: 700;
-      line-height: 1.1;
-      letter-spacing: -1px;
-      margin-bottom: 20px;
+      font-size: clamp(40px, 7vw, 68px);
+      font-weight: 500;
+      line-height: 1.05;
+      letter-spacing: -2px;
+      margin-bottom: 12px;
     }
+    .hero h1 .que { color: var(--text); }
     .hero h1 .highlight { color: var(--coral); }
-    .hero p {
-      font-size: 18px;
+    .tagline {
+      font-size: 20px;
+      font-weight: 500;
       color: var(--sub);
-      max-width: 480px;
+      margin-bottom: 16px !important;
+      letter-spacing: -0.3px;
+    }
+    .hero p {
+      font-size: 17px;
+      color: var(--sub);
+      max-width: 440px;
       margin: 0 auto 40px;
       line-height: 1.6;
     }
@@ -291,9 +297,11 @@
   <nav>
     <a class="wordmark" href="#">
       <div class="venn">
-        <svg viewBox="0 0 18 12" fill="none">
-          <circle cx="6" cy="6" r="5.5" fill="white" fill-opacity=".5"/>
-          <circle cx="12" cy="6" r="5.5" fill="white" fill-opacity=".35"/>
+        <svg viewBox="0 0 22 16" fill="none">
+          <circle cx="7.5" cy="8" r="6.5" fill="white" fill-opacity=".2"/>
+          <circle cx="14.5" cy="8" r="6.5" fill="white" fill-opacity=".2"/>
+          <ellipse cx="11" cy="8" rx="3" ry="5.5" fill="white" fill-opacity=".55"/>
+          <circle cx="11" cy="8" r="1.4" fill="white"/>
         </svg>
       </div>
       <span><span class="que">que</span><span class="ponemos">ponemos</span></span>
@@ -320,9 +328,19 @@
   <!-- Main landing -->
   <main id="main-landing">
     <section class="hero">
-      <div class="hero-badge">IA · Grupos · Streaming</div>
-      <h1>Encontrá juntos<br><span class="highlight">qué ver esta noche</span></h1>
-      <p>Queponemos usa IA para recomendar películas y series que le gusten a <em>todos</em> en el grupo, según el mood del momento y las plataformas disponibles.</p>
+      <div class="hero-logo">
+        <div class="hero-venn">
+          <svg viewBox="0 0 60 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="21" cy="22" r="19" fill="white" fill-opacity=".2"/>
+            <circle cx="39" cy="22" r="19" fill="white" fill-opacity=".2"/>
+            <ellipse cx="30" cy="22" rx="8.5" ry="15" fill="white" fill-opacity=".55"/>
+            <circle cx="30" cy="22" r="4" fill="white"/>
+          </svg>
+        </div>
+      </div>
+      <h1><span class="que">que</span><span class="highlight">ponemos</span></h1>
+      <p class="tagline">La peli para hoy.</p>
+      <p>Usamos IA para recomendar películas y series que le gusten a <em>todos</em>, según el mood y las plataformas disponibles.</p>
       <div class="hero-btns">
         <a class="btn-primary" href="queponemos://">Abrir en la app</a>
         <a class="btn-outline" href="#como-funciona">Cómo funciona</a>
