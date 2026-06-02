@@ -12,7 +12,7 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useColors } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
-import { setSessionMood, onGroupChange, clearGroupSession } from '../services/firebase';
+import { setSessionMood, onGroupChange } from '../services/firebase';
 import { sendMoodSelectedNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import type { MoodId } from '../services/claude';
@@ -126,15 +126,13 @@ export default function MoodScreen() {
   const myMoodData      = (myMood ?? myStoredMood) ? MOODS.find(m => m.id === (myMood ?? myStoredMood)) : null;
   const partnerMoodData = partnerMood ? MOODS.find(m => m.id === partnerMood) : null;
 
-  // Clear previous session moods when entering this screen
+  // Limpiar estado local al entrar a esta pantalla
+  // (clearGroupSession se llama desde GroupScreen antes de navegar — no acá)
   useEffect(() => {
     const { clearMoods } = useMatchStore.getState();
     clearMoods();
     setSoloMode(isSoloRoute);
     setSessionMoods({});
-    if (!USE_MOCK && !isSoloRoute && user) {
-      clearGroupSession(groupId).catch(() => {});
-    }
   }, []);
 
   // Listen to Firestore session moods (solo mode skips this)

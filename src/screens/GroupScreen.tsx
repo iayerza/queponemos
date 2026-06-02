@@ -14,7 +14,7 @@ import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { PLATFORMS, getPlatform, type PlatformId } from '../constants/platforms';
 import PlatformLogo from '../components/PlatformLogo';
-import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange } from '../services/firebase';
+import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange, clearGroupSession } from '../services/firebase';
 import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import { MOCK_GROUP, MOCK_USERS } from '../utils/mock';
@@ -81,6 +81,9 @@ export default function GroupScreen() {
 
   async function handleFindMatch() {
     setCurrentGroup(group);
+    // Limpiar sesión anterior ANTES de navegar para que ningún miembro
+    // escriba su mood sobre datos stale — evita la race condition con clearGroupSession en MoodScreen
+    if (!USE_MOCK) clearGroupSession(group.id).catch(() => {});
     nav.navigate('Mood', { groupId: group.id });
     if (!USE_MOCK && user) {
       try {
