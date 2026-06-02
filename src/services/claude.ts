@@ -104,7 +104,7 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Claude API ${res.status}: ${err}`);
+    throw new Error(`Claude API ${res.status}: ${err} [key:…${apiKey.slice(-6)}]`);
   }
 
   const data = await res.json() as { content: { text: string }[] };

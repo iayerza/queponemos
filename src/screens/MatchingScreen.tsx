@@ -13,15 +13,7 @@ type Nav   = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'Matching'>;
 
 function friendlyError(raw: string): string {
-  if (raw.includes('401') || raw.includes('authentication') || raw.includes('x-api-key'))
-    return 'Error de autenticación con Claude. Verificá la API key.';
-  if (raw.includes('429') || raw.includes('rate'))
-    return 'Demasiadas solicitudes. Esperá un momento y volvé a intentar.';
-  if (raw.includes('network') || raw.includes('fetch') || raw.includes('Network'))
-    return 'Sin conexión. Verificá tu internet y volvé a intentar.';
-  if (raw.includes('500') || raw.includes('overloaded'))
-    return 'Claude está ocupado ahora. Volvé a intentar en un momento.';
-  return 'Algo salió mal. Volvé a intentar.';
+  return raw; // debug temporal — mostrar error completo
 }
 
 export default function MatchingScreen() {
