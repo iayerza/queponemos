@@ -25,7 +25,7 @@ export default function InviteModal({ visible, onClose, group, onSimulateAccept 
   const { addPendingInvite } = useGroupStore();
   const { user }             = useAuthStore();
 
-  const inviteLink = `https://queponemos.web.app?code=${group.inviteCode}&from=${encodeURIComponent(user?.email ?? '')}`;
+  const inviteLink = `https://queponemosapp.web.app?code=${group.inviteCode}&from=${encodeURIComponent(user?.email ?? '')}`;
   const qrValue    = inviteLink;
 
   async function handleSend() {
