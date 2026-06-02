@@ -36,17 +36,19 @@ export function useOnboarding(): OnboardingState {
       return () => { cancelled = true; };
     }
 
-    Promise.all(
+    const MOCK_MAP = new Map(MOCK_TITLES.map(t => [t.tmdbId, t]));
+
+    Promise.allSettled(
       ONBOARDING_IDS.map(({ tmdbId, type }) => fetchTitle(tmdbId, type))
-    )
-      .then(loaded => { if (!cancelled) { setTitles(loaded); setLoading(false); } })
-      .catch(e => {
-        if (!cancelled) {
-          // Si falla la API, caemos al mock silenciosamente
-          setTitles(MOCK_TITLES);
-          setLoading(false);
-        }
+    ).then(results => {
+      if (cancelled) return;
+      const loaded = results.map((r, i) => {
+        if (r.status === 'fulfilled') return r.value;
+        return MOCK_MAP.get(ONBOARDING_IDS[i].tmdbId) ?? MOCK_TITLES[i];
       });
+      setTitles(loaded.filter(Boolean) as typeof MOCK_TITLES);
+      setLoading(false);
+    });
 
     if (user?.ratings) setRatings(user.ratings as Record<number, Rating>);
 

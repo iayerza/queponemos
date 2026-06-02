@@ -20,7 +20,9 @@ export async function registerPushToken(uid: string): Promise<void> {
   }
   if (finalStatus !== 'granted') return;
 
-  const tokenData = await ExpoNotifications.getExpoPushTokenAsync();
+  const tokenData = await ExpoNotifications.getExpoPushTokenAsync({
+    projectId: '716f60da-b777-4a66-aa39-20a1c788f254',
+  });
   const token = tokenData.data;
 
   const db = getFirestore(getApp());
