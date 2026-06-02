@@ -1,6 +1,6 @@
 export type RootStackParamList = {
   Login: undefined;
-  Onboarding: undefined;
+  Onboarding: { fromProfile?: true };
   App: undefined;
   Group: { groupId: string };
   Mood: { groupId?: string; solo?: true };

@@ -104,12 +104,13 @@ export default function RootNavigator() {
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       ) : (
         <>
-          <Stack.Screen name="App"      component={AppTabs} />
-          <Stack.Screen name="Group"    component={GroupScreen} />
-          <Stack.Screen name="Mood"     component={MoodScreen} />
-          <Stack.Screen name="Matching" component={MatchingScreen} />
-          <Stack.Screen name="Results"  component={ResultsScreen} />
-          <Stack.Screen name="PostView" component={PostViewScreen} />
+          <Stack.Screen name="App"        component={AppTabs} />
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="Group"      component={GroupScreen} />
+          <Stack.Screen name="Mood"       component={MoodScreen} />
+          <Stack.Screen name="Matching"   component={MatchingScreen} />
+          <Stack.Screen name="Results"    component={ResultsScreen} />
+          <Stack.Screen name="PostView"   component={PostViewScreen} />
         </>
       )}
     </Stack.Navigator>

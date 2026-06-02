@@ -4,6 +4,9 @@ import {
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
 import { LogoWordmark } from '../components/Logo';
 import TitlePoster from '../components/TitlePoster';
@@ -11,23 +14,34 @@ import RatingButtons from '../components/RatingButtons';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useAuthStore } from '../store/useAuthStore';
 import { completeOnboarding, rateTitleAndUpdateProfile } from '../services/firebase';
+import type { RootStackParamList } from '../navigation/types';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 const MIN_TO_SKIP = 12;
 const TOTAL = 30;
 
+type Nav   = NativeStackNavigationProp<RootStackParamList>;
+type Route = RouteProp<RootStackParamList, 'Onboarding'>;
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
+  const nav   = useNavigation<Nav>();
+  const route = useRoute<Route>();
   const { user, updateRatings, markOnboardingDone } = useAuthStore();
   const { titles, currentIndex, ratings, isLoading, error, rate, canSkip, isFinished } = useOnboarding();
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const fromProfile = route.params?.fromProfile === true;
 
   async function handleFinish() {
     if (!user) return;
     if (!USE_MOCK) {
       try { await completeOnboarding(user.uid); } catch { /* silenciar */ }
     }
-    markOnboardingDone();
+    if (fromProfile) {
+      nav.goBack();
+    } else {
+      markOnboardingDone();
+    }
   }
 
   function handleRate(r: Parameters<typeof rate>[0]) {
