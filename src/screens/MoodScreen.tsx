@@ -208,7 +208,7 @@ export default function MoodScreen() {
       return (
         <View style={[styles.root, { paddingTop: insets.top + 20, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }]}>
           <Text style={styles.waitTitle}>Perfecto</Text>
-          <Text style={styles.waitSub}>Claude está buscando algo para vos…</Text>
+          <Text style={styles.waitSub}>Queponemos está buscando algo para vos…</Text>
           <View style={[styles.readyBadge, { marginTop: 0, alignSelf: 'stretch' }]}>
             <Text style={styles.readyText}>{myMoodData?.label}</Text>
             <Text style={styles.readySub}>Modo solo · tus plataformas</Text>
@@ -224,7 +224,7 @@ export default function MoodScreen() {
         </Text>
         <Text style={styles.waitSub}>
           {allReady
-            ? 'Claude está analizando los dos moods…'
+            ? 'Queponemos está analizando los dos moods…'
             : 'Esperá que elija su mood esta noche'}
         </Text>
 
@@ -265,7 +265,7 @@ export default function MoodScreen() {
             <Text style={styles.readyText}>
               {myMoodData?.label}  ×  {partnerMoodData?.label}
             </Text>
-            <Text style={styles.readySub}>Claude va a encontrar algo perfecto para los dos</Text>
+            <Text style={styles.readySub}>Queponemos va a encontrar algo perfecto para los dos</Text>
           </View>
         )}
 
@@ -299,8 +299,8 @@ export default function MoodScreen() {
         </Text>
         <Text style={styles.sub}>
           {isSoloRoute
-            ? 'Claude va a encontrar algo perfecto para vos en tus plataformas.'
-            : 'Tu compañero también va a elegir. Claude va a encontrar algo que les funcione a los dos.'}
+            ? 'Queponemos va a encontrar algo perfecto para vos en tus plataformas.'
+            : 'Tu compañero también va a elegir. Queponemos va a encontrar algo que les funcione a los dos.'}
         </Text>
 
         <View style={styles.grid}>

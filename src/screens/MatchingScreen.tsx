@@ -13,7 +13,15 @@ type Nav   = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'Matching'>;
 
 function friendlyError(raw: string): string {
-  return raw; // debug temporal — mostrar error completo
+  if (raw.includes('401') || raw.includes('authentication') || raw.includes('x-api-key'))
+    return 'Error de autenticación. Verificá tu conexión e intentá de nuevo.';
+  if (raw.includes('429') || raw.includes('rate'))
+    return 'Demasiadas solicitudes. Esperá un momento y volvé a intentar.';
+  if (raw.includes('network') || raw.includes('fetch') || raw.includes('Network'))
+    return 'Sin conexión. Verificá tu internet y volvé a intentar.';
+  if (raw.includes('500') || raw.includes('overloaded'))
+    return 'El servicio está ocupado. Volvé a intentar en un momento.';
+  return 'Algo salió mal. Volvé a intentar.';
 }
 
 export default function MatchingScreen() {
@@ -43,9 +51,9 @@ export default function MatchingScreen() {
       </Text>
       <Text style={styles.sub}>
         {isSolo
-          ? 'Claude está eligiendo según tu perfil'
+          ? 'Queponemos está eligiendo según tu perfil'
           : isLeader
-            ? 'Claude está reconciliando sus gustos'
+            ? 'Queponemos está reconciliando sus gustos'
             : 'Tu compañero está buscando el match'}
       </Text>
 

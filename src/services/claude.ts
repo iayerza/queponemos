@@ -104,7 +104,7 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Claude API ${res.status}: ${err} [key:…${apiKey.slice(-6)}]`);
+    throw new Error(`Claude API ${res.status}: ${err}`);
   }
 
   const data = await res.json() as { content: { text: string }[] };
@@ -128,20 +128,22 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     platform: (r.platform ?? input.platforms[0]) as PlatformId,
   }));
 
-  // Enriquecer con pósters de TMDB: primero por ID, luego búsqueda por título
+  // Enriquecer con pósters de TMDB: buscar por título (confiable) y usar tmdbId de Claude solo como desempate
   const recommendations = await Promise.all(
     baseRecs.map(async rec => {
       try {
+        const mediaType = rec.type === 'series' ? 'tv' : 'movie';
+        // Buscar por título primero — más confiable que el tmdbId de Claude
+        const results = await searchTitles(rec.title);
+        const byYear = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1);
+        const byType = results.find(r => r.type === mediaType);
+        const match = byYear ?? byType;
+        if (match) return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath };
+        // Último recurso: ID de Claude (puede ser incorrecto)
         if (rec.tmdbId) {
-          const tmdbData = await fetchTitle(rec.tmdbId, rec.type === 'series' ? 'tv' : 'movie');
+          const tmdbData = await fetchTitle(rec.tmdbId, mediaType);
           return { ...rec, posterPath: tmdbData.posterPath };
         }
-        // Fallback: search by title+year
-        const results = await searchTitles(rec.title);
-        const mediaType = rec.type === 'series' ? 'tv' : 'movie';
-        const match = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1)
-          ?? results.find(r => r.type === mediaType);
-        if (match) return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath };
       } catch { /* ignore */ }
       return rec;
     })
