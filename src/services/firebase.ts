@@ -345,10 +345,10 @@ export async function getUserGroups(uid: string): Promise<GroupDoc[]> {
 
 export function onGroupChange(
   groupId: string,
-  cb: (group: GroupDoc) => void,
+  cb: (group: GroupDoc | null) => void,
 ): Unsubscribe {
   return onSnapshot(doc(db(), 'groups', groupId), snap => {
-    if (snap.exists()) cb({ id: snap.id, ...snap.data() } as GroupDoc);
+    cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as GroupDoc) : null);
   });
 }
 

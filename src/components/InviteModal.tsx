@@ -1,11 +1,8 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Linking,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Share, Clipboard } from 'react-native';
 import BottomSheet from './BottomSheet';
 import QRCode from './QRCode';
 import { Colors, Typography } from '../constants/colors';
-import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import type { GroupDoc } from '../services/firebase';
 
@@ -16,110 +13,68 @@ interface Props {
   onSimulateAccept: () => void;
 }
 
-type TabId = 'email' | 'qr';
+type TabId = 'link' | 'qr';
 
 export default function InviteModal({ visible, onClose, group, onSimulateAccept }: Props) {
-  const [tab, setTab]       = useState<TabId>('email');
-  const [email, setEmail]   = useState('');
-  const [sent, setSent]     = useState(false);
-  const { addPendingInvite } = useGroupStore();
-  const { user }             = useAuthStore();
+  const [tab, setTab]     = useState<TabId>('link');
+  const [copied, setCopied] = useState(false);
+  const { user }          = useAuthStore();
 
   const inviteLink = `https://queponemos.web.app?code=${group.inviteCode}&from=${encodeURIComponent(user?.email ?? '')}`;
-  const qrValue    = inviteLink;
 
-  async function handleSend() {
-    if (!email.trim()) return;
-    // Abrir app de email nativa con link de invitación pre-armado
-    const from    = user?.displayName ?? user?.email ?? 'alguien';
-    const subject = encodeURIComponent(`${from} te invita a queponemos`);
-    const body    = encodeURIComponent(
-      `Hola!\n\n${from} te invitó a elegir qué ver juntos en queponemos.\n\nEntrá acá: ${inviteLink}\n\nCódigo de sala: ${group.inviteCode}`,
-    );
-    const mailto  = `mailto:${email.trim()}?subject=${subject}&body=${body}`;
-    const can = await Linking.canOpenURL(mailto);
-    if (can) {
-      await Linking.openURL(mailto);
-      addPendingInvite({ email: email.trim(), groupId: group.id, status: 'pending' });
-      setSent(true);
-    } else {
-      Alert.alert('Sin app de email', 'No se encontró una app de correo en el dispositivo.');
-    }
+  async function handleShare() {
+    const from = user?.displayName ?? user?.email ?? 'alguien';
+    await Share.share({
+      message: `${from} te invita a queponemos\n\nElegí qué ver juntos: ${inviteLink}\nCódigo: ${group.inviteCode}`,
+    });
   }
 
-  function handleSimulate() {
-    onSimulateAccept();
-    setSent(false);
-    setEmail('');
-    onClose();
+  function handleCopyLink() {
+    Clipboard.setString(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
-    <BottomSheet visible={visible} onClose={() => { setSent(false); onClose(); }}>
+    <BottomSheet visible={visible} onClose={onClose}>
       <View style={styles.container}>
         <Text style={styles.title}>Invitar al grupo</Text>
 
         <View style={styles.tabs}>
-          {(['email', 'qr'] as TabId[]).map(t => (
+          {(['link', 'qr'] as TabId[]).map(t => (
             <TouchableOpacity
               key={t}
               style={[styles.tab, tab === t && styles.tabActive]}
               onPress={() => setTab(t)}
             >
               <Text style={[styles.tabLabel, tab === t && styles.tabLabelActive]}>
-                {t === 'email' ? 'Email' : 'Código QR'}
+                {t === 'link' ? 'Link' : 'Código QR'}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {tab === 'email' ? (
-          sent ? (
-            <View style={styles.sentBox}>
-              <Text style={styles.sentTitle}>✅ Invitación enviada a</Text>
-              <Text style={styles.sentEmail}>{email}</Text>
-              <TouchableOpacity style={styles.primaryBtn} onPress={handleSimulate}>
-                <Text style={styles.primaryBtnText}>Unirme al grupo</Text>
-              </TouchableOpacity>
+        {tab === 'link' ? (
+          <View style={styles.linkSection}>
+            <View style={styles.codeBox}>
+              <Text style={styles.codeLabel}>CÓDIGO DE SALA</Text>
+              <Text style={styles.codeValue}>{group.inviteCode}</Text>
             </View>
-          ) : (
-            <View>
-              <TextInput
-                style={styles.input}
-                placeholder="Email del invitado"
-                placeholderTextColor={Colors.faint}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                style={styles.hint}
-                onPress={() => setEmail('sofiamagnasco@gmail.com')}
-              >
-                <Text style={styles.hintText}>
-                  💡 Demo: probá con sofiamagnasco@gmail.com
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.primaryBtn, !email.trim() && styles.primaryBtnDisabled]}
-                onPress={handleSend}
-                disabled={!email.trim()}
-              >
-                <Text style={styles.primaryBtnText}>Enviar invitación</Text>
-              </TouchableOpacity>
-            </View>
-          )
+            <TouchableOpacity style={styles.primaryBtn} onPress={handleShare} activeOpacity={0.85}>
+              <Text style={styles.primaryBtnText}>Compartir invitación</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.outlineBtn} onPress={handleCopyLink} activeOpacity={0.85}>
+              <Text style={styles.outlineBtnText}>{copied ? '✓ Link copiado' : 'Copiar link'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.simulateBtn} onPress={() => { onSimulateAccept(); onClose(); }}>
+              <Text style={styles.simulateBtnText}>Demo: simular que aceptaron</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <View style={styles.qrSection}>
-            <QRCode value={qrValue} size={180} />
-            <Text style={styles.qrText}>
-              Escaneá este código para unirte al grupo
-            </Text>
+            <QRCode value={inviteLink} size={180} />
+            <Text style={styles.qrText}>Escaneá este código para unirte al grupo</Text>
             <Text style={styles.codeDisplay}>{group.inviteCode}</Text>
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleSimulate}>
-              <Text style={styles.primaryBtnText}>Unirme al grupo</Text>
-            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -150,31 +105,48 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: Colors.s3 },
   tabLabel: { color: Colors.sub, fontSize: Typography.small },
-  tabLabelActive: { color: Colors.text, fontWeight: Typography.semibold },
-  input: {
+  tabLabelActive: { color: Colors.text, fontWeight: Typography.medium },
+  linkSection: { gap: 12 },
+  codeBox: {
     backgroundColor: Colors.s2,
-    borderRadius: 10,
-    padding: 14,
-    color: Colors.text,
-    fontSize: Typography.body,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: Colors.border,
-    marginBottom: 10,
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  hint: { marginBottom: 16 },
-  hintText: { color: Colors.accent, fontSize: Typography.small },
+  codeLabel: {
+    color: Colors.faint,
+    fontSize: Typography.tiny,
+    fontWeight: Typography.medium,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  codeValue: {
+    color: Colors.accent,
+    fontFamily: 'monospace',
+    fontSize: 26,
+    fontWeight: Typography.bold,
+    letterSpacing: 6,
+  },
   primaryBtn: {
     backgroundColor: Colors.accent,
     borderRadius: 10,
-    padding: 16,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 4,
   },
-  primaryBtnDisabled: { opacity: 0.4 },
   primaryBtnText: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body },
-  sentBox: { alignItems: 'center', paddingVertical: 10 },
-  sentTitle: { color: Colors.sub, fontSize: Typography.body, marginBottom: 6 },
-  sentEmail: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.h3, marginBottom: 20 },
+  outlineBtn: {
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  outlineBtnText: { color: Colors.sub, fontSize: Typography.body },
+  simulateBtn: { alignItems: 'center', paddingVertical: 8 },
+  simulateBtnText: { color: Colors.faint, fontSize: Typography.small },
   qrSection: { alignItems: 'center', paddingVertical: 10, gap: 16 },
   qrText: { color: Colors.sub, fontSize: Typography.small, textAlign: 'center' },
   codeDisplay: {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, StyleSheet, Clipboard, Alert, Modal,
 } from 'react-native';
@@ -40,11 +40,20 @@ export default function GroupScreen() {
   const [savingPlatforms,  setSavingPlatforms]  = useState(false);
   const [deleting,         setDeleting]         = useState(false);
   const [memberNames,      setMemberNames]       = useState<Record<string, string>>({});
+  const isDeletingRef = useRef(false);
 
   // Real-time group listener
   useEffect(() => {
     if (USE_MOCK) return;
     const unsub = onGroupChange(route.params.groupId, updated => {
+      if (!updated) {
+        if (!isDeletingRef.current) {
+          removeGroup(route.params.groupId);
+          Alert.alert('Grupo eliminado', 'El creador eliminó este grupo.');
+          nav.navigate('App');
+        }
+        return;
+      }
       setLiveGroup(updated);
       updateGroup(updated.id, updated);
     });
@@ -120,11 +129,13 @@ export default function GroupScreen() {
           style: 'destructive',
           onPress: async () => {
             setDeleting(true);
+            isDeletingRef.current = true;
             try {
               if (!USE_MOCK) await deleteGroup(group.id);
               removeGroup(group.id);
               nav.navigate('App');
             } catch {
+              isDeletingRef.current = false;
               Alert.alert('Error', 'No se pudo eliminar el grupo');
               setDeleting(false);
             }

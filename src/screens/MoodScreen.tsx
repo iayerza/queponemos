@@ -141,6 +141,7 @@ export default function MoodScreen() {
   useEffect(() => {
     if (USE_MOCK || isSoloRoute) return;
     const unsub = onGroupChange(groupId, g => {
+      if (!g) return;
       const moods = g.currentSession?.moods ?? {};
       setSessionMoods(moods);
     });
