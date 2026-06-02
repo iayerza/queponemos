@@ -40,7 +40,15 @@ export const useMatchStore = create<MatchStore>(set => ({
       if (!s.currentMatch) return s;
       const recs = [...s.currentMatch.recommendations];
       recs[titleIdx] = { ...recs[titleIdx], groupStatus: status };
-      return { currentMatch: { ...s.currentMatch, recommendations: recs } };
+      const updatedMatch = { ...s.currentMatch, recommendations: recs };
+      // También actualizar en el historial para que "Mis listas" lo refleje
+      const matchId = s.currentMatchId;
+      const history = s.history.map(e =>
+        e.matchId === matchId
+          ? { ...e, recommendations: recs }
+          : e
+      );
+      return { currentMatch: updatedMatch, history };
     }),
   clearMoods: () => set({ moods: {} }),
   setSoloMode: v => set({ isSolo: v }),

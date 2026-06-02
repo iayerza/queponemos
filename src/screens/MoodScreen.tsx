@@ -132,7 +132,7 @@ export default function MoodScreen() {
     clearMoods();
     setSoloMode(isSoloRoute);
     setSessionMoods({});
-    if (!USE_MOCK && !isSoloRoute && user && currentGroup?.createdBy === user.uid) {
+    if (!USE_MOCK && !isSoloRoute && user) {
       clearGroupSession(groupId).catch(() => {});
     }
   }, []);
