@@ -65,6 +65,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: Colors.s2,
+    justifyContent: 'flex-end',
   },
   fallback: { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.s2 },
   gradient: { justifyContent: 'flex-end' },

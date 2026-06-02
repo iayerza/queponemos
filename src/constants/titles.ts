@@ -4,9 +4,9 @@
 export const ONBOARDING_IDS: { tmdbId: number; type: 'movie' | 'tv' }[] = [
   // Drama
   { tmdbId: 278,    type: 'movie' }, // The Shawshank Redemption  — IMDB #1
-  { tmdbId: 4253,   type: 'tv'    }, // Band of Brothers          — IMDB #2 TV
+  { tmdbId: 4613,   type: 'tv'    }, // Band of Brothers          — IMDB #2 TV
   { tmdbId: 87108,  type: 'tv'    }, // Chernobyl                 — IMDB #3 TV
-  { tmdbId: 73586,  type: 'tv'    }, // Succession
+  { tmdbId: 76331,  type: 'tv'    }, // Succession
   { tmdbId: 126308, type: 'tv'    }, // Shōgun
   { tmdbId: 872585, type: 'movie' }, // Oppenheimer
 
