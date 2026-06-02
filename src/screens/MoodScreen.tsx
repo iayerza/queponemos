@@ -119,7 +119,9 @@ export default function MoodScreen() {
 
   const myStoredMood  = user ? (sessionMoods[user.uid] ?? null) : null;
   const partnerMood   = partnerUid ? (sessionMoods[partnerUid] ?? null) : null;
-  const allReady      = isSolo ? !!myStoredMood : !!(myStoredMood && partnerMood);
+  // allReady requires myMood (local pick this session) to avoid stale Firestore data
+  // from a previous session triggering navigation before the user picks.
+  const allReady      = isSolo ? !!myMood : !!(myMood && partnerMood);
 
   const myMoodData      = (myMood ?? myStoredMood) ? MOODS.find(m => m.id === (myMood ?? myStoredMood)) : null;
   const partnerMoodData = partnerMood ? MOODS.find(m => m.id === partnerMood) : null;

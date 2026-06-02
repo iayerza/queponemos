@@ -322,12 +322,17 @@ export async function getMatchById(matchId: string): Promise<MatchDoc | null> {
 
 /** Poll Firestore until the leader writes a matchId into the session (max 45s). */
 export async function pollForMatchId(groupId: string): Promise<string | null> {
+  // Snapshot the matchId that exists RIGHT NOW — could be stale from a previous session.
+  // We only accept a matchId that is different from this one.
+  const initial = await getDoc(doc(db(), 'groups', groupId));
+  const staleMatchId = initial.data()?.currentSession?.matchId as string | undefined;
+
   const deadline = Date.now() + 45_000;
   while (Date.now() < deadline) {
     await new Promise(r => setTimeout(r, 1500));
     const snap = await getDoc(doc(db(), 'groups', groupId));
     const matchId = snap.data()?.currentSession?.matchId as string | undefined;
-    if (matchId) return matchId;
+    if (matchId && matchId !== staleMatchId) return matchId;
   }
   return null;
 }
