@@ -172,7 +172,7 @@ export default function MoodScreen() {
     setNavigating(true);
     Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
     setTimeout(() => {
-      nav.navigate('Matching', { groupId });
+      nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
     }, 1400);
   }, [allReady, navigating, myMood, sessionMoods]);
 
@@ -259,7 +259,7 @@ export default function MoodScreen() {
         {showSkip && !allReady && (
           <TouchableOpacity
             style={styles.skipBtn}
-            onPress={() => nav.navigate('Matching', { groupId })}
+            onPress={() => nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId })}
           >
             <Text style={styles.skipText}>Omitir y continuar solo</Text>
           </TouchableOpacity>
@@ -280,7 +280,7 @@ export default function MoodScreen() {
             onPress={() => {
               setNavigating(true);
               Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
-              nav.navigate('Matching', { groupId });
+              nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
             }}
           >
             <Text style={styles.continueBtnText}>Continuar al análisis</Text>
