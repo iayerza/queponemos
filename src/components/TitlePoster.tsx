@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Feather from '@expo/vector-icons/Feather';
 import { getPosterUrl } from '../services/tmdb';
 import { Colors, Typography } from '../constants/colors';
 import type { NormalizedTitle } from '../services/tmdb';
-
-const { width } = Dimensions.get('window');
-const POSTER_H = Math.min(width * 1.5, 420);
 
 interface Props {
   title: NormalizedTitle;
@@ -19,7 +16,7 @@ export default function TitlePoster({ title }: Props) {
   const [imgError, setImgError] = useState(false);
 
   return (
-    <View style={[styles.container, { height: POSTER_H }]}>
+    <View style={styles.container}>
       {posterUrl && !imgError ? (
         <Image
           source={{ uri: posterUrl }}
@@ -62,6 +59,7 @@ export default function TitlePoster({ title }: Props) {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    aspectRatio: 2 / 3,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: Colors.s2,
