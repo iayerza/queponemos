@@ -17,7 +17,6 @@ type FeatherName = React.ComponentProps<typeof Feather>['name'];
 const ACTIONS: { status: Recommendation['groupStatus']; icon: FeatherName; label: string }[] = [
   { status: 'watched',   icon: 'check-circle', label: 'La vimos' },
   { status: 'watchlist', icon: 'bookmark',      label: 'Para después' },
-  { status: 'skipped',   icon: 'x-circle',     label: 'Pasar' },
 ];
 
 export default function ResultCard({ rec, onAction }: Props) {
@@ -78,6 +77,16 @@ export default function ResultCard({ rec, onAction }: Props) {
           );
         })}
       </View>
+      <TouchableOpacity
+        style={[styles.vetoBtn, rec.groupStatus === 'skipped' && styles.vetoBtnActive]}
+        onPress={() => onAction('skipped')}
+        activeOpacity={0.75}
+      >
+        <Feather name="slash" size={13} color={rec.groupStatus === 'skipped' ? Colors.danger : Colors.faint} />
+        <Text style={[styles.vetoText, rec.groupStatus === 'skipped' && { color: Colors.danger }]}>
+          {rec.groupStatus === 'skipped' ? 'Vetada' : 'Vetar (anónimo)'}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -137,7 +146,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   whyText: { color: Colors.text, fontSize: Typography.small, lineHeight: 18 },
-  actions: { flexDirection: 'row', gap: 8 },
+  actions: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  vetoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
+  vetoBtnActive: { borderColor: Colors.danger, backgroundColor: 'rgba(200,48,42,0.08)' },
+  vetoText: { color: Colors.faint, fontSize: Typography.tiny },
   actionBtn: {
     flex: 1,
     alignItems: 'center',

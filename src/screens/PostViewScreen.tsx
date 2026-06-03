@@ -12,7 +12,11 @@ import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
 import { getPosterUrl } from '../services/tmdb';
 import { useMatchStore } from '../store/useMatchStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { rateTitleAndUpdateProfile } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
+
+const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'PostView'>;
@@ -23,9 +27,10 @@ export default function PostViewScreen() {
   const insets = useSafeAreaInsets();
   const nav    = useNavigation<Nav>();
   const route  = useRoute<Route>();
-  const { title, year, posterPath, matchId, titleIdx } = route.params;
+  const { title, year, posterPath, matchId, titleIdx, tmdbId } = route.params;
 
   const { updateTitleAction } = useMatchStore();
+  const { user } = useAuthStore();
 
   const [rating, setRating]   = useState(0);
   const [comment, setComment] = useState('');
@@ -34,8 +39,14 @@ export default function PostViewScreen() {
   const posterUrl = getPosterUrl(posterPath);
 
   function handleSend() {
-    // Guardar el estado watched (ya fue marcado antes, pero reforzamos)
     updateTitleAction(0, titleIdx, 'watched');
+    if (!USE_MOCK && user && tmdbId) {
+      const fbRating = rating >= 4 ? 'loved' : 'seen_disliked';
+      rateTitleAndUpdateProfile(user.uid, tmdbId, fbRating, {
+        id: tmdbId, tmdbId, title, year,
+        type: 'movie', genres: [], rating: rating * 2, posterPath: posterPath ?? null, synopsis: '',
+      }).catch(() => {});
+    }
     setSaved(true);
     setTimeout(() => nav.navigate('App'), 800);
   }

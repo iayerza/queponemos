@@ -14,7 +14,8 @@ import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { PLATFORMS, getPlatform, type PlatformId } from '../constants/platforms';
 import PlatformLogo from '../components/PlatformLogo';
-import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange, clearGroupSession } from '../services/firebase';
+import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange, clearGroupSession, incrementGroupTurn, getGroupWatchlist } from '../services/firebase';
+import type { WatchlistItem } from '../services/firebase';
 import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import { MOCK_GROUP, MOCK_USERS } from '../utils/mock';
@@ -40,6 +41,7 @@ export default function GroupScreen() {
   const [savingPlatforms,  setSavingPlatforms]  = useState(false);
   const [deleting,         setDeleting]         = useState(false);
   const [memberNames,      setMemberNames]       = useState<Record<string, string>>({});
+  const [groupWatchlist,   setGroupWatchlist]    = useState<WatchlistItem[]>([]);
   const isDeletingRef = useRef(false);
 
   // Real-time group listener
@@ -68,6 +70,12 @@ export default function GroupScreen() {
     fetchMemberNames(unknownUids).then(setMemberNames).catch(() => {});
   }, [group.members]);
 
+  // Cargar lista de pendientes del grupo
+  useEffect(() => {
+    if (USE_MOCK) return;
+    getGroupWatchlist(group.id).then(setGroupWatchlist).catch(() => {});
+  }, [group.id]);
+
   function getMemberName(uid: string) {
     if (uid === user?.uid) return user?.displayName ?? 'Vos';
     if (USE_MOCK) return MOCK_USERS[uid]?.displayName ?? uid;
@@ -83,7 +91,10 @@ export default function GroupScreen() {
     setCurrentGroup(group);
     // Limpiar sesión anterior ANTES de navegar para que ningún miembro
     // escriba su mood sobre datos stale — evita la race condition con clearGroupSession en MoodScreen
-    if (!USE_MOCK) clearGroupSession(group.id).catch(() => {});
+    if (!USE_MOCK) {
+      clearGroupSession(group.id).catch(() => {});
+      incrementGroupTurn(group.id).catch(() => {});
+    }
     nav.navigate('Mood', { groupId: group.id });
     if (!USE_MOCK && user) {
       try {
@@ -170,6 +181,21 @@ export default function GroupScreen() {
         ))}
       </View>
 
+      {/* Turno rotativo */}
+      {group.members.length > 1 && (() => {
+        const turnIdx = (group.turnIndex ?? 0) % group.members.length;
+        const turnoUid = group.members[turnIdx];
+        const esTuTurno = turnoUid === user?.uid;
+        return (
+          <View style={[styles.turnBox, esTuTurno && styles.turnBoxActive]}>
+            <Text style={styles.codeLabel}>ESTA NOCHE ELIGE</Text>
+            <Text style={[styles.turnName, esTuTurno && { color: Colors.accent }]}>
+              {esTuTurno ? '🎬 Es tu turno' : `🎬 ${getMemberName(turnoUid)}`}
+            </Text>
+          </View>
+        );
+      })()}
+
       <View style={styles.codeBox}>
         <Text style={styles.codeLabel}>CÓDIGO DE INVITACIÓN</Text>
         <View style={styles.codeRow}>
@@ -199,6 +225,19 @@ export default function GroupScreen() {
                   {invite.status === 'accepted' ? 'Aceptó' : 'Pendiente'}
                 </Text>
               </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Pendientes del grupo */}
+      {groupWatchlist.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Pendientes del grupo</Text>
+          {groupWatchlist.map(item => (
+            <View key={item.tmdbId} style={styles.inviteRow}>
+              <Text style={styles.inviteEmail}>{item.title}</Text>
+              <Text style={styles.watchlistPlatform}>{getPlatform(item.platform).name}</Text>
             </View>
           ))}
         </View>
@@ -291,6 +330,10 @@ const styles = StyleSheet.create({
   eyebrow: { color: Colors.sub, fontSize: Typography.tiny, letterSpacing: 2, marginBottom: 6 },
   title: { color: Colors.text, fontSize: Typography.hero, fontWeight: Typography.black, marginBottom: 20 },
   members: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 24 },
+  turnBox: { backgroundColor: Colors.s1, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.border, marginBottom: 16 },
+  turnBoxActive: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
+  turnName: { color: Colors.text, fontSize: Typography.body, fontWeight: Typography.medium },
+  watchlistPlatform: { color: Colors.faint, fontSize: Typography.tiny },
   codeBox: { backgroundColor: Colors.s1, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.border, marginBottom: 20 },
   codeLabel: { color: Colors.faint, fontSize: Typography.tiny, fontWeight: Typography.semibold, letterSpacing: 1, marginBottom: 8 },
   codeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

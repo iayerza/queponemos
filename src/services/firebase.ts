@@ -70,6 +70,7 @@ export interface GroupDoc {
   inviteCode: string;
   platforms: PlatformId[];
   country: string;
+  turnIndex?: number;
   currentSession?: {
     moods: Record<string, MoodId>;
     matchId?: string;
@@ -267,6 +268,11 @@ export async function joinGroupByCode(
 
 export async function deleteGroup(groupId: string): Promise<void> {
   await deleteDoc(doc(db(), 'groups', groupId));
+}
+
+export async function incrementGroupTurn(groupId: string): Promise<void> {
+  const { increment } = await import('firebase/firestore');
+  await updateDoc(doc(db(), 'groups', groupId), { turnIndex: increment(1) });
 }
 
 export async function clearGroupSession(groupId: string): Promise<void> {

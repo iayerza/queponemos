@@ -66,6 +66,7 @@ export default function ResultsScreen() {
           posterPath: rec.posterPath,
           matchId: currentMatchId,
           titleIdx: idx,
+          tmdbId: rec.tmdbId,
         });
       }
     }

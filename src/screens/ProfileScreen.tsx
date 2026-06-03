@@ -143,6 +143,21 @@ export default function ProfileScreen() {
         )}
       </View>
 
+      {/* Géneros ocultos */}
+      {(user?.tasteProfile?.implicitGenres ?? []).length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>También te gusta (sin darte cuenta)</Text>
+          <Text style={styles.sectionSub}>Géneros que el sistema detectó pero no elegiste conscientemente</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+            {user!.tasteProfile.implicitGenres.map(g => (
+              <View key={g} style={styles.implicitChip}>
+                <Text style={styles.implicitChipText}>{g}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
       {/* Perfil inferido */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Tu perfil</Text>
@@ -255,6 +270,8 @@ const styles = StyleSheet.create({
   section: { marginBottom: 28 },
   sectionTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium, marginBottom: 2 },
   sectionSub: { color: Colors.faint, fontSize: Typography.tiny, marginBottom: 14 },
+  implicitChip: { backgroundColor: Colors.accentFaint, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: Colors.accentBorder },
+  implicitChipText: { color: Colors.accent, fontSize: Typography.small },
   genreRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
   genreName: { color: Colors.sub, fontSize: Typography.small, width: 110 },
   barTrack: { flex: 1, height: 4, backgroundColor: Colors.s2, borderRadius: 2 },
