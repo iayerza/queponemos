@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Image } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Feather from '@expo/vector-icons/Feather';
 import { getPosterUrl } from '../services/tmdb';
 import { Colors, Typography } from '../constants/colors';
 import type { NormalizedTitle } from '../services/tmdb';
+
+// Altura exacta 2:3 sin cap — descuenta el paddingHorizontal:20 de OnboardingScreen
+const CARD_W = Dimensions.get('window').width - 40;
+const POSTER_H = Math.round(CARD_W * 1.5);
 
 interface Props {
   title: NormalizedTitle;
@@ -16,11 +19,11 @@ export default function TitlePoster({ title }: Props) {
   const [imgError, setImgError] = useState(false);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { height: POSTER_H }]}>
       {posterUrl && !imgError ? (
         <Image
           source={{ uri: posterUrl }}
-          style={StyleSheet.absoluteFill}
+          style={{ width: CARD_W, height: POSTER_H }}
           resizeMode="cover"
           onError={() => setImgError(true)}
         />
@@ -58,8 +61,7 @@ export default function TitlePoster({ title }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    aspectRatio: 2 / 3,
+    width: CARD_W,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: Colors.s2,
