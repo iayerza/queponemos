@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Feather from '@expo/vector-icons/Feather';
 import { getPosterUrl } from '../services/tmdb';
 import { Colors, Typography } from '../constants/colors';
 import type { NormalizedTitle } from '../services/tmdb';
-
-const { width } = Dimensions.get('window');
-const POSTER_H = Math.min(width * 1.5, 420);
 
 interface Props {
   title: NormalizedTitle;
@@ -19,7 +16,7 @@ export default function TitlePoster({ title }: Props) {
   const [imgError, setImgError] = useState(false);
 
   return (
-    <View style={[styles.container, { height: POSTER_H }]}>
+    <View style={styles.container}>
       {posterUrl && !imgError ? (
         <Image
           source={{ uri: posterUrl }}
@@ -33,11 +30,11 @@ export default function TitlePoster({ title }: Props) {
         </View>
       )}
 
-      {/* Strong gradient so white text always reads over any poster color */}
+      {/* Gradient siempre oscuro — nunca usa Colors.bg para no quedar blanco en light mode */}
       <LinearGradient
-        colors={['transparent', 'rgba(8,12,20,0.5)', 'rgba(8,12,20,0.92)', Colors.bg]}
-        locations={[0.3, 0.55, 0.8, 1]}
-        style={[StyleSheet.absoluteFill, styles.gradient]}
+        colors={['transparent', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)', 'rgba(0,0,0,0.97)']}
+        locations={[0.2, 0.5, 0.75, 1]}
+        style={StyleSheet.absoluteFill}
       />
 
       <View style={styles.info}>
@@ -62,22 +59,23 @@ export default function TitlePoster({ title }: Props) {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+    aspectRatio: 2 / 3,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: Colors.s2,
+    justifyContent: 'flex-end',
   },
   fallback: { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.s2 },
-  gradient: { justifyContent: 'flex-end' },
   info: { padding: 20 },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   titleText: {
     color: '#ffffff',
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: Typography.medium,
     marginBottom: 6,
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   meta: {
     color: 'rgba(255,255,255,0.75)',

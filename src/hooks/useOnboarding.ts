@@ -43,8 +43,12 @@ export function useOnboarding(): OnboardingState {
     ).then(results => {
       if (cancelled) return;
       const loaded = results.map((r, i) => {
-        if (r.status === 'fulfilled') return r.value;
-        return MOCK_MAP.get(ONBOARDING_IDS[i].tmdbId) ?? MOCK_TITLES[i];
+        const mock = MOCK_MAP.get(ONBOARDING_IDS[i].tmdbId) ?? MOCK_TITLES[i];
+        if (r.status === 'rejected') return mock;
+        const title = r.value;
+        if (!title.year) return mock;
+        if (!title.posterPath && mock?.posterPath) return { ...title, posterPath: mock.posterPath };
+        return title;
       });
       setTitles(loaded.filter(Boolean) as typeof MOCK_TITLES);
       setLoading(false);
