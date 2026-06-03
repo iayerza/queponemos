@@ -31,8 +31,7 @@ export function useOnboarding(): OnboardingState {
     setLoading(true);
 
     if (!hasTmdbKey) {
-      // Sin API key usamos los datos hardcodeados
-      if (!cancelled) { setTitles(MOCK_TITLES); setLoading(false); }
+      if (!cancelled) { setTitles(MOCK_TITLES.filter(t => t.year > 0 && t.posterPath)); setLoading(false); }
       return () => { cancelled = true; };
     }
 
