@@ -41,6 +41,7 @@ export default function OnboardingScreen() {
       nav.goBack();
     } else {
       markOnboardingDone();
+      nav.reset({ index: 0, routes: [{ name: 'App' }] });
     }
   }
 
