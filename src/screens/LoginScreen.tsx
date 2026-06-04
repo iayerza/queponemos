@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
   ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
+import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { Colors, Typography } from '../constants/colors';
@@ -52,9 +53,10 @@ export default function LoginScreen() {
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [name,     setName]     = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState<string | null>(null);
+  const [isSignUp,      setIsSignUp]      = useState(false);
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState<string | null>(null);
+  const [showPassword,  setShowPassword]  = useState(false);
 
   async function handleAuth() {
     if (USE_MOCK) { setUser(MOCK_USER); return; }
@@ -163,14 +165,23 @@ export default function LoginScreen() {
           autoCorrect={false}
         />
 
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          placeholderTextColor={Colors.faint}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput
+            style={[styles.input, { paddingRight: 46, marginBottom: 0 }]}
+            placeholder="Contraseña"
+            placeholderTextColor={Colors.faint}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeBtn}
+            onPress={() => setShowPassword(v => !v)}
+            hitSlop={8}
+          >
+            <Feather name={showPassword ? 'eye-off' : 'eye'} size={18} color={Colors.faint} />
+          </TouchableOpacity>
+        </View>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -304,6 +315,8 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     fontSize: Typography.small,
   },
+  passwordContainer: { position: 'relative', marginBottom: 10 },
+  eyeBtn: { position: 'absolute', right: 14, top: 14 },
   forgotBtn: { alignItems: 'center', paddingVertical: 6, marginBottom: 16 },
   forgotText: { fontFamily: Typography.fontRegular, color: Colors.faint, fontSize: Typography.small, textDecorationLine: 'underline' },
   legal: {

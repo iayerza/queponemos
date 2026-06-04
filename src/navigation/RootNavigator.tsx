@@ -101,7 +101,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 200 }}>
       {!user ? (
         <Stack.Screen name="Login" component={LoginScreen} />
       ) : !user.onboardingDone ? (
