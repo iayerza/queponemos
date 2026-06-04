@@ -20,15 +20,15 @@ export const ONBOARDING_IDS: { tmdbId: number; type: 'movie' | 'tv' }[] = [
 
   // Comedia
   { tmdbId: 2316,   type: 'tv'    }, // The Office (US)           — ★ extremo
-  { tmdbId: 64216,  type: 'tv'    }, // Schitt's Creek            — ★ extremo feel-good
+  { tmdbId: 61662,  type: 'tv'    }, // Schitt's Creek            — ★ extremo feel-good
   { tmdbId: 97546,  type: 'tv'    }, // Ted Lasso
-  { tmdbId: 66788,  type: 'tv'    }, // Fleabag
-  { tmdbId: 753342, type: 'movie' }, // The Holdovers
+  { tmdbId: 67070,  type: 'tv'    }, // Fleabag
+  { tmdbId: 840430, type: 'movie' }, // The Holdovers
 
   // Romance
   { tmdbId: 639,    type: 'movie' }, // When Harry Met Sally      — ★ extremo rom-com
   { tmdbId: 492188, type: 'movie' }, // Marriage Story
-  { tmdbId: 103596, type: 'tv'    }, // Normal People
+  { tmdbId: 89905,  type: 'tv'    }, // Normal People
 
   // Fantasía / Aventura
   { tmdbId: 1399,   type: 'tv'    }, // Game of Thrones
@@ -47,6 +47,6 @@ export const ONBOARDING_IDS: { tmdbId: number; type: 'movie' | 'tv' }[] = [
   { tmdbId: 545611, type: 'movie' }, // Everything Everywhere
 
   // Misterio / Drama
-  { tmdbId: 119051, type: 'tv'    }, // The White Lotus
-  { tmdbId: 951491, type: 'movie' }, // Past Lives
+  { tmdbId: 111803, type: 'tv'    }, // The White Lotus
+  { tmdbId: 666277, type: 'movie' }, // Past Lives
 ];
