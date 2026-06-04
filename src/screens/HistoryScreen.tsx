@@ -118,7 +118,7 @@ export default function HistoryScreen() {
                   const st = STATUS_LABELS[r.groupStatus] ?? STATUS_LABELS.pending;
                   const posterUrl = getPosterUrl(r.posterPath ?? null);
                   return (
-                    <View key={r.title} style={styles.recRow}>
+                    <View key={r.tmdbId ?? r.title} style={styles.recRow}>
                       {posterUrl ? (
                         <Image source={{ uri: posterUrl }} style={styles.recPoster} />
                       ) : (

@@ -37,7 +37,7 @@ export function useMatching() {
         if (!match) throw new Error('No se encontró el resultado.');
 
         setCurrentMatch(
-          { recommendations: match.recommendations, groupInsight: '' },
+          { recommendations: match.recommendations, groupInsight: match.groupInsight ?? '' },
           matchId,
         );
         return matchId;
@@ -107,6 +107,7 @@ export function useMatching() {
             members,
             output.recommendations,
             moods as Record<string, MoodId>,
+            output.groupInsight,
           );
           await setSessionMatchId(currentGroup.id, matchId);
         }

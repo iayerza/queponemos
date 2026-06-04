@@ -84,6 +84,7 @@ export interface MatchDoc {
   recommendations: Recommendation[];
   moods: Record<string, MoodId>;
   createdAt: { seconds: number };
+  groupInsight?: string;
 }
 
 export interface WatchlistItem {
@@ -365,12 +366,14 @@ export async function saveMatch(
   members: string[],
   recs: Recommendation[],
   moods: Record<string, MoodId>,
+  groupInsight?: string,
 ): Promise<string> {
   const ref = await addDoc(collection(db(), 'matches'), {
     groupId,
     members,
     recommendations: recs,
     moods,
+    groupInsight: groupInsight ?? '',
     createdAt: serverTimestamp(),
   });
   return ref.id;
