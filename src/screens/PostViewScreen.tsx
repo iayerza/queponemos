@@ -27,7 +27,7 @@ export default function PostViewScreen() {
   const insets = useSafeAreaInsets();
   const nav    = useNavigation<Nav>();
   const route  = useRoute<Route>();
-  const { title, year, posterPath, matchId, titleIdx, tmdbId } = route.params;
+  const { title, year, posterPath, matchId, titleIdx, tmdbId, type } = route.params;
 
   const { updateTitleAction } = useMatchStore();
   const { user } = useAuthStore();
@@ -44,7 +44,7 @@ export default function PostViewScreen() {
       const fbRating = rating >= 4 ? 'loved' : 'seen_disliked';
       rateTitleAndUpdateProfile(user.uid, tmdbId, fbRating, {
         id: tmdbId, tmdbId, title, year,
-        type: 'movie', genres: [], rating: rating * 2, posterPath: posterPath ?? null, synopsis: '',
+        type: type === 'series' ? 'tv' : 'movie', genres: [], rating: rating * 2, posterPath: posterPath ?? null, synopsis: '',
       }).catch(() => {});
     }
     setSaved(true);

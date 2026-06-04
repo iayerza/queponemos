@@ -67,6 +67,7 @@ export default function ResultsScreen() {
           matchId: currentMatchId,
           titleIdx: idx,
           tmdbId: rec.tmdbId,
+          type: rec.type,
         });
       }
     }
@@ -113,7 +114,7 @@ export default function ResultsScreen() {
 
       <TouchableOpacity
         style={styles.newSearchBtn}
-        onPress={() => isSolo ? nav.navigate('Mood', { solo: true }) : (currentGroup && nav.navigate('Mood', { groupId: currentGroup.id }))}
+        onPress={() => isSolo ? nav.navigate('Mood', { solo: true }) : currentGroup ? nav.navigate('Mood', { groupId: currentGroup.id }) : nav.navigate('App')}
         activeOpacity={0.85}
       >
         <Text style={styles.newSearchBtnText}>Nueva búsqueda</Text>
