@@ -23,7 +23,7 @@ export default function TitlePoster({ title }: Props) {
       {posterUrl && !imgError ? (
         <Image
           source={{ uri: posterUrl }}
-          style={{ width: CARD_W, height: POSTER_H }}
+          style={{ position: 'absolute', top: 0, left: 0, width: CARD_W, height: POSTER_H }}
           resizeMode="cover"
           onError={() => setImgError(true)}
         />
