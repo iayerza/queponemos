@@ -474,3 +474,17 @@ export async function getGroupWatchlist(groupId: string): Promise<WatchlistItem[
   }
   return items;
 }
+
+// ─── Usernames ──────────────────────────────────────────────────────────────
+
+export async function registerUsername(username: string, email: string, uid: string): Promise<void> {
+  const key = username.toLowerCase().trim();
+  await setDoc(doc(db(), 'usernames', key), { uid, email });
+}
+
+export async function getEmailByUsername(username: string): Promise<string | null> {
+  const key = username.toLowerCase().trim();
+  const snap = await getDoc(doc(db(), 'usernames', key));
+  if (!snap.exists()) return null;
+  return (snap.data() as { email: string }).email;
+}

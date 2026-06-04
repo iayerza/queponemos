@@ -33,6 +33,8 @@ export default function HomeScreen() {
 
   const { setPlatforms } = useAuthStore();
 
+  const firstName = user?.displayName?.split(' ')[0] ?? '';
+
   const [createModal, setCreateModal] = useState(false);
   const [joinModal,   setJoinModal]   = useState(false);
   const [groupName, setGroupName]     = useState('');
@@ -181,7 +183,8 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <LogoWordmark markSize={20} />
       </View>
-      <Text style={styles.headline}>¿QuePonemos hoy?</Text>
+      {firstName ? <Text style={styles.greeting}>Hola, {firstName}</Text> : null}
+      <Text style={styles.headline}>¿queponemos hoy?</Text>
 
       {/* Solo card */}
       <TouchableOpacity style={styles.soloCard} onPress={handleSoloPress} activeOpacity={0.85}>
@@ -201,9 +204,6 @@ export default function HomeScreen() {
       <View style={styles.section}>
         <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>Tus grupos</Text>
-          <TouchableOpacity onPress={() => setCreateModal(true)}>
-            <Text style={styles.sectionAction}>nuevo +</Text>
-          </TouchableOpacity>
         </View>
 
         {groups.length === 0 && (
@@ -375,6 +375,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 4,
     marginBottom: 4,
+  },
+  greeting: {
+    fontFamily: Typography.fontRegular,
+    fontSize: Typography.body,
+    color: Colors.sub,
+    marginBottom: 2,
   },
   headline: {
     fontFamily: Typography.fontMedium,

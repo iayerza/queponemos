@@ -181,6 +181,14 @@ export default function GroupScreen() {
         ))}
       </View>
 
+      <TouchableOpacity style={styles.primaryBtn} onPress={handleFindMatch} activeOpacity={0.85}>
+        <Text style={styles.primaryBtnText}>Encontrar algo para esta noche</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.outlineBtn} onPress={() => setInviteVisible(true)} activeOpacity={0.85}>
+        <Text style={styles.outlineBtnText}>+ Invitar al grupo</Text>
+      </TouchableOpacity>
+
       {/* Turno rotativo */}
       {group.members.length > 1 && (() => {
         const turnIdx = (group.turnIndex ?? 0) % group.members.length;
@@ -205,14 +213,6 @@ export default function GroupScreen() {
           </TouchableOpacity>
         </View>
       </View>
-
-      <TouchableOpacity style={styles.primaryBtn} onPress={handleFindMatch} activeOpacity={0.85}>
-        <Text style={styles.primaryBtnText}>Encontrar algo para esta noche</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.outlineBtn} onPress={() => setInviteVisible(true)} activeOpacity={0.85}>
-        <Text style={styles.outlineBtnText}>+ Invitar al grupo</Text>
-      </TouchableOpacity>
 
       {groupInvites.length > 0 && (
         <View style={styles.section}>
