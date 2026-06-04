@@ -9,7 +9,7 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, up
 import { Colors, Typography } from '../constants/colors';
 import { LogoMark } from '../components/Logo';
 import { useAuthStore } from '../store/useAuthStore';
-import { loginWithEmailUser, getApp, sendPasswordReset } from '../services/firebase';
+import { loginWithEmailUser, getApp, sendPasswordReset, registerUsername, getEmailByUsername } from '../services/firebase';
 import { MOCK_USER } from '../utils/mock';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
@@ -67,12 +67,21 @@ export default function LoginScreen() {
       const auth = getAuth(getApp());
       let cred;
       if (isSignUp) {
+        if (!name.trim()) { setError('Ingresá un nombre de usuario'); setLoading(false); return; }
         cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-        if (name.trim()) await updateProfile(cred.user, { displayName: name.trim() });
+        await updateProfile(cred.user, { displayName: name.trim() });
+        try { await registerUsername(name.trim(), email.trim(), cred.user.uid); } catch { /* non-blocking */ }
         // Send verification email silently
         try { await sendEmailVerification(cred.user); } catch { /* non-blocking */ }
       } else {
-        cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+        // Aceptar email o nombre de usuario
+        let loginEmail = email.trim();
+        if (!loginEmail.includes('@')) {
+          const found = await getEmailByUsername(loginEmail);
+          if (!found) { setError('Usuario no encontrado'); setLoading(false); return; }
+          loginEmail = found;
+        }
+        cred = await signInWithEmailAndPassword(auth, loginEmail, password);
       }
       const profile = await loginWithEmailUser(cred.user);
       setUser(profile);
@@ -101,11 +110,17 @@ export default function LoginScreen() {
   }
 
   async function handleForgotPassword() {
-    if (!email.trim()) { setError('Ingresá tu email primero'); return; }
+    if (!email.trim()) { setError('Ingresá tu email o usuario primero'); return; }
     setLoading(true);
     try {
-      await sendPasswordReset(email.trim());
-      Alert.alert('Email enviado', `Revisá ${email.trim()} para restablecer tu contraseña.`);
+      let resetEmail = email.trim();
+      if (!resetEmail.includes('@')) {
+        const found = await getEmailByUsername(resetEmail);
+        if (!found) { setError('Usuario no encontrado'); setLoading(false); return; }
+        resetEmail = found;
+      }
+      await sendPasswordReset(resetEmail);
+      Alert.alert('Email enviado', `Revisá tu casilla para restablecer la contraseña.`);
     } catch {
       setError('No se pudo enviar el email. Verificá la dirección.');
     } finally {
@@ -146,21 +161,22 @@ export default function LoginScreen() {
         {isSignUp && (
           <TextInput
             style={styles.input}
-            placeholder="Nombre"
+            placeholder="Usuario (ej: juanperez)"
             placeholderTextColor={Colors.faint}
             value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
+            onChangeText={t => setName(t.replace(/\s/g, ''))}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
         )}
 
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder={isSignUp ? 'Email' : 'Email o usuario'}
           placeholderTextColor={Colors.faint}
           value={email}
           onChangeText={setEmail}
-          keyboardType="email-address"
+          keyboardType={isSignUp || email.includes('@') ? 'email-address' : 'default'}
           autoCapitalize="none"
           autoCorrect={false}
         />
