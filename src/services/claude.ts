@@ -42,7 +42,7 @@ const MOOD_LABELS: Record<MoodId, string> = {
 function buildPrompt(input: MatchingInput): string {
   const userBlocks = input.users.map(u => {
     const loved = Object.entries(u.ratings ?? {})
-      .filter(([, r]) => r === 'loved')
+      .filter(([, r]) => r === 'loved' || r === 'liked')
       .map(([id]) => `ID:${id}`)
       .join(', ') || 'ninguno aún';
     const disliked = Object.entries(u.ratings ?? {})
@@ -57,12 +57,24 @@ function buildPrompt(input: MatchingInput): string {
     return `- ${u.displayName}: géneros favoritos [${genres}], le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
   }).join('\n');
 
+  // All tmdbIds already seen by any user (loved, liked, or disliked) — never recommend these
+  const seenIds = [...new Set(
+    input.users.flatMap(u =>
+      Object.entries(u.ratings ?? {})
+        .filter(([, r]) => r !== 'not_seen')
+        .map(([id]) => `ID:${id}`)
+    )
+  )];
+  const excludeLine = seenIds.length > 0
+    ? `\nTÍTULOS YA VISTOS (NUNCA recomendar estos IDs): ${seenIds.join(', ')}`
+    : '';
+
   return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.
 
 PERFILES:
 ${userBlocks}
 
-PLATAFORMAS DISPONIBLES: ${input.platforms.join(', ')}
+PLATAFORMAS DISPONIBLES: ${input.platforms.join(', ')}${excludeLine}
 
 REGLAS:
 1. VARIEDAD DE ERA: uno anterior a 2010, uno entre 2010-2019, uno de 2020 en adelante.
@@ -75,6 +87,7 @@ REGLAS:
    - 92-100: solo para coincidencia casi perfecta y evidente
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
 5. No repetir siempre los mismos títulos populares del momento.
+6. NUNCA recomendar un título que aparezca en "TÍTULOS YA VISTOS". Usá esos IDs solo para entender los gustos.
 
 Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
 {
