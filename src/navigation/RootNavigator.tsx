@@ -113,29 +113,30 @@ export default function RootNavigator() {
     return <SplashScreen onComplete={() => setSplashDone(true)} />;
   }
 
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 200 }}>
-      {!user ? (
+  if (!user) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 200 }}>
         <Stack.Screen name="Login" component={LoginScreen} />
-      ) : !user.onboardingDone ? (
-        <>
-          <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
-          <Stack.Screen name="AgeSelect"       component={AgeSelectScreen} />
-          <Stack.Screen name="Onboarding"      component={OnboardingScreen} />
-        </>
-      ) : (
-        <>
-          <Stack.Screen name="App"             component={AppTabs} />
-          <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
-          <Stack.Screen name="AgeSelect"       component={AgeSelectScreen} />
-          <Stack.Screen name="Onboarding"      component={OnboardingScreen} />
-          <Stack.Screen name="Group"           component={GroupScreen} />
-          <Stack.Screen name="Mood"       component={MoodScreen} />
-          <Stack.Screen name="Matching"   component={MatchingScreen} />
-          <Stack.Screen name="Results"    component={ResultsScreen} />
-          <Stack.Screen name="PostView"   component={PostViewScreen} />
-        </>
-      )}
+      </Stack.Navigator>
+    );
+  }
+
+  // Single unified stack — all screens always registered so navigationRef.reset('App') always works.
+  const initialRoute = user.onboardingDone ? 'App' : 'OnboardingIntro';
+  return (
+    <Stack.Navigator
+      initialRouteName={initialRoute}
+      screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 200 }}
+    >
+      <Stack.Screen name="App"             component={AppTabs} />
+      <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
+      <Stack.Screen name="AgeSelect"       component={AgeSelectScreen} />
+      <Stack.Screen name="Onboarding"      component={OnboardingScreen} />
+      <Stack.Screen name="Group"           component={GroupScreen} />
+      <Stack.Screen name="Mood"            component={MoodScreen} />
+      <Stack.Screen name="Matching"        component={MatchingScreen} />
+      <Stack.Screen name="Results"         component={ResultsScreen} />
+      <Stack.Screen name="PostView"        component={PostViewScreen} />
     </Stack.Navigator>
   );
 }
