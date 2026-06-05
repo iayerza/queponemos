@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { Colors, Typography } from '../constants/colors';
 import { getPlatform } from '../constants/platforms';
-import { getPosterUrl, fetchTrailerUrl } from '../services/tmdb';
+import { getPosterUrl, fetchTrailerKey } from '../services/tmdb';
 import PlatformLogo from './PlatformLogo';
+import TrailerModal from './TrailerModal';
 import type { Recommendation } from '../services/claude';
 
 interface Props {
@@ -25,6 +26,7 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
   const [synopsisOpen, setSynopsisOpen] = useState(false);
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [noTrailer, setNoTrailer] = useState(false);
+  const [trailerKey, setTrailerKey] = useState<string | null>(null);
 
   async function handleTrailer() {
     if (!rec.tmdbId) return;
@@ -32,9 +34,9 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
     setNoTrailer(false);
     try {
       const mediaType = rec.type === 'series' ? 'tv' : 'movie';
-      const url = await fetchTrailerUrl(rec.tmdbId, mediaType);
-      if (url) {
-        await Linking.openURL(url);
+      const key = await fetchTrailerKey(rec.tmdbId, mediaType);
+      if (key) {
+        setTrailerKey(key);
       } else {
         setNoTrailer(true);
         setTimeout(() => setNoTrailer(false), 2500);
@@ -168,6 +170,14 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
           </Text>
         </TouchableOpacity>
       </View>
+      {trailerKey && (
+        <TrailerModal
+          visible
+          youtubeKey={trailerKey}
+          title={rec.title}
+          onClose={() => setTrailerKey(null)}
+        />
+      )}
     </View>
   );
 }
