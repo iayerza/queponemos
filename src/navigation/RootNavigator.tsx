@@ -14,6 +14,8 @@ import AppTabs from './AppTabs';
 import SplashScreen   from '../screens/SplashScreen';
 import LoginScreen    from '../screens/LoginScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import OnboardingIntroScreen from '../screens/OnboardingIntroScreen';
+import AgeSelectScreen       from '../screens/AgeSelectScreen';
 import GroupScreen    from '../screens/GroupScreen';
 import MoodScreen     from '../screens/MoodScreen';
 import MatchingScreen from '../screens/MatchingScreen';
@@ -105,12 +107,14 @@ export default function RootNavigator() {
       {!user ? (
         <Stack.Screen name="Login" component={LoginScreen} />
       ) : !user.onboardingDone ? (
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
       ) : (
         <>
-          <Stack.Screen name="App"        component={AppTabs} />
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          <Stack.Screen name="Group"      component={GroupScreen} />
+          <Stack.Screen name="App"             component={AppTabs} />
+          <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
+          <Stack.Screen name="AgeSelect"       component={AgeSelectScreen} />
+          <Stack.Screen name="Onboarding"      component={OnboardingScreen} />
+          <Stack.Screen name="Group"           component={GroupScreen} />
           <Stack.Screen name="Mood"       component={MoodScreen} />
           <Stack.Screen name="Matching"   component={MatchingScreen} />
           <Stack.Screen name="Results"    component={ResultsScreen} />

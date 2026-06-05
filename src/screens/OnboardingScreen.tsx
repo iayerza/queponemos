@@ -28,7 +28,8 @@ export default function OnboardingScreen() {
   const nav   = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user, updateRatings, markOnboardingDone } = useAuthStore();
-  const { titles, currentIndex, ratings, isLoading, error, rate, canSkip, isFinished } = useOnboarding();
+  const ageRange = route.params?.ageRange;
+  const { titles, currentIndex, ratings, isLoading, error, rate, canSkip, isFinished } = useOnboarding(ageRange);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const fromProfile = route.params?.fromProfile === true;
 

@@ -1,6 +1,10 @@
+export type AgeRange = 'young' | 'mid' | 'adult' | 'senior';
+
 export type RootStackParamList = {
   Login: undefined;
-  Onboarding: { fromProfile?: true };
+  OnboardingIntro: undefined;
+  AgeSelect: { fromProfile?: true };
+  Onboarding: { fromProfile?: true; ageRange?: AgeRange };
   App: undefined;
   Group: { groupId: string };
   Mood: { groupId?: string; solo?: true };
