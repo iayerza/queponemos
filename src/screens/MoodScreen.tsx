@@ -101,13 +101,16 @@ export default function MoodScreen() {
   const nav    = useNavigation<Nav>();
   const route  = useRoute<Route>();
   const { user }         = useAuthStore();
-  const { currentGroup } = useGroupStore();
+  const { groups, currentGroup, setCurrentGroup } = useGroupStore();
   const { setMood, setSoloMode } = useMatchStore();
   const themeColors = useColors();
 
   const isSoloRoute = route.params.solo === true;
   const groupId = route.params.groupId ?? `solo-${user?.uid ?? 'anon'}`;
-  const members = isSoloRoute ? (user ? [user.uid] : []) : (currentGroup?.members ?? []);
+  // Cuando Person B llega via notificación, currentGroup puede ser null.
+  // Buscamos el grupo por groupId en el store para no caer en modo solo accidentalmente.
+  const group = isSoloRoute ? null : (groups.find(g => g.id === groupId) ?? currentGroup ?? null);
+  const members = isSoloRoute ? (user ? [user.uid] : []) : (group?.members ?? []);
   const partnerUid = isSoloRoute ? null : (members.find(uid => uid !== user?.uid) ?? null);
   const isSolo = isSoloRoute || members.length <= 1;
 
@@ -133,6 +136,10 @@ export default function MoodScreen() {
     clearMoods();
     setSoloMode(isSoloRoute);
     setSessionMoods({});
+    // Si llegamos via notificación y currentGroup no está seteado, lo seteamos ahora
+    if (!isSoloRoute && group && group.id !== currentGroup?.id) {
+      setCurrentGroup(group);
+    }
   }, []);
 
   // Listen to Firestore session moods (solo mode skips this)

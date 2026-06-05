@@ -60,7 +60,10 @@ export default function MatchingScreen() {
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{friendlyError(error)}</Text>
-          <TouchableOpacity onPress={() => nav.goBack()} style={styles.retryBtn}>
+          <TouchableOpacity
+            onPress={() => nav.replace('Mood', route.params)}
+            style={styles.retryBtn}
+          >
             <Text style={styles.retryText}>Volver a intentar</Text>
           </TouchableOpacity>
         </View>

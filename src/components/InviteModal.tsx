@@ -10,12 +10,11 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   group: GroupDoc;
-  onSimulateAccept: () => void;
 }
 
 type TabId = 'link' | 'qr';
 
-export default function InviteModal({ visible, onClose, group, onSimulateAccept }: Props) {
+export default function InviteModal({ visible, onClose, group }: Props) {
   const [tab, setTab]     = useState<TabId>('link');
   const [copied, setCopied] = useState(false);
   const { user }          = useAuthStore();
@@ -67,9 +66,6 @@ export default function InviteModal({ visible, onClose, group, onSimulateAccept 
             </TouchableOpacity>
             <TouchableOpacity style={styles.outlineBtn} onPress={handleCopyLink} activeOpacity={0.85}>
               <Text style={styles.outlineBtnText}>{copied ? '✓ Link copiado' : 'Copiar link'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.simulateBtn} onPress={() => { onSimulateAccept(); onClose(); }}>
-              <Text style={styles.simulateBtnText}>Demo: simular que aceptaron</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -147,8 +143,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   outlineBtnText: { color: Colors.sub, fontSize: Typography.body },
-  simulateBtn: { alignItems: 'center', paddingVertical: 8 },
-  simulateBtnText: { color: Colors.faint, fontSize: Typography.small },
   qrSection: { alignItems: 'center', paddingVertical: 10, gap: 16 },
   qrText: { color: Colors.sub, fontSize: Typography.small, textAlign: 'center' },
   codeDisplay: {

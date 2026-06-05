@@ -30,7 +30,7 @@ export default function GroupScreen() {
   const nav    = useNavigation<Nav>();
   const route  = useRoute<Route>();
   const { user } = useAuthStore();
-  const { groups, setCurrentGroup, addMemberToGroup, pendingInvites, updateGroup, removeGroup } = useGroupStore();
+  const { groups, setCurrentGroup, pendingInvites, updateGroup, removeGroup } = useGroupStore();
 
   const baseGroup = groups.find(g => g.id === route.params.groupId) ?? MOCK_GROUP;
   const [liveGroup, setLiveGroup] = useState(baseGroup);
@@ -102,11 +102,6 @@ export default function GroupScreen() {
         if (tokens.length > 0) await sendGroupVoteNotification(tokens, group.name);
       } catch { /* non-blocking */ }
     }
-  }
-
-  function handleSimulateAccept() {
-    addMemberToGroup(group.id, 'user-sofia');
-    nav.navigate('Mood', { groupId: group.id });
   }
 
   function togglePlatform(id: PlatformId) {
@@ -282,7 +277,6 @@ export default function GroupScreen() {
         visible={inviteVisible}
         onClose={() => setInviteVisible(false)}
         group={group}
-        onSimulateAccept={handleSimulateAccept}
       />
 
       {/* Modal editar plataformas */}

@@ -283,6 +283,14 @@ export async function clearGroupSession(groupId: string): Promise<void> {
   });
 }
 
+export async function reAuthenticateUser(email: string, password: string): Promise<void> {
+  const { EmailAuthProvider, reauthenticateWithCredential } = await import('firebase/auth');
+  const currentUser = auth().currentUser;
+  if (!currentUser) throw new Error('No hay usuario autenticado');
+  const credential = EmailAuthProvider.credential(email, password);
+  await reauthenticateWithCredential(currentUser, credential);
+}
+
 export async function deleteUserData(uid: string): Promise<void> {
   await deleteDoc(doc(db(), 'users', uid));
   const { deleteUser, getAuth } = await import('firebase/auth');

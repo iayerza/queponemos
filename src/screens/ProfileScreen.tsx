@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,7 +7,7 @@ import { Colors, Typography } from '../constants/colors';
 import { useColors } from '../context/ThemeContext';
 import { LogoWordmark } from '../components/Logo';
 import { useAuthStore } from '../store/useAuthStore';
-import { logout, deleteUserData, updateUserPlatforms } from '../services/firebase';
+import { logout, deleteUserData, reAuthenticateUser, updateUserPlatforms } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import { useTheme, type ThemePreference } from '../context/ThemeContext';
 import { PLATFORMS } from '../constants/platforms';
@@ -26,6 +26,9 @@ export default function ProfileScreen() {
 
   const [selPlatforms, setSelPlatforms] = useState<PlatformId[]>(user?.platforms ?? []);
   const [savingPlatforms, setSavingPlatforms] = useState(false);
+  const [reAuthModal, setReAuthModal]   = useState(false);
+  const [reAuthPwd,   setReAuthPwd]     = useState('');
+  const [deleting,    setDeleting]      = useState(false);
 
   const THEME_OPTIONS: { key: ThemePreference; label: string }[] = [
     { key: 'dark',   label: 'Oscuro' },
@@ -64,16 +67,41 @@ export default function ProfileScreen() {
         {
           text: 'Eliminar', style: 'destructive',
           onPress: async () => {
+            if (USE_MOCK) { setUser(null); return; }
+            setDeleting(true);
             try {
-              if (!USE_MOCK && user) await deleteUserData(user.uid);
+              if (user) await deleteUserData(user.uid);
               setUser(null);
-            } catch {
-              Alert.alert('Error', 'No se pudo eliminar la cuenta. Reintentá en unos minutos.');
+            } catch (e) {
+              const code = (e as { code?: string })?.code;
+              if (code === 'auth/requires-recent-login') {
+                setReAuthPwd('');
+                setReAuthModal(true);
+              } else {
+                Alert.alert('Error', 'No se pudo eliminar la cuenta. Reintentá en unos minutos.');
+              }
+            } finally {
+              setDeleting(false);
             }
           },
         },
       ],
     );
+  }
+
+  async function handleReAuthAndDelete() {
+    if (!user?.email || !reAuthPwd.trim()) return;
+    setDeleting(true);
+    try {
+      await reAuthenticateUser(user.email, reAuthPwd);
+      await deleteUserData(user.uid);
+      setReAuthModal(false);
+      setUser(null);
+    } catch {
+      Alert.alert('Error', 'Contraseña incorrecta. Verificá e intentá de nuevo.');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   async function handleSavePlatforms() {
@@ -248,9 +276,42 @@ export default function ProfileScreen() {
         <Text style={styles.logoutText}>Cerrar sesión</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.deleteBtn} onPress={handleDeleteAccount} activeOpacity={0.8}>
-        <Text style={styles.deleteBtnText}>Eliminar cuenta</Text>
+      <TouchableOpacity style={[styles.deleteBtn, deleting && { opacity: 0.5 }]} onPress={handleDeleteAccount} disabled={deleting} activeOpacity={0.8}>
+        <Text style={styles.deleteBtnText}>{deleting ? 'Eliminando…' : 'Eliminar cuenta'}</Text>
       </TouchableOpacity>
+
+      <Modal visible={reAuthModal} transparent animationType="fade" onRequestClose={() => setReAuthModal(false)}>
+        <View style={styles.reAuthOverlay}>
+          <View style={styles.reAuthBox}>
+            <Text style={styles.reAuthTitle}>Confirmá tu identidad</Text>
+            <Text style={styles.reAuthSub}>Ingresá tu contraseña para eliminar la cuenta</Text>
+            <TextInput
+              style={styles.reAuthInput}
+              placeholder="Contraseña"
+              placeholderTextColor={Colors.faint}
+              value={reAuthPwd}
+              onChangeText={setReAuthPwd}
+              secureTextEntry
+              autoFocus
+            />
+            <View style={styles.reAuthBtns}>
+              <TouchableOpacity style={styles.reAuthCancel} onPress={() => setReAuthModal(false)}>
+                <Text style={styles.reAuthCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.reAuthConfirm, (!reAuthPwd.trim() || deleting) && { opacity: 0.4 }]}
+                onPress={handleReAuthAndDelete}
+                disabled={!reAuthPwd.trim() || deleting}
+              >
+                {deleting
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={styles.reAuthConfirmText}>Eliminar</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -305,6 +366,16 @@ const styles = StyleSheet.create({
   savePlatformsBtn: { backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
   savePlatformsBtnText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
   btnDisabled: { opacity: 0.4 },
+  reAuthOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  reAuthBox: { backgroundColor: Colors.s1, borderRadius: 16, padding: 24, width: '100%', borderWidth: 1, borderColor: Colors.border },
+  reAuthTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.bold, marginBottom: 6 },
+  reAuthSub: { color: Colors.sub, fontSize: Typography.small, marginBottom: 20, lineHeight: 18 },
+  reAuthInput: { backgroundColor: Colors.s2, borderRadius: 10, padding: 14, color: Colors.text, fontSize: Typography.body, borderWidth: 1, borderColor: Colors.border, marginBottom: 20 },
+  reAuthBtns: { flexDirection: 'row', gap: 10 },
+  reAuthCancel: { flex: 1, borderRadius: 10, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  reAuthCancelText: { color: Colors.sub, fontSize: Typography.body },
+  reAuthConfirm: { flex: 1, backgroundColor: Colors.danger, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  reAuthConfirmText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
   themeRow: { flexDirection: 'row', gap: 8 },
   themeBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.s1 },
   themeBtnActive: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
