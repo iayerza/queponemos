@@ -35,8 +35,8 @@ import { recalculateTasteProfile } from '../utils/tasteProfile';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type Rating = 'loved' | 'seen_disliked' | 'not_seen';
-export type TitleStatus = 'watched' | 'watchlist' | 'skipped' | 'pending';
+export type Rating = 'loved' | 'liked' | 'seen_disliked' | 'not_seen';
+export type TitleStatus = 'watched' | 'watchlist' | 'skipped' | 'pending' | 'chosen';
 
 export interface PersonalWatchlistItem {
   tmdbId: number;
@@ -495,4 +495,27 @@ export async function getEmailByUsername(username: string): Promise<string | nul
   const snap = await getDoc(doc(db(), 'usernames', key));
   if (!snap.exists()) return null;
   return (snap.data() as { email: string }).email;
+}
+
+export interface PendingRatingItem {
+  matchId: string;
+  groupId: string;
+  groupName: string;
+  rec: import('../services/claude').Recommendation;
+}
+
+export async function getPendingRatingsForUser(uid: string): Promise<PendingRatingItem[]> {
+  const groups = await getUserGroups(uid);
+  const items: PendingRatingItem[] = [];
+  for (const group of groups) {
+    const matches = await getGroupMatches(group.id);
+    for (const match of matches) {
+      for (const rec of match.recommendations) {
+        if (rec.groupStatus === 'chosen') {
+          items.push({ matchId: match.id, groupId: group.id, groupName: group.name, rec });
+        }
+      }
+    }
+  }
+  return items;
 }

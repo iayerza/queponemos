@@ -10,16 +10,10 @@ import type { Recommendation } from '../services/claude';
 interface Props {
   rec: Recommendation;
   onAction: (status: Recommendation['groupStatus']) => void;
+  onLaVi: () => void;
 }
 
-type FeatherName = React.ComponentProps<typeof Feather>['name'];
-
-const ACTIONS: { status: Recommendation['groupStatus']; icon: FeatherName; label: string }[] = [
-  { status: 'watched',   icon: 'check-circle', label: 'La vimos' },
-  { status: 'watchlist', icon: 'bookmark',      label: 'Para después' },
-];
-
-export default function ResultCard({ rec, onAction }: Props) {
+export default function ResultCard({ rec, onAction, onLaVi }: Props) {
   const platform = getPlatform(rec.platform);
   const posterUrl = getPosterUrl(rec.posterPath);
 
@@ -59,24 +53,47 @@ export default function ResultCard({ rec, onAction }: Props) {
         <Text style={styles.whyText}>{rec.whyUs}</Text>
       </View>
 
+      {/* Primary CTA */}
+      <TouchableOpacity
+        style={[styles.chooseBtn, rec.groupStatus === 'chosen' && styles.chooseBtnActive]}
+        onPress={() => onAction('chosen')}
+        activeOpacity={0.85}
+      >
+        <Feather
+          name={rec.groupStatus === 'chosen' ? 'check-circle' : 'play-circle'}
+          size={16}
+          color={rec.groupStatus === 'chosen' ? Colors.accent : Colors.text}
+          style={{ marginRight: 8 }}
+        />
+        <Text style={[styles.chooseBtnText, rec.groupStatus === 'chosen' && styles.chooseBtnTextActive]}>
+          {rec.groupStatus === 'chosen' ? 'Elegida para ver ✓' : 'Elegir para ver esta noche'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Secondary actions */}
       <View style={styles.actions}>
-        {ACTIONS.map(a => {
-          const isActive = rec.groupStatus === a.status;
-          return (
-            <TouchableOpacity
-              key={a.status}
-              style={[styles.actionBtn, isActive && styles.actionActive]}
-              onPress={() => onAction(a.status)}
-              activeOpacity={0.75}
-            >
-              <Feather name={a.icon} size={16} color={isActive ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
-              <Text style={[styles.actionLabel, isActive && styles.actionLabelActive]}>
-                {a.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+        <TouchableOpacity
+          style={[styles.actionBtn, rec.groupStatus === 'watched' && styles.actionActive]}
+          onPress={onLaVi}
+          activeOpacity={0.75}
+        >
+          <Feather name="check-circle" size={16} color={rec.groupStatus === 'watched' ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
+          <Text style={[styles.actionLabel, rec.groupStatus === 'watched' && styles.actionLabelActive]}>
+            {rec.groupStatus === 'watched' ? 'Vista ✓' : 'La vi'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionBtn, rec.groupStatus === 'watchlist' && styles.actionActive]}
+          onPress={() => onAction('watchlist')}
+          activeOpacity={0.75}
+        >
+          <Feather name="bookmark" size={16} color={rec.groupStatus === 'watchlist' ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
+          <Text style={[styles.actionLabel, rec.groupStatus === 'watchlist' && styles.actionLabelActive]}>
+            {rec.groupStatus === 'watchlist' ? 'Guardada ✓' : 'Para después'}
+          </Text>
+        </TouchableOpacity>
       </View>
+
       <TouchableOpacity
         style={[styles.vetoBtn, rec.groupStatus === 'skipped' && styles.vetoBtnActive]}
         onPress={() => onAction('skipped')}
@@ -162,4 +179,24 @@ const styles = StyleSheet.create({
   actionActive: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
   actionLabel: { fontSize: Typography.tiny, color: Colors.sub },
   actionLabelActive: { color: Colors.accent },
+  chooseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.accent,
+    borderRadius: 10,
+    paddingVertical: 14,
+    marginBottom: 8,
+  },
+  chooseBtnActive: {
+    backgroundColor: Colors.accentFaint,
+    borderWidth: 1,
+    borderColor: Colors.accentBorder,
+  },
+  chooseBtnText: {
+    color: Colors.text,
+    fontSize: Typography.body,
+    fontWeight: Typography.medium,
+  },
+  chooseBtnTextActive: { color: Colors.accent },
 });

@@ -10,6 +10,7 @@ export interface TasteProfile {
 
 const WEIGHTS: Record<Rating, number> = {
   loved:         1.0,
+  liked:          0.5,
   seen_disliked: -0.3,
   not_seen:       0,
 };

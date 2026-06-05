@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -9,7 +9,9 @@ import ResultCard from '../components/ResultCard';
 import { useMatchStore } from '../store/useMatchStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { updateTitleStatus, addToPersonalWatchlist } from '../services/firebase';
+import WatchedRatingSheet from '../components/WatchedRatingSheet';
+import { updateTitleStatus, addToPersonalWatchlist, rateTitleAndUpdateProfile } from '../services/firebase';
+import type { Rating } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import type { Recommendation } from '../services/claude';
 
@@ -26,6 +28,8 @@ export default function ResultsScreen() {
   const fadeAnims = useRef(
     Array.from({ length: 3 }, () => new Animated.Value(1))
   ).current;
+
+  const [ratingTarget, setRatingTarget] = useState<{ rec: Recommendation; idx: number } | null>(null);
 
   async function handleAction(idx: number, status: Recommendation['groupStatus']) {
     const anim = fadeAnims[idx];
@@ -52,24 +56,30 @@ export default function ResultsScreen() {
             });
           } catch { /* silenciar */ }
         } else if (rec.tmdbId) {
-          try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as 'watched' | 'watchlist' | 'skipped'); }
+          try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as import('../services/firebase').TitleStatus); }
           catch { /* silenciar */ }
         }
       }
     }
-    if (status === 'watched' && currentMatchId) {
-      const rec = currentMatch?.recommendations[idx];
-      if (rec) {
-        nav.navigate('PostView', {
-          title: rec.title,
-          year: rec.year,
-          posterPath: rec.posterPath,
-          matchId: currentMatchId,
-          titleIdx: idx,
-          tmdbId: rec.tmdbId,
-          type: rec.type,
+  }
+
+  function handleLaVi(idx: number) {
+    setRatingTarget({ rec: currentMatch!.recommendations[idx], idx });
+  }
+
+  async function handleRate(rating: Rating) {
+    if (!ratingTarget || !user) return;
+    const { rec, idx } = ratingTarget;
+    setRatingTarget(null);
+    handleAction(idx, 'watched');
+    if (!USE_MOCK && rec.tmdbId) {
+      try {
+        await rateTitleAndUpdateProfile(user.uid, rec.tmdbId, rating, {
+          id: rec.tmdbId, tmdbId: rec.tmdbId, title: rec.title, year: rec.year,
+          type: rec.type === 'series' ? 'tv' : 'movie',
+          genres: rec.genres, rating: rec.rating, posterPath: rec.posterPath, synopsis: rec.synopsis,
         });
-      }
+      } catch { /* silenciar */ }
     }
   }
 
@@ -108,6 +118,7 @@ export default function ResultsScreen() {
           <ResultCard
             rec={rec}
             onAction={status => handleAction(i, status)}
+            onLaVi={() => handleLaVi(i)}
           />
         </Animated.View>
       ))}
@@ -127,6 +138,13 @@ export default function ResultsScreen() {
       >
         <Text style={styles.backBtnText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>
       </TouchableOpacity>
+
+      <WatchedRatingSheet
+        visible={ratingTarget !== null}
+        title={ratingTarget?.rec.title ?? ''}
+        onClose={() => setRatingTarget(null)}
+        onRate={handleRate}
+      />
     </ScrollView>
   );
 }

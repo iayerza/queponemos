@@ -16,7 +16,7 @@ export interface Recommendation {
   platform: PlatformId;
   compatibilityScore: number;
   whyUs: string;
-  groupStatus: 'pending' | 'watched' | 'watchlist' | 'skipped';
+  groupStatus: 'pending' | 'watched' | 'watchlist' | 'skipped' | 'chosen';
 }
 
 export interface MatchingInput {
