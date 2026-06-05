@@ -5,7 +5,7 @@ import { Colors, Typography } from '../constants/colors';
 import { getPlatform } from '../constants/platforms';
 import { getPosterUrl, fetchTrailerKey } from '../services/tmdb';
 import PlatformLogo from './PlatformLogo';
-import TrailerModal from './TrailerModal';
+import { openTrailer } from './TrailerModal';
 import type { Recommendation } from '../services/claude';
 
 interface Props {
@@ -26,7 +26,6 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
   const [synopsisOpen, setSynopsisOpen] = useState(false);
   const [trailerLoading, setTrailerLoading] = useState(false);
   const [noTrailer, setNoTrailer] = useState(false);
-  const [trailerKey, setTrailerKey] = useState<string | null>(null);
 
   async function handleTrailer() {
     if (!rec.tmdbId) return;
@@ -36,7 +35,7 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
       const mediaType = rec.type === 'series' ? 'tv' : 'movie';
       const key = await fetchTrailerKey(rec.tmdbId, mediaType);
       if (key) {
-        setTrailerKey(key);
+        await openTrailer(key);
       } else {
         setNoTrailer(true);
         setTimeout(() => setNoTrailer(false), 2500);
@@ -170,14 +169,6 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
           </Text>
         </TouchableOpacity>
       </View>
-      {trailerKey && (
-        <TrailerModal
-          visible
-          youtubeKey={trailerKey}
-          title={rec.title}
-          onClose={() => setTrailerKey(null)}
-        />
-      )}
     </View>
   );
 }
