@@ -22,6 +22,7 @@ function scoreLabel(score: number): string {
 
 export default function ResultCard({ rec, onAction, onLaVi }: Props) {
   const [whyOpen, setWhyOpen] = useState(false);
+  const [synopsisOpen, setSynopsisOpen] = useState(false);
   const platform  = getPlatform(rec.platform);
   const posterUrl = getPosterUrl(rec.posterPath);
 
@@ -66,7 +67,10 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
         </View>
       )}
 
-      <Text style={styles.synopsis} numberOfLines={3}>{rec.synopsis}</Text>
+      <TouchableOpacity onPress={() => setSynopsisOpen(o => !o)} activeOpacity={0.8}>
+        <Text style={styles.synopsis} numberOfLines={synopsisOpen ? undefined : 3}>{rec.synopsis}</Text>
+        {!synopsisOpen && <Text style={styles.readMore}>Ver más</Text>}
+      </TouchableOpacity>
 
       {/* Collapsible why */}
       <TouchableOpacity style={styles.whyHeader} onPress={() => setWhyOpen(o => !o)} activeOpacity={0.7}>
@@ -181,7 +185,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   genreChipText: { color: Colors.sub, fontSize: Typography.tiny },
-  synopsis: { color: Colors.sub, fontSize: Typography.body, lineHeight: 20, marginBottom: 10 },
+  synopsis: { color: Colors.sub, fontSize: Typography.body, lineHeight: 20, marginBottom: 4 },
+  readMore: { color: Colors.accent, fontSize: Typography.tiny, marginBottom: 10 },
   whyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
