@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Linking, ActivityIndicator } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { Colors, Typography } from '../constants/colors';
 import { getPlatform } from '../constants/platforms';
-import { getPosterUrl } from '../services/tmdb';
+import { getPosterUrl, fetchTrailerUrl } from '../services/tmdb';
 import PlatformLogo from './PlatformLogo';
 import type { Recommendation } from '../services/claude';
 
@@ -23,6 +23,29 @@ function scoreLabel(score: number): string {
 export default function ResultCard({ rec, onAction, onLaVi }: Props) {
   const [whyOpen, setWhyOpen] = useState(false);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
+  const [trailerLoading, setTrailerLoading] = useState(false);
+  const [noTrailer, setNoTrailer] = useState(false);
+
+  async function handleTrailer() {
+    if (!rec.tmdbId) return;
+    setTrailerLoading(true);
+    setNoTrailer(false);
+    try {
+      const mediaType = rec.type === 'series' ? 'tv' : 'movie';
+      const url = await fetchTrailerUrl(rec.tmdbId, mediaType);
+      if (url) {
+        await Linking.openURL(url);
+      } else {
+        setNoTrailer(true);
+        setTimeout(() => setNoTrailer(false), 2500);
+      }
+    } catch {
+      setNoTrailer(true);
+      setTimeout(() => setNoTrailer(false), 2500);
+    } finally {
+      setTrailerLoading(false);
+    }
+  }
   const platform  = getPlatform(rec.platform);
   const posterUrl = getPosterUrl(rec.posterPath);
 
@@ -65,6 +88,18 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
             </View>
           ))}
         </View>
+      )}
+
+      {rec.tmdbId && (
+        <TouchableOpacity style={styles.trailerBtn} onPress={handleTrailer} activeOpacity={0.75} disabled={trailerLoading}>
+          {trailerLoading
+            ? <ActivityIndicator size="small" color={Colors.accent} />
+            : <Feather name="play" size={12} color={noTrailer ? Colors.faint : Colors.accent} />
+          }
+          <Text style={[styles.trailerText, noTrailer && { color: Colors.faint }]}>
+            {noTrailer ? 'Tráiler no disponible' : 'Ver tráiler'}
+          </Text>
+        </TouchableOpacity>
       )}
 
       <TouchableOpacity onPress={() => setSynopsisOpen(o => !o)} activeOpacity={0.8}>
@@ -187,6 +222,8 @@ const styles = StyleSheet.create({
   genreChipText: { color: Colors.sub, fontSize: Typography.tiny },
   synopsis: { color: Colors.sub, fontSize: Typography.body, lineHeight: 20, marginBottom: 4 },
   readMore: { color: Colors.accent, fontSize: Typography.tiny, marginBottom: 10 },
+  trailerBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10, alignSelf: 'flex-start' },
+  trailerText: { color: Colors.accent, fontSize: Typography.tiny, fontWeight: Typography.medium },
   whyHeader: {
     flexDirection: 'row',
     alignItems: 'center',

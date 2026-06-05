@@ -110,6 +110,17 @@ export function fetchProviderLogoUrls(): Promise<Record<string, string>> {
   return _fetching;
 }
 
+export async function fetchTrailerUrl(tmdbId: number, type: 'movie' | 'tv'): Promise<string | null> {
+  const data = await tmdbGet(`/${type}/${tmdbId}/videos`) as {
+    results: { site: string; type: string; key: string; official: boolean }[];
+  };
+  const pick =
+    data.results.find(v => v.site === 'YouTube' && v.type === 'Trailer' && v.official) ??
+    data.results.find(v => v.site === 'YouTube' && v.type === 'Trailer') ??
+    data.results.find(v => v.site === 'YouTube' && v.type === 'Teaser');
+  return pick ? `https://www.youtube.com/watch?v=${pick.key}` : null;
+}
+
 export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
   const data = await tmdbGet(`/search/multi?query=${encodeURIComponent(query)}`) as {
     results: Record<string, unknown>[];
