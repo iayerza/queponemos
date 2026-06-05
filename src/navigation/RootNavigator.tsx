@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
 import * as ExpoNotifications from 'expo-notifications';
@@ -31,6 +31,17 @@ export default function RootNavigator() {
   const { setGroups, addGroup, setPendingInviteCode } = useGroupStore();
   const { setHistory } = useMatchStore();
   const [splashDone, setSplashDone] = useState(false);
+  const prevOnboardingDone = useRef(user?.onboardingDone);
+
+  // When onboarding completes (false → true), explicitly reset to App.
+  // React Navigation's native stack doesn't transition automatically on conditional screen changes.
+  useEffect(() => {
+    const wasDone = prevOnboardingDone.current;
+    prevOnboardingDone.current = user?.onboardingDone;
+    if (!wasDone && user?.onboardingDone && navigationRef.isReady()) {
+      navigationRef.reset({ index: 0, routes: [{ name: 'App' }] });
+    }
+  }, [user?.onboardingDone]);
 
   // Notification tap handling
   useEffect(() => {
