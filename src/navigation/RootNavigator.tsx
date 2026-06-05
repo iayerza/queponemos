@@ -107,7 +107,11 @@ export default function RootNavigator() {
       {!user ? (
         <Stack.Screen name="Login" component={LoginScreen} />
       ) : !user.onboardingDone ? (
-        <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
+        <>
+          <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
+          <Stack.Screen name="AgeSelect"       component={AgeSelectScreen} />
+          <Stack.Screen name="Onboarding"      component={OnboardingScreen} />
+        </>
       ) : (
         <>
           <Stack.Screen name="App"             component={AppTabs} />
