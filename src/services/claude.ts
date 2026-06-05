@@ -57,28 +57,40 @@ function buildPrompt(input: MatchingInput): string {
     return `- ${u.displayName}: géneros favoritos [${genres}], le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
   }).join('\n');
 
-  return `Sos el motor de recomendación de Queponemos. Analizá los perfiles de estos usuarios y recomendá 3 títulos DISTINTOS y variados para ver juntos esta noche. Evitá recomendar siempre los mismos títulos populares.
+  return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.
 
 PERFILES:
 ${userBlocks}
 
 PLATAFORMAS DISPONIBLES: ${input.platforms.join(', ')}
 
-Respondé SOLO con JSON válido sin texto extra, sin markdown, sin bloques de código:
+REGLAS:
+1. VARIEDAD DE ERA: uno anterior a 2010, uno entre 2010-2019, uno de 2020 en adelante.
+2. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos.
+3. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
+4. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
+   - 60-70: buena opción, aunque no es un match perfecto
+   - 71-82: muy buena opción, varios puntos de coincidencia
+   - 83-91: match excelente, coincidencia clara en gustos y mood
+   - 92-100: solo para coincidencia casi perfecta y evidente
+   La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
+5. No repetir siempre los mismos títulos populares del momento.
+
+Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
 {
   "recommendations": [{
     "tmdbId": 12345,
     "title": "string",
-    "year": 2024,
+    "year": 2015,
     "type": "movie",
     "genres": ["Drama"],
     "rating": 8.2,
-    "synopsis": "string en español",
+    "synopsis": "string en español, 2-3 oraciones",
     "platform": "netflix",
-    "compatibilityScore": 92,
-    "whyUs": "string — 2-3 oraciones mencionando a los usuarios por nombre"
+    "compatibilityScore": 78,
+    "whyUs": "2-3 oraciones mencionando a los usuarios por nombre y explicando por qué es buena para ellos esta noche"
   }],
-  "groupInsight": "string — observación sobre el grupo"
+  "groupInsight": "observación breve y específica sobre el grupo basada en sus perfiles"
 }`;
 }
 
