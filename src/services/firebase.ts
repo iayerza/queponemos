@@ -195,7 +195,10 @@ export function onAuthChange(cb: (user: UserProfile | null) => void): Unsubscrib
   return onAuthStateChanged(auth(), async fireUser => {
     if (!fireUser) { cb(null); return; }
     const profile = await getUserProfile(fireUser.uid);
-    cb(profile);
+    // Only propagate when profile exists. If null, the user is authenticated but the
+    // Firestore doc hasn't been created yet (race during sign-up). LoginScreen creates
+    // the profile and calls setUser directly — we should not clear the user here.
+    if (profile) cb(profile);
   });
 }
 

@@ -33,12 +33,13 @@ export default function RootNavigator() {
   const [splashDone, setSplashDone] = useState(false);
   const prevOnboardingDone = useRef(user?.onboardingDone);
 
-  // When onboarding completes (false → true), explicitly reset to App.
-  // React Navigation's native stack doesn't transition automatically on conditional screen changes.
+  // When onboarding finishes (false→true) navigate to App.
+  // useEffect fires after the render that already includes 'App' in the unified stack,
+  // so navigationRef.reset always finds it registered.
   useEffect(() => {
     const wasDone = prevOnboardingDone.current;
     prevOnboardingDone.current = user?.onboardingDone;
-    if (!wasDone && user?.onboardingDone && navigationRef.isReady()) {
+    if (wasDone === false && user?.onboardingDone === true && navigationRef.isReady()) {
       navigationRef.reset({ index: 0, routes: [{ name: 'App' }] });
     }
   }, [user?.onboardingDone]);
@@ -113,20 +114,23 @@ export default function RootNavigator() {
     return <SplashScreen onComplete={() => setSplashDone(true)} />;
   }
 
+  const screenOpts = { headerShown: false, animation: 'fade', animationDuration: 200 } as const;
+
   if (!user) {
     return (
-      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 200 }}>
+      <Stack.Navigator key="unauthed" screenOptions={screenOpts}>
         <Stack.Screen name="Login" component={LoginScreen} />
       </Stack.Navigator>
     );
   }
 
-  // Single unified stack — all screens always registered so navigationRef.reset('App') always works.
-  const initialRoute = user.onboardingDone ? 'App' : 'OnboardingIntro';
+  // Unified stack — 'App' is always registered so the onboardingDone effect can reset to it.
+  // key="authed" forces a full remount when transitioning from login, so initialRouteName applies.
   return (
     <Stack.Navigator
-      initialRouteName={initialRoute}
-      screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 200 }}
+      key="authed"
+      initialRouteName={user.onboardingDone ? 'App' : 'OnboardingIntro'}
+      screenOptions={screenOpts}
     >
       <Stack.Screen name="App"             component={AppTabs} />
       <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
