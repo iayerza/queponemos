@@ -14,7 +14,7 @@ type Route = RouteProp<RootStackParamList, 'Matching'>;
 
 function friendlyError(raw: string): string {
   if (raw.includes('401') || raw.includes('authentication') || raw.includes('x-api-key'))
-    return 'Error de autenticación. Verificá tu conexión e intentá de nuevo.';
+    return `Error de autenticación con Claude API.\n\n${raw.slice(0, 200)}`;
   if (raw.includes('429') || raw.includes('rate'))
     return 'Demasiadas solicitudes. Esperá un momento y volvé a intentar.';
   if (raw.includes('network') || raw.includes('fetch') || raw.includes('Network'))
