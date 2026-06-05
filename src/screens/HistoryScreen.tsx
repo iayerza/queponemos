@@ -23,6 +23,7 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   watched:   { label: 'Vista',     color: Colors.accent },
   watchlist: { label: 'Pendiente', color: Colors.warning },
+  chosen:    { label: 'Elegida',   color: Colors.success },
   skipped:   { label: 'Pasada',    color: Colors.danger },
   pending:   { label: 'Pendiente', color: Colors.sub },
 };

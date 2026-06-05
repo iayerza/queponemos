@@ -105,8 +105,8 @@ export default function MoodScreen() {
   const { setMood, setSoloMode } = useMatchStore();
   const themeColors = useColors();
 
-  const isSoloRoute = route.params.solo === true;
-  const groupId = route.params.groupId ?? `solo-${user?.uid ?? 'anon'}`;
+  const isSoloRoute = route.params?.solo === true;
+  const groupId = route.params?.groupId ?? `solo-${user?.uid ?? 'anon'}`;
   // Cuando Person B llega via notificación, currentGroup puede ser null.
   // Buscamos el grupo por groupId en el store para no caer en modo solo accidentalmente.
   const group = isSoloRoute ? null : (groups.find(g => g.id === groupId) ?? currentGroup ?? null);
