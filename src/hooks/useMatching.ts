@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
   saveMatch, setSessionMatchId, pollForMatchId, getMatchById,
-  getUserProfile, addMatchToUserHistory,
+  getUserProfile, addMatchToUserHistory, incrementGroupTurn,
 } from '../services/firebase';
 import { useAuthStore }  from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
@@ -110,6 +110,8 @@ export function useMatching() {
             output.groupInsight,
           );
           await setSessionMatchId(currentGroup.id, matchId);
+          // El turno rota una vez por noche cerrada, y solo lo hace el líder.
+          incrementGroupTurn(currentGroup.id).catch(() => {});
         }
       }
 

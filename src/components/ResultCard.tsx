@@ -21,6 +21,13 @@ function scoreLabel(score: number): string {
   return 'Buena opción';
 }
 
+function formatRuntime(min: number, type: Recommendation['type']): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  const dur = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+  return type === 'series' ? `~${dur}/ep` : dur;
+}
+
 export default function ResultCard({ rec, onAction, onLaVi }: Props) {
   const [whyOpen, setWhyOpen] = useState(false);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
@@ -66,6 +73,7 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
             <Text style={styles.meta}>{rec.year}  ·  {rec.type === 'series' ? 'Serie' : 'Película'}  ·  </Text>
             <Feather name="star" size={11} color={Colors.sub} />
             <Text style={styles.meta}>  {rec.rating}</Text>
+            {rec.runtime ? <Text style={styles.meta}>  ·  {formatRuntime(rec.runtime, rec.type)}</Text> : null}
           </View>
           <View style={styles.platformRow}>
             <PlatformLogo id={platform.id} size={16} />
@@ -95,7 +103,7 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
         <TouchableOpacity style={styles.trailerBtn} onPress={handleTrailer} activeOpacity={0.75} disabled={trailerLoading}>
           {trailerLoading
             ? <ActivityIndicator size="small" color={Colors.accent} />
-            : <Feather name="play" size={12} color={noTrailer ? Colors.faint : Colors.accent} />
+            : <Feather name="play" size={14} color={noTrailer ? Colors.faint : Colors.accent} />
           }
           <Text style={[styles.trailerText, noTrailer && { color: Colors.faint }]}>
             {noTrailer ? 'Tráiler no disponible' : 'Ver tráiler'}
@@ -222,9 +230,9 @@ const styles = StyleSheet.create({
   },
   genreChipText: { color: Colors.sub, fontSize: Typography.tiny },
   synopsis: { color: Colors.sub, fontSize: Typography.body, lineHeight: 20, marginBottom: 4 },
-  readMore: { color: Colors.accent, fontSize: Typography.tiny, marginBottom: 10 },
-  trailerBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10, alignSelf: 'flex-start' },
-  trailerText: { color: Colors.accent, fontSize: Typography.tiny, fontWeight: Typography.medium },
+  readMore: { color: Colors.accent, fontSize: Typography.small, fontWeight: Typography.medium, marginBottom: 10 },
+  trailerBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, alignSelf: 'flex-start' },
+  trailerText: { color: Colors.accent, fontSize: Typography.small, fontWeight: Typography.medium },
   whyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -237,7 +245,7 @@ const styles = StyleSheet.create({
   },
   whyLabel: {
     color: Colors.accent,
-    fontSize: Typography.tiny,
+    fontSize: Typography.small,
     fontWeight: Typography.semibold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,

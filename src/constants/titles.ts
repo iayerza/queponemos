@@ -14,8 +14,8 @@ const YOUNG: TitleId[] = [
   { tmdbId: 329,    type: 'movie' }, // Jurassic Park
   { tmdbId: 22,     type: 'movie' }, // Pirates of the Caribbean — ★ aventura
   { tmdbId: 129,    type: 'movie' }, // El viaje de Chihiro     — ★ animación
-  { tmdbId: 597,    type: 'movie' }, // Titanic
-  { tmdbId: 13,     type: 'movie' }, // Forrest Gump
+  { tmdbId: 361743, type: 'movie' }, // Top Gun: Maverick
+  { tmdbId: 346698, type: 'movie' }, // Barbie
   { tmdbId: 872585, type: 'movie' }, // Oppenheimer
   { tmdbId: 176,    type: 'movie' }, // Saw                     — ★ terror
   { tmdbId: 419430, type: 'movie' }, // Get Out

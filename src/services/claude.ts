@@ -17,6 +17,7 @@ export interface Recommendation {
   compatibilityScore: number;
   whyUs: string;
   groupStatus: 'pending' | 'watched' | 'watchlist' | 'skipped' | 'chosen';
+  runtime?: number; // minutos: película = duración total; serie = duración por episodio
 }
 
 export interface MatchingInput {
@@ -168,12 +169,18 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
         const match = byExactTypeYear ?? byAnyYear ?? byExactType ?? results[0];
         if (match) {
           const resolvedType: Recommendation['type'] = match.type === 'tv' ? 'series' : 'movie';
-          return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath, type: resolvedType };
+          // Traemos el detalle para obtener la duración (el search no la incluye)
+          let runtime: number | undefined;
+          try {
+            const detail = await fetchTitle(match.tmdbId, match.type);
+            runtime = detail.runtime;
+          } catch { /* sin runtime */ }
+          return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath, type: resolvedType, runtime };
         }
         // Último recurso: ID de Claude (puede ser incorrecto)
         if (rec.tmdbId) {
           const tmdbData = await fetchTitle(rec.tmdbId, claudeMediaType);
-          return { ...rec, posterPath: tmdbData.posterPath };
+          return { ...rec, posterPath: tmdbData.posterPath, runtime: tmdbData.runtime };
         }
       } catch { /* ignore */ }
       return rec;

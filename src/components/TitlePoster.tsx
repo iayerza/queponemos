@@ -6,9 +6,11 @@ import { getPosterUrl } from '../services/tmdb';
 import { Colors, Typography } from '../constants/colors';
 import type { NormalizedTitle } from '../services/tmdb';
 
-// Altura exacta 2:3 sin cap — descuenta el paddingHorizontal:20 de OnboardingScreen
-const CARD_W = Dimensions.get('window').width - 40;
-const POSTER_H = Math.round(CARD_W * 1.5);
+// Altura 2:3, pero con cap por altura de pantalla para que los 4 botones de
+// rating entren sin scroll en el onboarding.
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const CARD_W = SCREEN_W - 40;
+const POSTER_H = Math.round(Math.min(CARD_W * 1.5, SCREEN_H * 0.46));
 
 interface Props {
   title: NormalizedTitle;

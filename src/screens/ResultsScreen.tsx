@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,7 +10,7 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import WatchedRatingSheet from '../components/WatchedRatingSheet';
-import { updateTitleStatus, addToPersonalWatchlist, rateTitleAndUpdateProfile } from '../services/firebase';
+import { updateTitleStatus, addToPersonalWatchlist, addToPendingRatings, rateTitleAndUpdateProfile } from '../services/firebase';
 import type { Rating } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import type { Recommendation } from '../services/claude';
@@ -31,36 +31,58 @@ export default function ResultsScreen() {
 
   const [ratingTarget, setRatingTarget] = useState<{ rec: Recommendation; idx: number } | null>(null);
 
+  function celebrateAndGoHome() {
+    Alert.alert(
+      '¡Encontraste queponemos! 🍿',
+      'Disfrutá la peli. No te olvides de valorarla después en "A valorar".',
+      [{ text: 'Listo', onPress: () => nav.navigate('App') }],
+    );
+  }
+
   async function handleAction(idx: number, status: Recommendation['groupStatus']) {
     const anim = fadeAnims[idx];
     if (anim) {
       Animated.timing(anim, { toValue: 0.3, duration: 200, useNativeDriver: true }).start();
     }
     updateTitleAction(0, idx, status);
-    if (!USE_MOCK && currentMatchId) {
-      const rec = currentMatch?.recommendations[idx];
-      if (rec) {
-        if (status === 'watchlist' && isSolo && user) {
-          try {
-            await addToPersonalWatchlist(user.uid, {
-              tmdbId: rec.tmdbId ?? 0,
-              title: rec.title,
-              year: rec.year,
-              type: rec.type,
-              posterPath: rec.posterPath,
-              genres: rec.genres,
-              platform: rec.platform,
-              synopsis: rec.synopsis,
-              rating: rec.rating,
-              addedAt: Date.now(),
-            });
-          } catch { /* silenciar */ }
-        } else if (rec.tmdbId) {
-          try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as import('../services/firebase').TitleStatus); }
-          catch { /* silenciar */ }
-        }
+
+    const rec = currentMatch?.recommendations[idx];
+
+    if (!USE_MOCK && currentMatchId && rec) {
+      if (status === 'watchlist' && isSolo && user) {
+        try {
+          await addToPersonalWatchlist(user.uid, {
+            tmdbId: rec.tmdbId ?? 0,
+            title: rec.title,
+            year: rec.year,
+            type: rec.type,
+            posterPath: rec.posterPath,
+            genres: rec.genres,
+            platform: rec.platform,
+            synopsis: rec.synopsis,
+            rating: rec.rating,
+            addedAt: Date.now(),
+          });
+        } catch { /* silenciar */ }
+      } else if (status === 'chosen' && isSolo && user) {
+        // En solo el match no vive en Firestore: lo persistimos en pendientes
+        // personales para que aparezca en "A valorar".
+        try {
+          await addToPendingRatings(user.uid, {
+            matchId: currentMatchId,
+            groupId: `solo-${user.uid}`,
+            groupName: 'Solo',
+            rec,
+          });
+        } catch { /* silenciar */ }
+      } else if (rec.tmdbId) {
+        try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as import('../services/firebase').TitleStatus); }
+        catch { /* silenciar */ }
       }
     }
+
+    // Elegir un título cierra la noche: festejamos y volvemos al inicio.
+    if (status === 'chosen') celebrateAndGoHome();
   }
 
   function handleLaVi(idx: number) {
@@ -133,7 +155,10 @@ export default function ResultsScreen() {
 
       <TouchableOpacity
         style={styles.backBtn}
-        onPress={() => nav.navigate('App')}
+        onPress={() => {
+          if (!isSolo && currentGroup) nav.navigate('Group', { groupId: currentGroup.id });
+          else nav.navigate('App');
+        }}
         activeOpacity={0.8}
       >
         <Text style={styles.backBtnText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>

@@ -120,7 +120,6 @@ export default function OnboardingScreen() {
             <>
               <TitlePoster title={current} />
               <View style={styles.ratingSection}>
-                <Text style={styles.ratingQuestion}>¿La viste?</Text>
                 <RatingButtons
                   selected={ratings[current.tmdbId] ?? null}
                   onSelect={handleRate}
@@ -131,9 +130,9 @@ export default function OnboardingScreen() {
         </Animated.View>
 
         {canSkip && (
-          <TouchableOpacity style={styles.skipBtn} onPress={handleFinish} activeOpacity={0.7}>
-            <Text style={styles.skipText}>Ya tenés suficiente contexto</Text>
-            <Feather name="chevron-right" size={14} color={Colors.sub} />
+          <TouchableOpacity style={styles.continueBtn} onPress={handleFinish} activeOpacity={0.85}>
+            <Text style={styles.continueBtnText}>Continuar</Text>
+            <Feather name="arrow-right" size={16} color="#fff" />
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -188,22 +187,17 @@ const styles = StyleSheet.create({
   },
 
   scroll: { paddingHorizontal: 20, paddingTop: 4 },
-  ratingSection: { marginTop: 20, gap: 12 },
-  ratingQuestion: {
-    color: Colors.sub,
-    fontSize: Typography.tiny,
-    fontWeight: Typography.medium,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
+  ratingSection: { marginTop: 14 },
 
-  skipBtn: {
+  continueBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 24,
-    paddingVertical: 12,
+    gap: 8,
+    marginTop: 18,
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
   },
-  skipText: { color: Colors.sub, fontSize: Typography.small },
+  continueBtnText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
 });

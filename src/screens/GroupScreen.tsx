@@ -14,7 +14,7 @@ import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { PLATFORMS, getPlatform, type PlatformId } from '../constants/platforms';
 import PlatformLogo from '../components/PlatformLogo';
-import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange, clearGroupSession, incrementGroupTurn, getGroupWatchlist } from '../services/firebase';
+import { updateGroupPlatforms, deleteGroup, leaveGroup, fetchMemberNames, onGroupChange, clearGroupSession, getGroupWatchlist } from '../services/firebase';
 import type { WatchlistItem } from '../services/firebase';
 import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
@@ -89,14 +89,13 @@ export default function GroupScreen() {
 
   async function handleFindMatch() {
     setCurrentGroup(group);
-    // Await the session clear so Firestore has empty moods before MoodScreen subscribes.
-    // Fire-and-forget here caused ghost moods from the previous session.
-    if (!USE_MOCK) {
-      await Promise.all([
-        clearGroupSession(group.id),
-        incrementGroupTurn(group.id),
-      ]).catch(() => {});
-    }
+    // Limpiar la sesión anterior (fire-and-forget para no congelar la navegación).
+    // MoodScreen ya resetea su estado y re-suscribe en cada focus, así que un
+    // residuo momentáneo de moods viejos no dispara nada (allReady exige el pick
+    // local de esta sesión). NO incrementamos el turno acá: eso cambiaba el
+    // nombre de "esta noche elige" apenas alguien abría la pantalla. El turno
+    // rota cuando el líder cierra un match (ver useMatching).
+    if (!USE_MOCK) clearGroupSession(group.id).catch(() => {});
     nav.navigate('Mood', { groupId: group.id });
     if (!USE_MOCK && user) {
       try {
@@ -148,6 +147,34 @@ export default function GroupScreen() {
             } catch {
               isDeletingRef.current = false;
               Alert.alert('Error', 'No se pudo eliminar el grupo');
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  function handleLeaveGroup() {
+    if (!user) return;
+    Alert.alert(
+      'Salir del grupo',
+      `¿Seguro que querés salir de "${group.name}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            isDeletingRef.current = true;
+            try {
+              if (!USE_MOCK) await leaveGroup(group.id, user.uid);
+              removeGroup(group.id);
+              nav.navigate('App');
+            } catch {
+              isDeletingRef.current = false;
+              Alert.alert('Error', 'No se pudo salir del grupo');
               setDeleting(false);
             }
           },
@@ -261,8 +288,8 @@ export default function GroupScreen() {
         </View>
       </View>
 
-      {/* Eliminar grupo — solo para el creador */}
-      {isOwner && (
+      {/* Eliminar grupo (creador) / Salir del grupo (miembro) */}
+      {isOwner ? (
         <TouchableOpacity
           style={[styles.deleteBtn, deleting && { opacity: 0.5 }]}
           onPress={handleDeleteGroup}
@@ -271,6 +298,17 @@ export default function GroupScreen() {
         >
           <Text style={styles.deleteBtnText}>
             {deleting ? 'Eliminando…' : 'Eliminar grupo'}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={[styles.deleteBtn, deleting && { opacity: 0.5 }]}
+          onPress={handleLeaveGroup}
+          disabled={deleting}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.deleteBtnText}>
+            {deleting ? 'Saliendo…' : 'Salir del grupo'}
           </Text>
         </TouchableOpacity>
       )}

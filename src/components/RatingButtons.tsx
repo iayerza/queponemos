@@ -6,15 +6,28 @@ import type { Rating } from '../services/firebase';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
-const ROW1: { rating: Rating; icon: FeatherName; label: string }[] = [
-  { rating: 'loved', icon: 'heart',      label: 'Me encantó' },
-  { rating: 'liked', icon: 'thumbs-up',  label: 'Me gustó'   },
+// 'double' = doble pulgar (Me encantó); el resto usa un ícono Feather normal
+const ROW1: { rating: Rating; icon: FeatherName | 'double'; label: string }[] = [
+  { rating: 'loved', icon: 'double',    label: 'Me encantó' },
+  { rating: 'liked', icon: 'thumbs-up', label: 'Me gustó'   },
 ];
 
-const ROW2: { rating: Rating; icon: FeatherName; label: string }[] = [
+const ROW2: { rating: Rating; icon: FeatherName | 'double'; label: string }[] = [
   { rating: 'seen_disliked', icon: 'thumbs-down', label: 'No me gustó' },
   { rating: 'not_seen',      icon: 'eye',          label: 'No la vi'   },
 ];
+
+function RatingIcon({ icon, color }: { icon: FeatherName | 'double'; color: string }) {
+  if (icon === 'double') {
+    return (
+      <View style={styles.doubleThumb}>
+        <Feather name="thumbs-up" size={22} color={color} />
+        <Feather name="thumbs-up" size={22} color={color} style={styles.doubleThumbBack} />
+      </View>
+    );
+  }
+  return <Feather name={icon} size={22} color={color} style={{ marginBottom: 4 }} />;
+}
 
 interface Props {
   selected: Rating | null;
@@ -33,7 +46,7 @@ function RatingRow({ buttons, selected, onSelect }: { buttons: typeof ROW1; sele
             onPress={() => onSelect(b.rating)}
             activeOpacity={0.75}
           >
-            <Feather name={b.icon} size={22} color={isSelected ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
+            <RatingIcon icon={b.icon} color={isSelected ? Colors.accent : Colors.sub} />
             <Text style={[styles.label, isSelected && styles.labelSelected]}>
               {b.label}
             </Text>
@@ -71,4 +84,6 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: Typography.tiny, color: Colors.sub, textAlign: 'center' },
   labelSelected: { color: Colors.accent },
+  doubleThumb: { flexDirection: 'row', marginBottom: 4, height: 22 },
+  doubleThumbBack: { marginLeft: -8 },
 });
