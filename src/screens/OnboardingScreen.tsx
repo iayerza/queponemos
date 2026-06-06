@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 12,
   },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   counterTotal: { color: Colors.faint, fontWeight: Typography.regular },
   skipHeaderText: { color: Colors.faint, fontSize: Typography.body },
 
-  progressWrap: { paddingHorizontal: 20, marginBottom: 16 },
+  progressWrap: { paddingHorizontal: 24, marginBottom: 16 },
   progressTrack: {
     height: 5,
     backgroundColor: Colors.s2,
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.small,
   },
 
-  scroll: { paddingHorizontal: 20, paddingTop: 4 },
+  scroll: { paddingHorizontal: 24, paddingTop: 4 },
   ratingSection: { marginTop: 20, gap: 12 },
   continueBtn: {
     marginTop: 28,
