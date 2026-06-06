@@ -23,6 +23,7 @@ interface MatchStore {
   updateTitleAction: (matchIdx: number, titleIdx: number, status: Recommendation['groupStatus']) => void;
   clearMoods: () => void;
   setSoloMode: (v: boolean) => void;
+  reset: () => void;
 }
 
 export const useMatchStore = create<MatchStore>(set => ({
@@ -52,4 +53,5 @@ export const useMatchStore = create<MatchStore>(set => ({
     }),
   clearMoods: () => set({ moods: {} }),
   setSoloMode: v => set({ isSolo: v }),
+  reset: () => set({ currentMatch: null, currentMatchId: null, history: [], moods: {}, isSolo: false }),
 }));

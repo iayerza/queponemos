@@ -89,9 +89,12 @@ export default function RootNavigator() {
             getUserHistory(u.uid),
           ]);
           setGroups(groups);
-          if (history.length > 0) setHistory(history);
+          setHistory(history);
           registerPushToken(u.uid).catch(() => {});
         } catch { /* silenciar */ }
+      } else {
+        useGroupStore.getState().reset();
+        useMatchStore.getState().reset();
       }
     });
     return unsub;
