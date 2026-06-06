@@ -54,7 +54,7 @@ function buildPrompt(input: MatchingInput): string {
       .filter(([, s]) => s > 0.5)
       .map(([g]) => g)
       .join(', ') || 'variado';
-    return `- ${u.displayName}: géneros favoritos [${genres}], le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
+    return `- ${u.displayName}: géneros favoritos [${genres}], le gustó o encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
   }).join('\n');
 
   // All tmdbIds already seen by any user (loved, liked, or disliked) — never recommend these
@@ -72,9 +72,9 @@ function buildPrompt(input: MatchingInput): string {
   return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.
 
 PERFILES:
-${userBlocks}
+${userBlocks}${excludeLine}
 
-PLATAFORMAS DISPONIBLES: ${input.platforms.join(', ')}${excludeLine}
+PLATAFORMAS DISPONIBLES: ${input.platforms.join(', ')}
 
 REGLAS:
 1. VARIEDAD DE ERA: uno anterior a 2010, uno entre 2010-2019, uno de 2020 en adelante.
@@ -87,7 +87,8 @@ REGLAS:
    - 92-100: solo para coincidencia casi perfecta y evidente
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
 5. No repetir siempre los mismos títulos populares del momento.
-6. NUNCA recomendar un título que aparezca en "TÍTULOS YA VISTOS". Usá esos IDs solo para entender los gustos.
+6. NUNCA recomendar un título que aparezca en TÍTULOS YA VISTOS. Esos IDs solo sirven para entender los gustos.
+7. En el campo "type": usar "movie" SOLO para películas. Usar "series" para cualquier serie de TV, incluso miniseries.
 
 Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
 {
@@ -153,20 +154,25 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     platform: (r.platform ?? input.platforms[0]) as PlatformId,
   }));
 
-  // Enriquecer con pósters de TMDB: buscar por título (confiable) y usar tmdbId de Claude solo como desempate
+  // Enriquecer con pósters de TMDB. TMDB es la fuente autoritativa para type (movie/series).
   const recommendations = await Promise.all(
     baseRecs.map(async rec => {
       try {
-        const mediaType = rec.type === 'series' ? 'tv' : 'movie';
-        // Buscar por título primero — más confiable que el tmdbId de Claude
+        const claudeMediaType = rec.type === 'series' ? 'tv' : 'movie';
         const results = await searchTitles(rec.title);
-        const byYear = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1);
-        const byType = results.find(r => r.type === mediaType);
-        const match = byYear ?? byType;
-        if (match) return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath };
+        // Prefiere coincidencia exacta de tipo+año; si Claude se equivocó de tipo,
+        // acepta cualquier resultado de TMDB (ej: The Last of Us = serie, no película)
+        const byExactTypeYear = results.find(r => r.type === claudeMediaType && Math.abs(r.year - rec.year) <= 1);
+        const byAnyYear       = results.find(r => Math.abs(r.year - rec.year) <= 1);
+        const byExactType     = results.find(r => r.type === claudeMediaType);
+        const match = byExactTypeYear ?? byAnyYear ?? byExactType ?? results[0];
+        if (match) {
+          const resolvedType: Recommendation['type'] = match.type === 'tv' ? 'series' : 'movie';
+          return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath, type: resolvedType };
+        }
         // Último recurso: ID de Claude (puede ser incorrecto)
         if (rec.tmdbId) {
-          const tmdbData = await fetchTitle(rec.tmdbId, mediaType);
+          const tmdbData = await fetchTitle(rec.tmdbId, claudeMediaType);
           return { ...rec, posterPath: tmdbData.posterPath };
         }
       } catch { /* ignore */ }

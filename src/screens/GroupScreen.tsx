@@ -89,11 +89,13 @@ export default function GroupScreen() {
 
   async function handleFindMatch() {
     setCurrentGroup(group);
-    // Limpiar sesión anterior ANTES de navegar para que ningún miembro
-    // escriba su mood sobre datos stale — evita la race condition con clearGroupSession en MoodScreen
+    // Await the session clear so Firestore has empty moods before MoodScreen subscribes.
+    // Fire-and-forget here caused ghost moods from the previous session.
     if (!USE_MOCK) {
-      clearGroupSession(group.id).catch(() => {});
-      incrementGroupTurn(group.id).catch(() => {});
+      await Promise.all([
+        clearGroupSession(group.id),
+        incrementGroupTurn(group.id),
+      ]).catch(() => {});
     }
     nav.navigate('Mood', { groupId: group.id });
     if (!USE_MOCK && user) {
