@@ -183,8 +183,9 @@ export default function MoodScreen() {
   }, [allReady, navigating, isSoloRoute]);
 
   // When both moods ready → sync to MatchStore and navigate.
-  // Uses a ref to prevent setNavigating(true) from re-triggering this effect
-  // and cancelling the timer before it fires.
+  // sessionMoods and navigating excluded from deps: Firestore updates to sessionMoods
+  // would cancel the timer via cleanup; navigatingRef guards re-entry without re-rendering.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!allReady || navigatingRef.current || !myMood) return;
     navigatingRef.current = true;
@@ -194,9 +195,7 @@ export default function MoodScreen() {
       nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
     }, 1400);
     return () => clearTimeout(timer);
-  // navigating state intentionally excluded — navigatingRef guards re-entry
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allReady, myMood, sessionMoods]);
+  }, [allReady, myMood]);
 
   async function handleSelect(id: MoodId) {
     if (myMood || !user) return;
