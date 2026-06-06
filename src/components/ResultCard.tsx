@@ -100,7 +100,14 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
       )}
 
       {rec.tmdbId && (
-        <TouchableOpacity style={styles.trailerBtn} onPress={handleTrailer} activeOpacity={0.75} disabled={trailerLoading}>
+        <TouchableOpacity
+          style={styles.trailerBtn}
+          onPress={handleTrailer}
+          activeOpacity={0.75}
+          disabled={trailerLoading}
+          accessibilityRole="button"
+          accessibilityLabel={`Ver tráiler de ${rec.title}`}
+        >
           {trailerLoading
             ? <ActivityIndicator size="small" color={Colors.accent} />
             : <Feather name="play" size={14} color={noTrailer ? Colors.faint : Colors.accent} />
@@ -132,6 +139,8 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
         style={[styles.chooseBtn, rec.groupStatus === 'chosen' && styles.chooseBtnActive]}
         onPress={() => onAction('chosen')}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={rec.groupStatus === 'chosen' ? `${rec.title} elegida para ver` : `Elegir ${rec.title} para ver esta noche`}
       >
         <Feather
           name={rec.groupStatus === 'chosen' ? 'check-circle' : 'play-circle'}
@@ -150,6 +159,8 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
           style={[styles.actionBtn, rec.groupStatus === 'watched' && styles.actionActive]}
           onPress={onLaVi}
           activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel={rec.groupStatus === 'watched' ? `${rec.title} marcada como vista` : `Marcar ${rec.title} como vista`}
         >
           <Feather name="check-circle" size={16} color={rec.groupStatus === 'watched' ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
           <Text style={[styles.actionLabel, rec.groupStatus === 'watched' && styles.actionLabelActive]}>
@@ -160,6 +171,8 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
           style={[styles.actionBtn, rec.groupStatus === 'watchlist' && styles.actionActive]}
           onPress={() => onAction('watchlist')}
           activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel={rec.groupStatus === 'watchlist' ? `${rec.title} guardada para después` : `Guardar ${rec.title} para después`}
         >
           <Feather name="bookmark" size={16} color={rec.groupStatus === 'watchlist' ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
           <Text style={[styles.actionLabel, rec.groupStatus === 'watchlist' && styles.actionLabelActive]}>
@@ -170,6 +183,8 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
           style={[styles.actionBtn, rec.groupStatus === 'skipped' && styles.actionSkipped]}
           onPress={() => onAction('skipped')}
           activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel={rec.groupStatus === 'skipped' ? `${rec.title} pasada` : `Pasar ${rec.title}`}
         >
           <Feather name="x" size={16} color={rec.groupStatus === 'skipped' ? Colors.danger : Colors.sub} style={{ marginBottom: 4 }} />
           <Text style={[styles.actionLabel, rec.groupStatus === 'skipped' && styles.actionLabelSkipped]}>

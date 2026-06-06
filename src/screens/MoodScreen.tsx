@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Alert,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Alert, BackHandler,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -331,7 +331,23 @@ export default function MoodScreen() {
   // ── Picking view ────────────────────────────────────────────────────────────
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: themeColors.bg }]}>
-      <TouchableOpacity style={styles.back} onPress={() => nav.goBack()}>
+      <TouchableOpacity
+        style={styles.back}
+        onPress={() => {
+          if (myMood !== null) {
+            Alert.alert(
+              '¿Salir de la búsqueda?',
+              'Si salís, perdés tu selección de mood.',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Salir', style: 'destructive', onPress: () => nav.goBack() },
+              ],
+            );
+          } else {
+            nav.goBack();
+          }
+        }}
+      >
         <Feather name="arrow-left" size={18} color={Colors.sub} />
       </TouchableOpacity>
 

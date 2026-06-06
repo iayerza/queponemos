@@ -231,7 +231,13 @@ export default function HistoryScreen() {
                     </View>
                     <Text style={styles.watchlistSynopsis} numberOfLines={2}>{item.synopsis}</Text>
                   </View>
-                  <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemove(item.tmdbId)} hitSlop={8}>
+                  <TouchableOpacity
+                    style={styles.removeBtn}
+                    onPress={() => handleRemove(item.tmdbId)}
+                    hitSlop={12}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Quitar ${item.title} de Para después`}
+                  >
                     <Text style={styles.removeText}>✕</Text>
                   </TouchableOpacity>
                 </View>

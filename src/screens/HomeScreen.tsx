@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Modal, Alert,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Modal, Alert, ActivityIndicator,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,6 +44,7 @@ export default function HomeScreen() {
   const [scannerVisible, setScannerVisible] = useState(false);
   const [soloPlatformModal, setSoloPlatformModal] = useState(false);
   const [soloPlatforms, setSoloPlatforms] = useState<PlatformId[]>([]);
+  const [savingSoloPlatforms, setSavingSoloPlatforms] = useState(false);
 
   // Process deep link invite code
   useEffect(() => {
@@ -134,10 +135,12 @@ export default function HomeScreen() {
 
   async function handleSoloPlatformSave() {
     if (!user || soloPlatforms.length === 0) return;
+    setSavingSoloPlatforms(true);
     try {
       if (!USE_MOCK) await updateUserPlatforms(user.uid, soloPlatforms);
       setPlatforms(soloPlatforms);
     } catch { /* silenciar */ }
+    setSavingSoloPlatforms(false);
     setSoloPlatformModal(false);
     nav.navigate('Mood', { solo: true });
   }
@@ -275,7 +278,10 @@ export default function HomeScreen() {
                 onPress={handleCreate}
                 disabled={!groupName.trim() || working}
               >
-                <Text style={styles.confirmBtnText}>{working ? 'Creando…' : 'Crear'}</Text>
+                {working
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.confirmBtnText}>Crear</Text>
+                }
               </TouchableOpacity>
             </View>
           </View>
@@ -316,7 +322,10 @@ export default function HomeScreen() {
                 onPress={handleJoin}
                 disabled={!joinCode.trim() || working}
               >
-                <Text style={styles.confirmBtnText}>{working ? 'Buscando…' : 'Unirme'}</Text>
+                {working
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.confirmBtnText}>Unirme</Text>
+                }
               </TouchableOpacity>
             </View>
           </View>
@@ -346,11 +355,14 @@ export default function HomeScreen() {
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.confirmBtn, soloPlatforms.length === 0 && styles.btnDisabled]}
+                style={[styles.confirmBtn, (soloPlatforms.length === 0 || savingSoloPlatforms) && styles.btnDisabled]}
                 onPress={handleSoloPlatformSave}
-                disabled={soloPlatforms.length === 0}
+                disabled={soloPlatforms.length === 0 || savingSoloPlatforms}
               >
-                <Text style={styles.confirmBtnText}>Continuar →</Text>
+                {savingSoloPlatforms
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.confirmBtnText}>Continuar →</Text>
+                }
               </TouchableOpacity>
             </View>
           </View>

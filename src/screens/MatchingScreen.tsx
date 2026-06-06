@@ -77,19 +77,20 @@ export default function MatchingScreen() {
 
       {error ? (
         <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{friendlyError(error)}</Text>
-          {!isSolo && !isLeader ? (
-            <Text style={styles.errorHint}>
-              Puede que quien inició la búsqueda haya tenido un problema. Probá iniciarla vos.
-            </Text>
-          ) : null}
+          <Text style={styles.errorText}>
+            {!isSolo && !isLeader
+              ? 'Esperá a que quien inició la búsqueda reintente.'
+              : friendlyError(error)}
+          </Text>
           <View style={styles.errorActions}>
-            <TouchableOpacity
-              onPress={() => nav.replace('Mood', route.params)}
-              style={styles.retryBtn}
-            >
-              <Text style={styles.retryText}>Volver a intentar</Text>
-            </TouchableOpacity>
+            {(isSolo || isLeader) && (
+              <TouchableOpacity
+                onPress={() => nav.replace('Mood', route.params)}
+                style={styles.retryBtn}
+              >
+                <Text style={styles.retryText}>Volver a intentar</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={exitToSafety} style={styles.exitBtn}>
               <Text style={styles.retryText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>
             </TouchableOpacity>
