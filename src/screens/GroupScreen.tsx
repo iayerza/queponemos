@@ -15,7 +15,7 @@ import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { PLATFORMS, getPlatform, type PlatformId } from '../constants/platforms';
 import PlatformLogo from '../components/PlatformLogo';
-import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange, clearGroupSession, incrementGroupTurn, getGroupWatchlist, leaveGroup, startGroupSession } from '../services/firebase';
+import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange, getGroupWatchlist, leaveGroup, startGroupSession } from '../services/firebase';
 import type { WatchlistItem } from '../services/firebase';
 import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
@@ -91,9 +91,10 @@ export default function GroupScreen() {
 
   async function handleFindMatch() {
     setCurrentGroup(group);
+    // Marca al líder de esta sesión y limpia moods/matchId.
+    // El turno NO se incrementa acá — solo cuando el líder cierra un match (en useMatching).
     if (!USE_MOCK && user) {
       startGroupSession(group.id, user.uid).catch(() => {});
-      incrementGroupTurn(group.id).catch(() => {});
     }
     nav.navigate('Mood', { groupId: group.id });
     if (!USE_MOCK && user) {

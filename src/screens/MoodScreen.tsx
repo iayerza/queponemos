@@ -141,7 +141,7 @@ export default function MoodScreen() {
   const partnerMoodData = partnerMood ? MOODS.find(m => m.id === partnerMood) : null;
 
   // Limpiar estado local al entrar a esta pantalla
-  // (clearGroupSession se llama desde GroupScreen antes de navegar — no acá)
+  // (startGroupSession se llama desde GroupScreen antes de navegar — limpia moods/matchId y fija leaderUid)
   useEffect(() => {
     const { clearMoods } = useMatchStore.getState();
     clearMoods();

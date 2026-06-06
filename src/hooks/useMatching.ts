@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
   saveMatch, setSessionMatchId, pollForMatchId, getMatchById,
-  getUserProfile, addMatchToUserHistory, getGroupById,
+  getUserProfile, addMatchToUserHistory, getGroupById, incrementGroupTurn,
 } from '../services/firebase';
 import { useAuthStore }  from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
@@ -133,6 +133,8 @@ export function useMatching() {
             output.groupInsight,
           );
           await setSessionMatchId(currentGroup.id, matchId);
+          // El líder cerró un match: ahora sí avanza el turno rotativo.
+          incrementGroupTurn(currentGroup.id).catch(() => {});
         }
       }
 
