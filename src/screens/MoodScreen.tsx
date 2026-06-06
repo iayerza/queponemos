@@ -111,7 +111,6 @@ export default function MoodScreen() {
   // Buscamos el grupo por groupId en el store para no caer en modo solo accidentalmente.
   const group = isSoloRoute ? null : (groups.find(g => g.id === groupId) ?? currentGroup ?? null);
   const members = isSoloRoute ? (user ? [user.uid] : []) : (group?.members ?? []);
-  const partnerUid = isSoloRoute ? null : (members.find(uid => uid !== user?.uid) ?? null);
   const isSolo = isSoloRoute || members.length <= 1;
 
   const [myMood,       setMyMood]       = useState<MoodId | null>(null);
@@ -120,11 +119,16 @@ export default function MoodScreen() {
   const [showSkip,     setShowSkip]     = useState(false);
   const [showContinue, setShowContinue] = useState(false);
 
-  const myStoredMood  = user ? (sessionMoods[user.uid] ?? null) : null;
-  const partnerMood   = partnerUid ? (sessionMoods[partnerUid] ?? null) : null;
+  const myStoredMood = user ? (sessionMoods[user.uid] ?? null) : null;
+  // Derive partner's mood directly from sessionMoods — don't rely on partnerUid which
+  // can be null when the group hasn't loaded yet in the store (e.g. cold-start via notification).
+  const partnerMood  = !isSoloRoute
+    ? (Object.entries(sessionMoods).find(([uid]) => uid !== user?.uid)?.[1] ?? null)
+    : null;
   // allReady requires myMood (local pick this session) to avoid stale Firestore data
   // from a previous session triggering navigation before the user picks.
-  const allReady      = isSolo ? !!myMood : !!(myMood && partnerMood);
+  // Use isSoloRoute (reliable route param) instead of isSolo (derived from group load state).
+  const allReady = isSoloRoute ? !!myMood : !!(myMood && partnerMood);
 
   const myMoodData      = (myMood ?? myStoredMood) ? MOODS.find(m => m.id === (myMood ?? myStoredMood)) : null;
   const partnerMoodData = partnerMood ? MOODS.find(m => m.id === partnerMood) : null;
@@ -159,10 +163,10 @@ export default function MoodScreen() {
 
   // Show skip button after 30s of waiting for partner
   useEffect(() => {
-    if (!myMood || isSolo) return;
+    if (!myMood || isSoloRoute) return;
     const timer = setTimeout(() => setShowSkip(true), 30_000);
     return () => clearTimeout(timer);
-  }, [myMood, isSolo]);
+  }, [myMood, isSoloRoute]);
 
   // Show manual continue button after 8s if allReady but navigation hasn't fired
   useEffect(() => {
