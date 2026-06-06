@@ -7,7 +7,6 @@ import { Colors, Typography } from '../constants/colors';
 import AnimatedLogoMark from '../components/AnimatedLogoMark';
 import { useMatching } from '../hooks/useMatching';
 import { useMatchStore } from '../store/useMatchStore';
-import { useGroupStore } from '../store/useGroupStore';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
@@ -15,18 +14,12 @@ type Route = RouteProp<RootStackParamList, 'Matching'>;
 
 function friendlyError(raw: string): string {
   if (raw.includes('401') || raw.includes('authentication') || raw.includes('x-api-key'))
-    return 'Error de autenticación. Verificá tu EXPO_PUBLIC_ANTHROPIC_API_KEY e intentá de nuevo.';
+    return 'Error de autenticación. Verificá tu conexión e intentá de nuevo.';
   if (raw.includes('429') || raw.includes('rate'))
     return 'Demasiadas solicitudes. Esperá un momento y volvé a intentar.';
-  if (raw.includes('timeout') || raw.includes('tardó'))
-    return 'Claude tardó demasiado en responder. Volvé a intentar.';
-  if (raw.includes('Sin conexión') || raw.includes('network') || raw.includes('fetch') || raw.includes('Network'))
+  if (raw.includes('network') || raw.includes('fetch') || raw.includes('Network'))
     return 'Sin conexión. Verificá tu internet y volvé a intentar.';
-  if (raw.includes('se cortó') || raw.includes('max_tokens'))
-    return 'La respuesta se cortó. Volvé a intentar.';
-  if (raw.includes('no devolvió') || raw.includes('JSON'))
-    return 'Hubo un problema generando las recomendaciones. Volvé a intentar.';
-  if (raw.includes('500') || raw.includes('529') || raw.includes('overloaded'))
+  if (raw.includes('500') || raw.includes('overloaded'))
     return 'El servicio está ocupado. Volvé a intentar en un momento.';
   return 'Algo salió mal. Volvé a intentar.';
 }
@@ -46,11 +39,6 @@ export default function MatchingScreen() {
     });
   }, []);
 
-  function exitToSafety() {
-    if (!isSolo && currentGroup) nav.navigate('Group', { groupId: currentGroup.id });
-    else nav.navigate('App');
-  }
-
   return (
     <View style={styles.root}>
       <AnimatedLogoMark size={80} />
@@ -61,7 +49,7 @@ export default function MatchingScreen() {
         {isSolo
           ? 'Buscando\nalgo para vos…'
           : isLeader
-            ? 'Analizando\nlos moods…'
+            ? 'Analizando\nlos dos moods…'
             : 'Esperando\nel resultado…'}
       </Text>
       <Text style={styles.sub}>
@@ -139,21 +127,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  errorHint: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: Typography.tiny,
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  errorActions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
   retryBtn: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-  },
-  exitBtn: {
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
     borderRadius: 8,

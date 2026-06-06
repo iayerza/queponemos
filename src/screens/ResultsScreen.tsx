@@ -75,9 +75,6 @@ export default function ResultsScreen() {
         }
       }
     }
-
-    // Elegir un título cierra la noche: festejamos y volvemos al inicio.
-    if (status === 'chosen') celebrateAndGoHome();
   }
 
   function handleLaVi(idx: number) {
@@ -96,7 +93,7 @@ export default function ResultsScreen() {
           type: rec.type === 'series' ? 'tv' : 'movie',
           genres: rec.genres, rating: rec.rating, posterPath: rec.posterPath, synopsis: rec.synopsis,
         });
-      } catch (e) { console.warn('Results: acción no persistida', e); }
+      } catch { /* silenciar */ }
     }
   }
 

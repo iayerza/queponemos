@@ -28,13 +28,6 @@ function scoreLabel(score: number): string {
   return 'Buena opción';
 }
 
-function formatRuntime(min: number, type: Recommendation['type']): string {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  const dur = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
-  return type === 'series' ? `~${dur}/ep` : dur;
-}
-
 export default function ResultCard({ rec, onAction, onLaVi }: Props) {
   const [whyOpen, setWhyOpen] = useState(false);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
@@ -107,17 +100,10 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
       )}
 
       {rec.tmdbId && (
-        <TouchableOpacity
-          style={styles.trailerBtn}
-          onPress={handleTrailer}
-          activeOpacity={0.75}
-          disabled={trailerLoading}
-          accessibilityRole="button"
-          accessibilityLabel={`Ver tráiler de ${rec.title}`}
-        >
+        <TouchableOpacity style={styles.trailerBtn} onPress={handleTrailer} activeOpacity={0.75} disabled={trailerLoading}>
           {trailerLoading
             ? <ActivityIndicator size="small" color={Colors.accent} />
-            : <Feather name="play" size={14} color={noTrailer ? Colors.faint : Colors.accent} />
+            : <Feather name="play" size={12} color={noTrailer ? Colors.faint : Colors.accent} />
           }
           <Text style={[styles.trailerText, noTrailer && { color: Colors.faint }]}>
             {noTrailer ? 'Tráiler no disponible' : 'Ver tráiler'}
@@ -146,8 +132,6 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
         style={[styles.chooseBtn, rec.groupStatus === 'chosen' && styles.chooseBtnActive]}
         onPress={() => onAction('chosen')}
         activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel={rec.groupStatus === 'chosen' ? `${rec.title} elegida para ver` : `Elegir ${rec.title} para ver esta noche`}
       >
         <Feather
           name={rec.groupStatus === 'chosen' ? 'check-circle' : 'play-circle'}
@@ -166,8 +150,6 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
           style={[styles.actionBtn, rec.groupStatus === 'watched' && styles.actionActive]}
           onPress={onLaVi}
           activeOpacity={0.75}
-          accessibilityRole="button"
-          accessibilityLabel={rec.groupStatus === 'watched' ? `${rec.title} marcada como vista` : `Marcar ${rec.title} como vista`}
         >
           <Feather name="check-circle" size={16} color={rec.groupStatus === 'watched' ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
           <Text style={[styles.actionLabel, rec.groupStatus === 'watched' && styles.actionLabelActive]}>
@@ -178,8 +160,6 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
           style={[styles.actionBtn, rec.groupStatus === 'watchlist' && styles.actionActive]}
           onPress={() => onAction('watchlist')}
           activeOpacity={0.75}
-          accessibilityRole="button"
-          accessibilityLabel={rec.groupStatus === 'watchlist' ? `${rec.title} guardada para después` : `Guardar ${rec.title} para después`}
         >
           <Feather name="bookmark" size={16} color={rec.groupStatus === 'watchlist' ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
           <Text style={[styles.actionLabel, rec.groupStatus === 'watchlist' && styles.actionLabelActive]}>
@@ -190,8 +170,6 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
           style={[styles.actionBtn, rec.groupStatus === 'skipped' && styles.actionSkipped]}
           onPress={() => onAction('skipped')}
           activeOpacity={0.75}
-          accessibilityRole="button"
-          accessibilityLabel={rec.groupStatus === 'skipped' ? `${rec.title} pasada` : `Pasar ${rec.title}`}
         >
           <Feather name="x" size={16} color={rec.groupStatus === 'skipped' ? Colors.danger : Colors.sub} style={{ marginBottom: 4 }} />
           <Text style={[styles.actionLabel, rec.groupStatus === 'skipped' && styles.actionLabelSkipped]}>

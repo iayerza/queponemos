@@ -33,15 +33,16 @@ export default function OnboardingScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const fromProfile = route.params?.fromProfile === true;
 
-  function handleFinish() {
+  async function handleFinish() {
     if (!user) return;
+    if (!USE_MOCK) {
+      try { await completeOnboarding(user.uid); } catch { /* silenciar */ }
+    }
     if (fromProfile) {
       nav.goBack();
     } else {
       markOnboardingDone();
-    }
-    if (!USE_MOCK) {
-      completeOnboarding(user.uid).catch(() => {});
+      nav.reset({ index: 0, routes: [{ name: 'App' }] });
     }
   }
 

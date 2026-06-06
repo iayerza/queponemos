@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
 import * as ExpoNotifications from 'expo-notifications';
@@ -31,18 +31,6 @@ export default function RootNavigator() {
   const { setGroups, addGroup, setPendingInviteCode } = useGroupStore();
   const { setHistory } = useMatchStore();
   const [splashDone, setSplashDone] = useState(false);
-  const prevOnboardingDone = useRef(user?.onboardingDone);
-
-  // When onboarding finishes (false→true) navigate to App.
-  // useEffect fires after the render that already includes 'App' in the unified stack,
-  // so navigationRef.reset always finds it registered.
-  useEffect(() => {
-    const wasDone = prevOnboardingDone.current;
-    prevOnboardingDone.current = user?.onboardingDone;
-    if (wasDone === false && user?.onboardingDone === true && navigationRef.isReady()) {
-      navigationRef.reset({ index: 0, routes: [{ name: 'App' }] });
-    }
-  }, [user?.onboardingDone]);
 
   // Notification tap handling
   useEffect(() => {
@@ -117,33 +105,29 @@ export default function RootNavigator() {
     return <SplashScreen onComplete={() => setSplashDone(true)} />;
   }
 
-  const screenOpts = { headerShown: false, animation: 'fade', animationDuration: 200 } as const;
-
-  if (!user) {
-    return (
-      <Stack.Navigator key="unauthed" screenOptions={screenOpts}>
-        <Stack.Screen name="Login" component={LoginScreen} />
-      </Stack.Navigator>
-    );
-  }
-
-  // Unified stack — 'App' is always registered so the onboardingDone effect can reset to it.
-  // key="authed" forces a full remount when transitioning from login, so initialRouteName applies.
   return (
-    <Stack.Navigator
-      key="authed"
-      initialRouteName={user.onboardingDone ? 'App' : 'OnboardingIntro'}
-      screenOptions={screenOpts}
-    >
-      <Stack.Screen name="App"             component={AppTabs} />
-      <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
-      <Stack.Screen name="AgeSelect"       component={AgeSelectScreen} />
-      <Stack.Screen name="Onboarding"      component={OnboardingScreen} />
-      <Stack.Screen name="Group"           component={GroupScreen} />
-      <Stack.Screen name="Mood"            component={MoodScreen} />
-      <Stack.Screen name="Matching"        component={MatchingScreen} />
-      <Stack.Screen name="Results"         component={ResultsScreen} />
-      <Stack.Screen name="PostView"        component={PostViewScreen} />
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade', animationDuration: 200 }}>
+      {!user ? (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      ) : !user.onboardingDone ? (
+        <>
+          <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
+          <Stack.Screen name="AgeSelect"       component={AgeSelectScreen} />
+          <Stack.Screen name="Onboarding"      component={OnboardingScreen} />
+        </>
+      ) : (
+        <>
+          <Stack.Screen name="App"             component={AppTabs} />
+          <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
+          <Stack.Screen name="AgeSelect"       component={AgeSelectScreen} />
+          <Stack.Screen name="Onboarding"      component={OnboardingScreen} />
+          <Stack.Screen name="Group"           component={GroupScreen} />
+          <Stack.Screen name="Mood"       component={MoodScreen} />
+          <Stack.Screen name="Matching"   component={MatchingScreen} />
+          <Stack.Screen name="Results"    component={ResultsScreen} />
+          <Stack.Screen name="PostView"   component={PostViewScreen} />
+        </>
+      )}
     </Stack.Navigator>
   );
 }

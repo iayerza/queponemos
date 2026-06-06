@@ -24,6 +24,7 @@ export default function OnboardingIntroScreen() {
       try { await completeOnboarding(user.uid); } catch { /* silenciar */ }
     }
     markOnboardingDone();
+    nav.reset({ index: 0, routes: [{ name: 'App' }] });
   }
 
   return (

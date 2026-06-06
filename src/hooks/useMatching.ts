@@ -29,19 +29,6 @@ export function useMatching() {
     if (!isSolo && !currentGroup) return null;
     setError(null);
 
-    // Re-confirmar el líder con el estado fresco de Firestore (el store puede
-    // estar desactualizado). Esto decide quién llama a Claude y quién espera.
-    let amLeader = isSolo || USE_MOCK;
-    if (!isSolo && currentGroup) {
-      if (USE_MOCK) {
-        amLeader = true;
-      } else {
-        const fresh = await getGroupById(currentGroup.id);
-        const leaderUid = fresh?.currentSession?.leaderUid;
-        amLeader = leaderUid ? user.uid === leaderUid : user.uid === currentGroup.createdBy;
-      }
-    }
-
     try {
       // ── Follower path: wait for leader to produce a matchId ────────────────
       if (!isLeader && !USE_MOCK && currentGroup) {
@@ -176,7 +163,7 @@ export function useMatching() {
       setError(String(e));
       return null;
     }
-  }, [user, currentGroup, moods, isSolo]);
+  }, [user, currentGroup, moods, isLeader, isSolo]);
 
   return { runMatch, error, isLeader };
 }

@@ -110,8 +110,6 @@ export default function ProfileScreen() {
       await reAuthenticateUser(user.email, reAuthPwd);
       await deleteUserData(user.uid);
       setReAuthModal(false);
-      useGroupStore.getState().reset();
-      useMatchStore.getState().reset();
       setUser(null);
     } catch {
       Alert.alert('Error', 'Contraseña incorrecta. Verificá e intentá de nuevo.');

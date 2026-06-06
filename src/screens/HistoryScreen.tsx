@@ -9,7 +9,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { getPosterUrl } from '../services/tmdb';
 import {
   getPersonalWatchlist, removeFromPersonalWatchlist,
-  getPendingRatingsForUser, removeFromPendingRatings, rateTitleAndUpdateProfile, updateTitleStatus,
+  getPendingRatingsForUser, rateTitleAndUpdateProfile, updateTitleStatus,
   type PersonalWatchlistItem,
   type PendingRatingItem,
   type Rating,
@@ -23,7 +23,6 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   watched:   { label: 'Vista',     color: Colors.accent },
   watchlist: { label: 'Pendiente', color: Colors.warning },
-  chosen:    { label: 'Elegida',   color: Colors.success },
   skipped:   { label: 'Pasada',    color: Colors.danger },
   pending:   { label: 'Pendiente', color: Colors.sub },
 };
@@ -49,7 +48,7 @@ export default function HistoryScreen() {
     try {
       const items = await getPersonalWatchlist(user.uid);
       setWatchlist(items);
-    } catch (e) { console.warn('History: operación falló', e); }
+    } catch { /* silenciar */ }
     finally { setLoadingWatchlist(false); }
   }, [user]);
 
@@ -63,7 +62,7 @@ export default function HistoryScreen() {
     try {
       const items = await getPendingRatingsForUser(user.uid);
       setPendingItems(items);
-    } catch (e) { console.warn('History: operación falló', e); }
+    } catch { /* silenciar */ }
     finally { setLoadingPending(false); }
   }, [user]);
 
@@ -84,12 +83,9 @@ export default function HistoryScreen() {
             type: rec.type === 'series' ? 'tv' : 'movie',
             genres: rec.genres, rating: rec.rating, posterPath: rec.posterPath, synopsis: rec.synopsis,
           }),
-          // Grupo: marca el título como visto en el match. Solo: borra el pendiente personal.
-          matchId.startsWith('solo-')
-            ? removeFromPendingRatings(user.uid, rec.tmdbId)
-            : updateTitleStatus(matchId, rec.tmdbId, 'watched'),
+          updateTitleStatus(matchId, rec.tmdbId, 'watched'),
         ]);
-      } catch (e) { console.warn('History: operación falló', e); }
+      } catch { /* silenciar */ }
     }
   }
 
@@ -103,7 +99,7 @@ export default function HistoryScreen() {
           setWatchlist(prev => prev.filter(i => i.tmdbId !== tmdbId));
           if (!USE_MOCK) {
             try { await removeFromPersonalWatchlist(user.uid, tmdbId); }
-            catch (e) { console.warn('History: operación falló', e); }
+            catch { /* silenciar */ }
           }
         },
       },
@@ -135,7 +131,7 @@ export default function HistoryScreen() {
             onPress={() => setActiveTab('pending')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>A valorar</Text>
+            <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>Pendiente</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -258,9 +254,9 @@ export default function HistoryScreen() {
           ) : pendingItems.length === 0 ? (
             <View style={styles.empty}>
               <Feather name="star" size={48} color={Colors.faint} />
-              <Text style={styles.emptyTitle}>Nada para valorar</Text>
+              <Text style={styles.emptyTitle}>Sin títulos pendientes</Text>
               <Text style={styles.emptyDesc}>
-                Cuando elijas una película para ver, va a aparecer acá para que la puntúes.
+                Cuando el grupo elija una película para ver, va a aparecer acá para puntuar.
               </Text>
             </View>
           ) : (
