@@ -127,6 +127,7 @@ export default function MoodScreen() {
   const [myMood,       setMyMood]       = useState<MoodId | null>(null);
   const [sessionMoods, setSessionMoods] = useState<Record<string, MoodId>>({});
   const [navigating,   setNavigating]   = useState(false);
+  const navigatingRef                   = useRef(false);
   const [showSkip,     setShowSkip]     = useState(false);
   const [showContinue, setShowContinue] = useState(false);
 
@@ -181,16 +182,21 @@ export default function MoodScreen() {
     return () => clearTimeout(timer);
   }, [allReady, navigating, isSoloRoute]);
 
-  // When both moods ready → sync to MatchStore and navigate
+  // When both moods ready → sync to MatchStore and navigate.
+  // Uses a ref to prevent setNavigating(true) from re-triggering this effect
+  // and cancelling the timer before it fires.
   useEffect(() => {
-    if (!allReady || navigating || !myMood) return;
+    if (!allReady || navigatingRef.current || !myMood) return;
+    navigatingRef.current = true;
     setNavigating(true);
     Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
     const timer = setTimeout(() => {
       nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
     }, 1400);
     return () => clearTimeout(timer);
-  }, [allReady, navigating, myMood, sessionMoods]);
+  // navigating state intentionally excluded — navigatingRef guards re-entry
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allReady, myMood, sessionMoods]);
 
   async function handleSelect(id: MoodId) {
     if (myMood || !user) return;
