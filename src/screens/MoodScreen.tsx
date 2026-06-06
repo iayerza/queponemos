@@ -2,10 +2,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Alert, ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
@@ -13,7 +12,7 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useColors } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
-import { setSessionMood, onGroupChange, fetchMemberNames } from '../services/firebase';
+import { setSessionMood, onGroupChange } from '../services/firebase';
 import { sendMoodSelectedNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import type { MoodId } from '../services/claude';
@@ -33,70 +32,67 @@ const MOODS: { id: MoodId; icon: FeatherName; label: string; desc: string }[] = 
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
-// ─── Member row (waiting view) ───────────────────────────────────────────────
-function MemberRow({ name, moodData, isMe }: {
-  name: string;
-  moodData: typeof MOODS[number] | null | undefined;
-  isMe: boolean;
+// ─── Pulsing dots animation ───────────────────────────────────────────────────
+function PulsingDots() {
+  const [count, setCount] = useState(1);
+  useEffect(() => {
+    const iv = setInterval(() => setCount(c => (c % 3) + 1), 500);
+    return () => clearInterval(iv);
+  }, []);
+  return <Text style={dotStyles.dots}>{'.'.repeat(count)}</Text>;
+}
+const dotStyles = StyleSheet.create({
+  dots: { color: Colors.accent, fontSize: 28, letterSpacing: 4, minWidth: 32 },
+});
+
+// ─── Mood card (shown in waiting view) ───────────────────────────────────────
+function MoodCard({
+  label, iconName, moodLabel, waiting,
+}: {
+  label: string; iconName: FeatherName; moodLabel: string; waiting?: boolean;
 }) {
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
-    if (moodData) return;
+    if (!waiting) return;
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.3, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1,   duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.55, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1,    duration: 800, useNativeDriver: true }),
       ]),
     );
     loop.start();
     return () => loop.stop();
-  }, [!!moodData]);
+  }, [waiting]);
 
-  const initial = (name[0] ?? '?').toUpperCase();
   return (
-    <View style={rowStyles.row}>
-      <View style={[rowStyles.avatar, !!moodData && rowStyles.avatarReady]}>
-        <Text style={rowStyles.avatarText}>{initial}</Text>
-      </View>
-      <View style={rowStyles.info}>
-        <Text style={rowStyles.name}>{isMe ? 'Vos' : name}</Text>
-        {moodData ? (
-          <View style={rowStyles.moodPill}>
-            <Feather name={moodData.icon} size={12} color={Colors.accent} />
-            <Text style={rowStyles.moodLabel}>{moodData.label}</Text>
-          </View>
-        ) : (
-          <Animated.Text style={[rowStyles.waiting, { opacity: pulse }]}>Eligiendo…</Animated.Text>
-        )}
-      </View>
-      {moodData && <Feather name="check-circle" size={18} color={Colors.accent} />}
+    <View style={[cardStyles.card, waiting && cardStyles.cardWaiting]}>
+      <Text style={cardStyles.who}>{label}</Text>
+      <Animated.View style={[{ marginBottom: 10 }, waiting && { opacity: pulse }]}>
+        <Feather
+          name={iconName}
+          size={36}
+          color={waiting ? Colors.sub : Colors.accent}
+        />
+      </Animated.View>
+      <Text style={[cardStyles.mood, waiting && cardStyles.moodWaiting]}>{moodLabel}</Text>
     </View>
   );
 }
-const rowStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+const cardStyles = StyleSheet.create({
+  card: {
+    flex: 1,
     backgroundColor: Colors.s1,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    gap: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.accentBorder,
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 12,
   },
-  avatar: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.s2,
-    borderWidth: 1.5, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  avatarReady: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
-  avatarText: { color: Colors.sub, fontSize: Typography.small, fontWeight: Typography.bold },
-  info: { flex: 1, gap: 3 },
-  name: { color: Colors.text, fontSize: Typography.body, fontWeight: Typography.medium },
-  moodPill: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  moodLabel: { color: Colors.accent, fontSize: Typography.small },
-  waiting: { color: Colors.faint, fontSize: Typography.small },
+  cardWaiting: { borderColor: Colors.border, backgroundColor: Colors.s2 },
+  who:  { color: Colors.sub, fontSize: Typography.tiny, letterSpacing: 1, marginBottom: 12 },
+  mood: { color: Colors.accent, fontWeight: Typography.bold, fontSize: Typography.small, textAlign: 'center' },
+  moodWaiting: { color: Colors.sub },
 });
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
@@ -133,19 +129,15 @@ export default function MoodScreen() {
   const [navigating,   setNavigating]   = useState(false);
   const [showSkip,     setShowSkip]     = useState(false);
   const [showContinue, setShowContinue] = useState(false);
-  const [memberNames,  setMemberNames]  = useState<Record<string, string>>({});
 
-  const partnerMood = partnerUid ? (sessionMoods[partnerUid] ?? null) : null;
+  const myStoredMood  = user ? (sessionMoods[user.uid] ?? null) : null;
+  const partnerMood   = partnerUid ? (sessionMoods[partnerUid] ?? null) : null;
   // allReady requires myMood (local pick this session) to avoid stale Firestore data
   // from a previous session triggering navigation before the user picks.
-  const allReady    = isSolo ? !!myMood : !!(myMood && partnerMood);
+  const allReady      = isSolo ? !!myMood : !!(myMood && partnerMood);
 
-  // Merge local pick immediately so the UI reflects our choice before the Firestore round-trip
-  const effectiveMoods: Record<string, MoodId> = {
-    ...sessionMoods,
-    ...(myMood && user ? { [user.uid]: myMood } : {}),
-  };
-  const myMoodData = myMood ? MOODS.find(m => m.id === myMood) : null;
+  const myMoodData      = (myMood ?? myStoredMood) ? MOODS.find(m => m.id === (myMood ?? myStoredMood)) : null;
+  const partnerMoodData = partnerMood ? MOODS.find(m => m.id === partnerMood) : null;
 
   // Limpiar estado local al entrar a esta pantalla
   // (startGroupSession se llama desde GroupScreen antes de navegar — limpia moods/matchId y fija leaderUid)
@@ -160,46 +152,20 @@ export default function MoodScreen() {
     }
   }, []);
 
-      if (USE_MOCK || isSoloRoute) return;
-
-      const unsub = onGroupChange(groupId, g => {
-        if (!g) {
-          Alert.alert('Grupo eliminado', 'El creador eliminó este grupo.');
-          nav.navigate('App');
-          return;
-        }
-        setSessionMoods(g.currentSession?.moods ?? {});
-        // Mantener currentGroup fresco (incl. leaderUid) para useMatching.
-        setCurrentGroup(g);
-      });
-      return unsub;
-    }, [groupId, isSoloRoute, group?.id])
-  );
-
-  // Nombres reales de los miembros (para la vista de espera en grupos)
+  // Listen to Firestore session moods (solo mode skips this)
   useEffect(() => {
     if (USE_MOCK || isSoloRoute) return;
-    const others = members.filter(uid => uid !== user?.uid);
-    if (others.length === 0) return;
-    fetchMemberNames(others).then(setMemberNames).catch(() => {});
-  }, [members.join(','), isSoloRoute]);
-
-  // Android hardware back button — confirm if mood already selected
-  useEffect(() => {
-    if (!myMood) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      Alert.alert(
-        '¿Salir de la búsqueda?',
-        'Si salís, perdés tu selección de mood.',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Salir', style: 'destructive', onPress: () => nav.goBack() },
-        ],
-      );
-      return true; // Prevent default back action
+    const unsub = onGroupChange(groupId, g => {
+      if (!g) {
+        Alert.alert('Grupo eliminado', 'El creador eliminó este grupo.');
+        nav.navigate('App');
+        return;
+      }
+      const moods = g.currentSession?.moods ?? {};
+      setSessionMoods(moods);
     });
-    return () => sub.remove();
-  }, [myMood]);
+    return unsub;
+  }, [groupId, isSoloRoute]);
 
   // Show skip button after 30s of waiting for partner
   useEffect(() => {
@@ -215,7 +181,7 @@ export default function MoodScreen() {
     return () => clearTimeout(timer);
   }, [allReady, navigating, isSoloRoute]);
 
-  // When all moods ready → sync to MatchStore and navigate
+  // When both moods ready → sync to MatchStore and navigate
   useEffect(() => {
     if (!allReady || navigating || !myMood) return;
     setNavigating(true);
@@ -270,57 +236,56 @@ export default function MoodScreen() {
       );
     }
 
-    const memberCount = members.length;
     return (
       <View style={[styles.root, { paddingTop: insets.top + 20, backgroundColor: themeColors.bg }]}>
         <Text style={styles.waitTitle}>
-          {allReady ? '¡Listos!' : 'Esperando al grupo'}
+          {allReady ? '¡Listos!' : '¿Cómo está\ntu compañero?'}
         </Text>
         <Text style={styles.waitSub}>
           {allReady
-            ? 'Queponemos está analizando los moods…'
-            : 'Esperá que todos elijan su mood esta noche'}
+            ? 'Queponemos está analizando los dos moods…'
+            : 'Esperá que elija su mood esta noche'}
         </Text>
 
-        <View style={styles.memberList}>
-          {members.map((uid, idx) => {
-            const isMe = uid === user?.uid;
-            const moodId = effectiveMoods[uid];
-            const moodData = moodId ? MOODS.find(m => m.id === moodId) : null;
-            const name = isMe
-              ? (user?.displayName ?? 'Vos')
-              : (memberNames[uid] ?? (memberCount === 2 ? 'Tu compañero' : `Miembro ${idx + 1}`));
-            return (
-              <MemberRow
-                key={uid}
-                name={name}
-                moodData={moodData}
-                isMe={isMe}
-              />
-            );
-          })}
-        </View>
+        <View style={styles.cards}>
+          <MoodCard
+            label="VOS"
+            iconName={myMoodData?.icon ?? 'smile'}
+            moodLabel={myMoodData?.label ?? ''}
+          />
 
-        {allReady && (
-          <View style={styles.readyBadge}>
-            <Text style={styles.readyText}>
-              {members.map(uid => MOODS.find(m => m.id === effectiveMoods[uid])?.label).filter(Boolean).join(' × ')}
-            </Text>
-            <Text style={styles.readySub}>
-              {memberCount === 2
-                ? 'Queponemos va a encontrar algo perfecto para los dos'
-                : `Queponemos va a encontrar algo perfecto para los ${memberCount}`}
-            </Text>
+          <View style={styles.vsCol}>
+            {allReady ? (
+              <Feather name="star" size={22} color={Colors.accent} />
+            ) : (
+              <PulsingDots />
+            )}
           </View>
-        )}
+
+          <MoodCard
+            label="EL GRUPO"
+            iconName={partnerMoodData?.icon ?? 'clock'}
+            moodLabel={partnerMoodData?.label ?? 'Eligiendo…'}
+            waiting={!partnerMood}
+          />
+        </View>
 
         {showSkip && !allReady && (
           <TouchableOpacity
             style={styles.skipBtn}
             onPress={() => nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId })}
           >
-            <Text style={styles.skipText}>Omitir y continuar sin esperar</Text>
+            <Text style={styles.skipText}>Omitir y continuar solo</Text>
           </TouchableOpacity>
+        )}
+
+        {allReady && (
+          <View style={styles.readyBadge}>
+            <Text style={styles.readyText}>
+              {myMoodData?.label}  ×  {partnerMoodData?.label}
+            </Text>
+            <Text style={styles.readySub}>Queponemos va a encontrar algo perfecto para los dos</Text>
+          </View>
         )}
 
         {showContinue && allReady && !navigating && (
@@ -328,7 +293,7 @@ export default function MoodScreen() {
             style={styles.continueBtn}
             onPress={() => {
               setNavigating(true);
-              Object.entries(effectiveMoods).forEach(([uid, mood]) => setMood(uid, mood));
+              Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
               nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
             }}
           >
@@ -360,9 +325,7 @@ export default function MoodScreen() {
         <Text style={styles.sub}>
           {isSoloRoute
             ? 'Queponemos va a encontrar algo perfecto para vos en tus plataformas.'
-            : members.length === 2
-              ? 'Tu compañero también va a elegir. Queponemos va a encontrar algo que les funcione a los dos.'
-              : 'Cada miembro va a elegir su mood. Queponemos va a encontrar algo que les funcione a todos.'}
+            : 'Tu compañero también va a elegir. Queponemos va a encontrar algo que les funcione a los dos.'}
         </Text>
 
         <View style={styles.grid}>
@@ -429,12 +392,16 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     lineHeight: 22,
   },
-  memberList: {
-    marginHorizontal: 24,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
+  cards: {
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    gap: 0,
+    alignItems: 'center',
+  },
+  vsCol: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   readyBadge: {
     marginTop: 36,
