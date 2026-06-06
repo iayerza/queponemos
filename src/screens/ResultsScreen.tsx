@@ -25,9 +25,11 @@ export default function ResultsScreen() {
   const { currentGroup } = useGroupStore();
   const { user } = useAuthStore();
   const themeColors = useColors();
-  const fadeAnims = useRef(
-    Array.from({ length: 3 }, () => new Animated.Value(1))
-  ).current;
+  const fadeAnimsRef = useRef<Animated.Value[]>([]);
+  function getFadeAnim(i: number): Animated.Value {
+    if (!fadeAnimsRef.current[i]) fadeAnimsRef.current[i] = new Animated.Value(1);
+    return fadeAnimsRef.current[i];
+  }
 
   const [ratingTarget, setRatingTarget] = useState<{ rec: Recommendation; idx: number } | null>(null);
 
@@ -40,7 +42,7 @@ export default function ResultsScreen() {
   }
 
   async function handleAction(idx: number, status: Recommendation['groupStatus']) {
-    const anim = fadeAnims[idx];
+    const anim = getFadeAnim(idx);
     if (anim) {
       Animated.timing(anim, { toValue: 0.3, duration: 200, useNativeDriver: true }).start();
     }
@@ -127,8 +129,8 @@ export default function ResultsScreen() {
         </View>
       ) : null}
 
-      {currentMatch.recommendations.map((rec, i) => (
-        <Animated.View key={`${rec.title}-${i}`} style={{ opacity: fadeAnims[i] }}>
+      {(currentMatch.recommendations ?? []).map((rec, i) => (
+        <Animated.View key={`${rec.title}-${i}`} style={{ opacity: getFadeAnim(i) }}>
           <ResultCard
             rec={rec}
             onAction={status => handleAction(i, status)}

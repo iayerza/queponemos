@@ -120,7 +120,7 @@ const MOOD_LABELS: Record<MoodId, string> = {
 function buildPrompt(input: MatchingInput): string {
   const userBlocks = input.users.map(u => {
     const loved = Object.entries(u.ratings ?? {})
-      .filter(([, r]) => r === 'loved')
+      .filter(([, r]) => r === 'loved' || r === 'liked')
       .map(([id]) => `ID:${id}`)
       .join(', ') || 'ninguno aún';
     const disliked = Object.entries(u.ratings ?? {})
@@ -132,7 +132,11 @@ function buildPrompt(input: MatchingInput): string {
       .filter(([, s]) => s > 0.5)
       .map(([g]) => g)
       .join(', ') || 'variado';
-    return `- ${u.displayName}: géneros favoritos [${genres}], le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
+    const intensity = u.tasteProfile?.intensity ?? 0.5;
+    const intensityLabel = intensity < 0.35 ? 'liviano (prefiere ritmo tranquilo)' : intensity > 0.65 ? 'intenso (le gusta la tensión y el drama)' : 'equilibrado';
+    const formatPref = u.tasteProfile?.seriesVsMovies ?? 0.5;
+    const formatLabel = formatPref < 0.35 ? 'prefiere películas' : formatPref > 0.65 ? 'prefiere series' : 'indistinto';
+    return `- ${u.displayName}: géneros favoritos [${genres}], intensidad preferida: ${intensityLabel}, formato: ${formatLabel}, le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
   }).join('\n');
 
   return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.
@@ -140,7 +144,8 @@ function buildPrompt(input: MatchingInput): string {
 PERFILES:
 ${userBlocks}
 
-PLATAFORMAS DISPONIBLES: ${input.platforms.join(', ')}
+PLATAFORMAS DISPONIBLES (OBLIGATORIO): ${input.platforms.join(', ')}
+REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar disponibles en las plataformas listadas arriba. No recomendés nada fuera de ellas.
 
 REGLAS:
 1. VARIEDAD DE ERA: uno anterior a 2010, uno entre 2010-2019, uno de 2020 en adelante.
@@ -179,7 +184,7 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
 
   const data = await callClaudeWithRetry({
     model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
+    max_tokens: 4096,
     messages: [{ role: 'user', content: buildPrompt(input) }],
   }, apiKey);
 
@@ -201,8 +206,9 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
   }
 
   const fallbackPlatform = input.platforms[0] ?? 'netflix';
+  const allowedPlatforms = new Set(input.platforms);
   const baseRecs: Recommendation[] = (parsed.recommendations ?? []).map(r => {
-    const platform = (r.platform && VALID_PLATFORMS.has(r.platform as PlatformId))
+    const platform = (r.platform && VALID_PLATFORMS.has(r.platform as PlatformId) && allowedPlatforms.has(r.platform as PlatformId))
       ? r.platform as PlatformId
       : fallbackPlatform;
     return {
