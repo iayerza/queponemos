@@ -63,7 +63,7 @@ export default function ResultsScreen() {
             rating: rec.rating,
             addedAt: Date.now(),
           });
-        } catch { /* silenciar */ }
+        } catch (e) { console.warn('Results: acción no persistida', e); }
       } else if (status === 'chosen' && isSolo && user) {
         // En solo el match no vive en Firestore: lo persistimos en pendientes
         // personales para que aparezca en "A valorar".
@@ -74,10 +74,10 @@ export default function ResultsScreen() {
             groupName: 'Solo',
             rec,
           });
-        } catch { /* silenciar */ }
+        } catch (e) { console.warn('Results: acción no persistida', e); }
       } else if (rec.tmdbId) {
         try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as import('../services/firebase').TitleStatus); }
-        catch { /* silenciar */ }
+        catch (e) { console.warn('Results: acción no persistida', e); }
       }
     }
 
@@ -101,7 +101,7 @@ export default function ResultsScreen() {
           type: rec.type === 'series' ? 'tv' : 'movie',
           genres: rec.genres, rating: rec.rating, posterPath: rec.posterPath, synopsis: rec.synopsis,
         });
-      } catch { /* silenciar */ }
+      } catch (e) { console.warn('Results: acción no persistida', e); }
     }
   }
 

@@ -49,7 +49,7 @@ export default function HistoryScreen() {
     try {
       const items = await getPersonalWatchlist(user.uid);
       setWatchlist(items);
-    } catch { /* silenciar */ }
+    } catch (e) { console.warn('History: operación falló', e); }
     finally { setLoadingWatchlist(false); }
   }, [user]);
 
@@ -63,7 +63,7 @@ export default function HistoryScreen() {
     try {
       const items = await getPendingRatingsForUser(user.uid);
       setPendingItems(items);
-    } catch { /* silenciar */ }
+    } catch (e) { console.warn('History: operación falló', e); }
     finally { setLoadingPending(false); }
   }, [user]);
 
@@ -89,7 +89,7 @@ export default function HistoryScreen() {
             ? removeFromPendingRatings(user.uid, rec.tmdbId)
             : updateTitleStatus(matchId, rec.tmdbId, 'watched'),
         ]);
-      } catch { /* silenciar */ }
+      } catch (e) { console.warn('History: operación falló', e); }
     }
   }
 
@@ -103,7 +103,7 @@ export default function HistoryScreen() {
           setWatchlist(prev => prev.filter(i => i.tmdbId !== tmdbId));
           if (!USE_MOCK) {
             try { await removeFromPersonalWatchlist(user.uid, tmdbId); }
-            catch { /* silenciar */ }
+            catch (e) { console.warn('History: operación falló', e); }
           }
         },
       },

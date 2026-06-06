@@ -12,7 +12,7 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useColors } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
-import { setSessionMood, onGroupChange } from '../services/firebase';
+import { setSessionMood, onGroupChange, fetchMemberNames } from '../services/firebase';
 import { sendMoodSelectedNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import type { MoodId } from '../services/claude';
@@ -122,6 +122,7 @@ export default function MoodScreen() {
   const [navigating,   setNavigating]   = useState(false);
   const [showSkip,     setShowSkip]     = useState(false);
   const [showContinue, setShowContinue] = useState(false);
+  const [memberNames,  setMemberNames]  = useState<Record<string, string>>({});
 
   const partnerMood = partnerUid ? (sessionMoods[partnerUid] ?? null) : null;
   // allReady requires myMood (local pick this session) to avoid stale Firestore data
@@ -172,10 +173,20 @@ export default function MoodScreen() {
           return;
         }
         setSessionMoods(g.currentSession?.moods ?? {});
+        // Mantener currentGroup fresco (incl. leaderUid) para useMatching.
+        setCurrentGroup(g);
       });
       return unsub;
     }, [groupId, isSoloRoute, group?.id])
   );
+
+  // Nombres reales de los miembros (para la vista de espera en grupos)
+  useEffect(() => {
+    if (USE_MOCK || isSoloRoute) return;
+    const others = members.filter(uid => uid !== user?.uid);
+    if (others.length === 0) return;
+    fetchMemberNames(others).then(setMemberNames).catch(() => {});
+  }, [members.join(','), isSoloRoute]);
 
   // Show skip button after 30s of waiting for partner
   useEffect(() => {
@@ -196,9 +207,10 @@ export default function MoodScreen() {
     if (!allReady || navigating || !myMood) return;
     setNavigating(true);
     Object.entries(effectiveMoods).forEach(([uid, mood]) => setMood(uid, mood));
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
     }, 1400);
+    return () => clearTimeout(timer);
   }, [allReady, navigating, myMood]);
 
   async function handleSelect(id: MoodId) {
@@ -266,9 +278,7 @@ export default function MoodScreen() {
             const moodData = moodId ? MOODS.find(m => m.id === moodId) : null;
             const name = isMe
               ? (user?.displayName ?? 'Vos')
-              : memberCount === 2
-                ? 'Tu compañero'
-                : `Miembro ${idx + 1}`;
+              : (memberNames[uid] ?? (memberCount === 2 ? 'Tu compañero' : `Miembro ${idx + 1}`));
             return (
               <MemberRow
                 key={uid}

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,6 +7,7 @@ import { Colors, Typography } from '../constants/colors';
 import AnimatedLogoMark from '../components/AnimatedLogoMark';
 import { useMatching } from '../hooks/useMatching';
 import { useMatchStore } from '../store/useMatchStore';
+import { useGroupStore } from '../store/useGroupStore';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
@@ -35,12 +36,23 @@ export default function MatchingScreen() {
   const route = useRoute<Route>();
   const { runMatch, error, isLeader } = useMatching();
   const { isSolo } = useMatchStore();
+  const { currentGroup } = useGroupStore();
+  const ranRef = useRef(false);
 
   useEffect(() => {
+    // Guard: correr el matching una sola vez (evita doble match/historial/turno
+    // por remontaje o StrictMode).
+    if (ranRef.current) return;
+    ranRef.current = true;
     runMatch().then(matchId => {
       if (matchId) nav.replace('Results', { matchId });
     });
   }, []);
+
+  function exitToSafety() {
+    if (!isSolo && currentGroup) nav.navigate('Group', { groupId: currentGroup.id });
+    else nav.navigate('App');
+  }
 
   return (
     <View style={styles.root}>
@@ -66,12 +78,22 @@ export default function MatchingScreen() {
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{friendlyError(error)}</Text>
-          <TouchableOpacity
-            onPress={() => nav.replace('Mood', route.params)}
-            style={styles.retryBtn}
-          >
-            <Text style={styles.retryText}>Volver a intentar</Text>
-          </TouchableOpacity>
+          {!isSolo && !isLeader ? (
+            <Text style={styles.errorHint}>
+              Puede que quien inició la búsqueda haya tenido un problema. Probá iniciarla vos.
+            </Text>
+          ) : null}
+          <View style={styles.errorActions}>
+            <TouchableOpacity
+              onPress={() => nav.replace('Mood', route.params)}
+              style={styles.retryBtn}
+            >
+              <Text style={styles.retryText}>Volver a intentar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={exitToSafety} style={styles.exitBtn}>
+              <Text style={styles.retryText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : null}
     </View>
@@ -121,7 +143,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  errorHint: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: Typography.tiny,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  errorActions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'center' },
   retryBtn: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  exitBtn: {
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.4)',
     borderRadius: 8,

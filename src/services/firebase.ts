@@ -75,6 +75,7 @@ export interface GroupDoc {
   currentSession?: {
     moods: Record<string, MoodId>;
     matchId?: string;
+    leaderUid?: string; // quien inició la búsqueda → es quien llama a Claude
   };
 }
 
@@ -292,6 +293,26 @@ export async function clearGroupSession(groupId: string): Promise<void> {
   });
 }
 
+/**
+ * Inicia una sesión de búsqueda: limpia los moods/matchId anteriores y marca
+ * a `leaderUid` como líder (quien va a llamar a Claude). El líder es quien
+ * INICIA la búsqueda, no necesariamente el creador del grupo — así evitamos el
+ * deadlock en el que un seguidor arrancaba y nadie corría el matching.
+ */
+export async function startGroupSession(groupId: string, leaderUid: string): Promise<void> {
+  await updateDoc(doc(db(), 'groups', groupId), {
+    'currentSession.moods': {},
+    'currentSession.matchId': null,
+    'currentSession.leaderUid': leaderUid,
+  });
+}
+
+export async function getGroupById(groupId: string): Promise<GroupDoc | null> {
+  const snap = await getDoc(doc(db(), 'groups', groupId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as GroupDoc;
+}
+
 export async function reAuthenticateUser(email: string, password: string): Promise<void> {
   const { EmailAuthProvider, reauthenticateWithCredential } = await import('firebase/auth');
   const currentUser = auth().currentUser;
@@ -344,21 +365,35 @@ export async function getMatchById(matchId: string): Promise<MatchDoc | null> {
   return { id: snap.id, ...snap.data() } as MatchDoc;
 }
 
-/** Poll Firestore until the leader writes a matchId into the session (max 45s). */
+/**
+ * Espera (con un listener push, no polling) a que el líder escriba un matchId
+ * nuevo en la sesión. Devuelve null si pasa el timeout (max 45s).
+ */
 export async function pollForMatchId(groupId: string): Promise<string | null> {
-  // Snapshot the matchId that exists RIGHT NOW — could be stale from a previous session.
-  // We only accept a matchId that is different from this one.
+  // matchId que existe AHORA — puede ser stale de una sesión anterior.
+  // Solo aceptamos uno distinto a este.
   const initial = await getDoc(doc(db(), 'groups', groupId));
   const staleMatchId = initial.data()?.currentSession?.matchId as string | undefined;
 
-  const deadline = Date.now() + 45_000;
-  while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 1500));
-    const snap = await getDoc(doc(db(), 'groups', groupId));
-    const matchId = snap.data()?.currentSession?.matchId as string | undefined;
-    if (matchId && matchId !== staleMatchId) return matchId;
-  }
-  return null;
+  return new Promise<string | null>(resolve => {
+    let settled = false;
+    const finish = (val: string | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      unsub();
+      resolve(val);
+    };
+    const timer = setTimeout(() => finish(null), 45_000);
+    const unsub = onSnapshot(
+      doc(db(), 'groups', groupId),
+      snap => {
+        const matchId = snap.data()?.currentSession?.matchId as string | undefined;
+        if (matchId && matchId !== staleMatchId) finish(matchId);
+      },
+      () => finish(null), // error del listener → cortar con timeout-like
+    );
+  });
 }
 
 export async function getUserGroups(uid: string): Promise<GroupDoc[]> {

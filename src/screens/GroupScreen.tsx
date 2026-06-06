@@ -14,7 +14,7 @@ import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { PLATFORMS, getPlatform, type PlatformId } from '../constants/platforms';
 import PlatformLogo from '../components/PlatformLogo';
-import { updateGroupPlatforms, deleteGroup, leaveGroup, fetchMemberNames, onGroupChange, clearGroupSession, getGroupWatchlist } from '../services/firebase';
+import { updateGroupPlatforms, deleteGroup, leaveGroup, fetchMemberNames, onGroupChange, startGroupSession, getGroupWatchlist } from '../services/firebase';
 import type { WatchlistItem } from '../services/firebase';
 import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
@@ -89,13 +89,14 @@ export default function GroupScreen() {
 
   async function handleFindMatch() {
     setCurrentGroup(group);
-    // Limpiar la sesión anterior (fire-and-forget para no congelar la navegación).
-    // MoodScreen ya resetea su estado y re-suscribe en cada focus, así que un
-    // residuo momentáneo de moods viejos no dispara nada (allReady exige el pick
-    // local de esta sesión). NO incrementamos el turno acá: eso cambiaba el
-    // nombre de "esta noche elige" apenas alguien abría la pantalla. El turno
-    // rota cuando el líder cierra un match (ver useMatching).
-    if (!USE_MOCK) clearGroupSession(group.id).catch(() => {});
+    // Iniciar la sesión: limpia moods/matchId previos y marca a ESTE usuario
+    // como líder (quien inició = quien va a llamar a Claude). Resuelve el
+    // deadlock en el que un seguidor arrancaba y nadie corría el matching.
+    // Fire-and-forget para no congelar la navegación: MoodScreen resetea y
+    // re-suscribe en cada focus, así que un residuo momentáneo no dispara nada.
+    // NO incrementamos el turno acá (cambiaba "esta noche elige" al entrar);
+    // el turno rota cuando el líder cierra un match (ver useMatching).
+    if (!USE_MOCK && user) startGroupSession(group.id, user.uid).catch(() => {});
     nav.navigate('Mood', { groupId: group.id });
     if (!USE_MOCK && user) {
       try {

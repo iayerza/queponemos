@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
   saveMatch, setSessionMatchId, pollForMatchId, getMatchById,
-  getUserProfile, addMatchToUserHistory, incrementGroupTurn,
+  getUserProfile, addMatchToUserHistory, incrementGroupTurn, getGroupById,
 } from '../services/firebase';
 import { useAuthStore }  from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
@@ -19,17 +19,34 @@ export function useMatching() {
   const { currentGroup }                  = useGroupStore();
   const { moods, setCurrentMatch, isSolo } = useMatchStore();
 
-  // The group creator is always the "leader" who calls Claude.
-  const isLeader = isSolo || !currentGroup || user?.uid === currentGroup.createdBy;
+  // Líder = quien inició la búsqueda (currentSession.leaderUid). Para la UI
+  // usamos el valor del store; en runMatch lo re-confirmamos fresco de Firestore.
+  // Fallback al creador para sesiones viejas sin leaderUid.
+  const sessionLeader = currentGroup?.currentSession?.leaderUid;
+  const isLeader = isSolo || !currentGroup ||
+    (sessionLeader ? user?.uid === sessionLeader : user?.uid === currentGroup.createdBy);
 
   const runMatch = useCallback(async (): Promise<string | null> => {
     if (!user) return null;
     if (!isSolo && !currentGroup) return null;
     setError(null);
 
+    // Re-confirmar el líder con el estado fresco de Firestore (el store puede
+    // estar desactualizado). Esto decide quién llama a Claude y quién espera.
+    let amLeader = isSolo || USE_MOCK;
+    if (!isSolo && currentGroup) {
+      if (USE_MOCK) {
+        amLeader = true;
+      } else {
+        const fresh = await getGroupById(currentGroup.id);
+        const leaderUid = fresh?.currentSession?.leaderUid;
+        amLeader = leaderUid ? user.uid === leaderUid : user.uid === currentGroup.createdBy;
+      }
+    }
+
     try {
       // ── Follower path: wait for leader to produce a matchId ────────────────
-      if (!isLeader && !USE_MOCK && currentGroup) {
+      if (!amLeader && !USE_MOCK && currentGroup) {
         const matchId = await pollForMatchId(currentGroup.id);
         if (!matchId) throw new Error('El tiempo de espera agotó. Intentá de nuevo.');
 
@@ -132,7 +149,9 @@ export function useMatching() {
       if (!USE_MOCK) {
         await addMatchToUserHistory(user.uid, historyEntry);
         if (!isSolo && currentGroup) {
-          await Promise.all(
+          // allSettled: que el historial de un compañero falle (permisos/red)
+          // NO debe tirar abajo el match ya creado del líder.
+          await Promise.allSettled(
             members.filter(uid => uid !== user.uid).map(uid => addMatchToUserHistory(uid, historyEntry))
           );
         }
@@ -144,7 +163,7 @@ export function useMatching() {
       setError(String(e));
       return null;
     }
-  }, [user, currentGroup, moods, isLeader, isSolo]);
+  }, [user, currentGroup, moods, isSolo]);
 
   return { runMatch, error, isLeader };
 }
