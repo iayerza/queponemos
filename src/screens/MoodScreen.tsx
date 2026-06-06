@@ -188,6 +188,23 @@ export default function MoodScreen() {
     fetchMemberNames(others).then(setMemberNames).catch(() => {});
   }, [members.join(','), isSoloRoute]);
 
+  // Android hardware back button — confirm if mood already selected
+  useEffect(() => {
+    if (!myMood) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      Alert.alert(
+        '¿Salir de la búsqueda?',
+        'Si salís, perdés tu selección de mood.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Salir', style: 'destructive', onPress: () => nav.goBack() },
+        ],
+      );
+      return true; // Prevent default back action
+    });
+    return () => sub.remove();
+  }, [myMood]);
+
   // Show skip button after 30s of waiting for partner
   useEffect(() => {
     if (!myMood || isSolo) return;
