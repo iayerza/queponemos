@@ -6,7 +6,7 @@ import { Colors, Typography } from '../constants/colors';
 import type { NormalizedTitle } from '../services/tmdb';
 
 const SCREEN_H = Dimensions.get('window').height;
-const CARD_W   = Dimensions.get('window').width - 40;
+const CARD_W   = Dimensions.get('window').width - 48; // 24px paddingHorizontal × 2
 const POSTER_H = Math.min(Math.round(CARD_W * 1.5), Math.round(SCREEN_H * 0.40));
 
 interface Props {
@@ -22,7 +22,7 @@ export default function TitlePoster({ title }: Props) {
       {posterUrl && !imgError ? (
         <Image
           source={{ uri: posterUrl }}
-          style={{ position: 'absolute', top: 0, left: 0, width: CARD_W, height: POSTER_H }}
+          style={{ position: 'absolute', top: 0, left: 0, width: CARD_W, height: POSTER_H, borderRadius: 16 }}
           resizeMode="cover"
           onError={() => setImgError(true)}
         />
