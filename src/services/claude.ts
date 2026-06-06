@@ -1,68 +1,7 @@
 import type { PlatformId } from '../constants/platforms';
 import { PLATFORMS } from '../constants/platforms';
 import type { UserProfile } from './firebase';
-import { fetchTitle, searchTitles, type NormalizedTitle } from './tmdb';
-
-interface ClaudeResponse {
-  content: { type: string; text?: string }[];
-  stop_reason?: string;
-}
-
-// fetch a Claude con timeout (AbortController) y reintentos con backoff
-// exponencial para 429 (rate limit), 500 y 529 (overloaded). Distingue
-// timeouts y errores de red (reintentables) de errores HTTP no reintentables.
-async function callClaudeWithRetry(apiKey: string, body: unknown): Promise<ClaudeResponse> {
-  const MAX_ATTEMPTS = 3;
-  let lastErr: Error | null = null;
-
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45_000);
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      if (res.ok) return await res.json() as ClaudeResponse;
-
-      const errText = await res.text();
-      const retryable = res.status === 429 || res.status === 500 || res.status === 529;
-      if (retryable && attempt < MAX_ATTEMPTS - 1) {
-        const retryAfter = Number(res.headers.get('retry-after'));
-        const waitMs = retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** attempt;
-        await new Promise(r => setTimeout(r, waitMs));
-        lastErr = new Error(`Claude API ${res.status}: ${errText}`);
-        continue;
-      }
-      throw new Error(`Claude API ${res.status}: ${errText}`);
-    } catch (e) {
-      clearTimeout(timeout);
-      const err = e as Error;
-      if (err.name === 'AbortError') {
-        lastErr = new Error('Claude tardó demasiado en responder (timeout).');
-      } else if (err instanceof TypeError) {
-        lastErr = new Error('Sin conexión con Claude. Verificá tu internet.');
-      } else {
-        throw err; // error HTTP no reintentable u otro: propagar
-      }
-      if (attempt < MAX_ATTEMPTS - 1) {
-        await new Promise(r => setTimeout(r, 1000 * 2 ** attempt));
-        continue;
-      }
-      throw lastErr;
-    }
-  }
-  throw lastErr ?? new Error('No se pudo contactar a Claude.');
-}
+import { fetchTitle, searchTitles } from './tmdb';
 
 const VALID_PLATFORMS = new Set(PLATFORMS.map(p => p.id));
 
@@ -156,7 +95,6 @@ export interface Recommendation {
   compatibilityScore: number;
   whyUs: string;
   groupStatus: 'pending' | 'watched' | 'watchlist' | 'skipped' | 'chosen';
-  runtime?: number; // minutos: película = duración total; serie = duración por episodio
 }
 
 export interface MatchingInput {
@@ -168,11 +106,6 @@ export interface MatchingInput {
 export interface MatchingOutput {
   recommendations: Recommendation[];
   groupInsight: string;
-}
-
-// Normaliza un título para comparar: minúsculas, sin tildes ni puntuación.
-function normalizeTitle(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 }
 
 const MOOD_LABELS: Record<MoodId, string> = {
@@ -187,7 +120,7 @@ const MOOD_LABELS: Record<MoodId, string> = {
 function buildPrompt(input: MatchingInput): string {
   const userBlocks = input.users.map(u => {
     const loved = Object.entries(u.ratings ?? {})
-      .filter(([, r]) => r === 'loved' || r === 'liked')
+      .filter(([, r]) => r === 'loved')
       .map(([id]) => `ID:${id}`)
       .join(', ') || 'ninguno aún';
     const disliked = Object.entries(u.ratings ?? {})
@@ -199,25 +132,13 @@ function buildPrompt(input: MatchingInput): string {
       .filter(([, s]) => s > 0.5)
       .map(([g]) => g)
       .join(', ') || 'variado';
-    return `- ${u.displayName}: géneros favoritos [${genres}], le gustó o encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
+    return `- ${u.displayName}: géneros favoritos [${genres}], le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
   }).join('\n');
-
-  // All tmdbIds already seen by any user (loved, liked, or disliked) — never recommend these
-  const seenIds = [...new Set(
-    input.users.flatMap(u =>
-      Object.entries(u.ratings ?? {})
-        .filter(([, r]) => r !== 'not_seen')
-        .map(([id]) => `ID:${id}`)
-    )
-  )];
-  const excludeLine = seenIds.length > 0
-    ? `\nTÍTULOS YA VISTOS (NUNCA recomendar estos IDs): ${seenIds.join(', ')}`
-    : '';
 
   return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.
 
 PERFILES:
-${userBlocks}${excludeLine}
+${userBlocks}
 
 PLATAFORMAS DISPONIBLES: ${input.platforms.join(', ')}
 
@@ -232,8 +153,6 @@ REGLAS:
    - 92-100: solo para coincidencia casi perfecta y evidente
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
 5. No repetir siempre los mismos títulos populares del momento.
-6. NUNCA recomendar un título que aparezca en TÍTULOS YA VISTOS. Esos IDs solo sirven para entender los gustos.
-7. En el campo "type": usar "movie" SOLO para películas. Usar "series" para cualquier serie de TV, incluso miniseries.
 
 Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
 {
@@ -254,9 +173,9 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de c
 }
 
 export async function runMatching(input: MatchingInput): Promise<MatchingOutput> {
-  const apiKey = (process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY ?? '').trim();
+  const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY no configurada');
-  if (!apiKey.startsWith('sk-ant-')) throw new Error(`API key inválida — empieza con: "${apiKey.slice(0, 10)}". Debe empezar con sk-ant-`);
+  if (!apiKey.startsWith('sk-ant-')) throw new Error(`API key inválida (debe empezar con sk-ant-). Verificá EXPO_PUBLIC_ANTHROPIC_API_KEY.`);
 
   const data = await callClaudeWithRetry({
     model: 'claude-sonnet-4-6',
@@ -273,7 +192,7 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
   // Strip markdown code fences if present
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
 
-  let parsed: { recommendations?: Array<Record<string, unknown>>; groupInsight?: string };
+  let parsed: { recommendations: Omit<Recommendation, 'posterPath' | 'groupStatus'>[]; groupInsight: string };
   try {
     parsed = JSON.parse(cleaned);
   } catch {
@@ -302,17 +221,12 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     };
   });
 
-  if (baseRecs.length === 0) {
-    throw new Error('Claude no devolvió recomendaciones. Probá de nuevo.');
-  }
-
-  // Enriquecer con pósters de TMDB. TMDB es la fuente autoritativa para type
-  // (movie/series). Hacemos match por TÍTULO normalizado para no agarrar un
-  // título homónimo, y NO confiamos en el tmdbId de Claude (lo alucina seguido).
+  // Enriquecer con pósters de TMDB: buscar por título (confiable) y usar tmdbId de Claude solo como desempate
   const recommendations = await Promise.all(
     baseRecs.map(async rec => {
       try {
-        const claudeMediaType = rec.type === 'series' ? 'tv' : 'movie';
+        const mediaType = rec.type === 'series' ? 'tv' : 'movie';
+        // Buscar por título primero — más confiable que el tmdbId de Claude
         const results = await searchTitles(rec.title);
         const wanted = normalizeTitle(rec.title);
         // Priority: exact normalized title + type + year → title + type → type + year → type
@@ -335,9 +249,8 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
           const tmdbData = await fetchTitle(rec.tmdbId, mediaType);
           return { ...rec, posterPath: tmdbData.posterPath, runtime: tmdbData.runtime };
         }
-        // Sin match en TMDB: devolvemos sin póster en vez de adivinar con un ID dudoso.
       } catch { /* ignore */ }
-      return { ...rec, tmdbId: undefined };
+      return rec;
     })
   );
 

@@ -178,34 +178,6 @@ export default function GroupScreen() {
     );
   }
 
-  function handleLeaveGroup() {
-    if (!user) return;
-    Alert.alert(
-      'Salir del grupo',
-      `¿Seguro que querés salir de "${group.name}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Salir',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            isDeletingRef.current = true;
-            try {
-              if (!USE_MOCK) await leaveGroup(group.id, user.uid);
-              removeGroup(group.id);
-              nav.navigate('App');
-            } catch {
-              isDeletingRef.current = false;
-              Alert.alert('Error', 'No se pudo salir del grupo');
-              setDeleting(false);
-            }
-          },
-        },
-      ],
-    );
-  }
-
   const groupInvites = pendingInvites.filter(i => i.groupId === group.id);
   const isOwner = group.createdBy === user?.uid;
 
@@ -284,19 +256,17 @@ export default function GroupScreen() {
       )}
 
       {/* Pendientes del grupo */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Pendientes del grupo</Text>
-        {groupWatchlist.length === 0 ? (
-          <Text style={styles.emptyWatchlist}>Sin pendientes aún</Text>
-        ) : (
-          groupWatchlist.map(item => (
+      {groupWatchlist.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Pendientes del grupo</Text>
+          {groupWatchlist.map(item => (
             <View key={item.tmdbId} style={styles.inviteRow}>
               <Text style={styles.inviteEmail}>{item.title}</Text>
               <Text style={styles.watchlistPlatform}>{getPlatform(item.platform).name}</Text>
             </View>
-          ))
-        )}
-      </View>
+          ))}
+        </View>
+      )}
 
       {/* Plataformas */}
       <View style={styles.section}>
@@ -395,11 +365,10 @@ const styles = StyleSheet.create({
   turnBoxActive: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
   turnName: { color: Colors.text, fontSize: Typography.body, fontWeight: Typography.medium },
   watchlistPlatform: { color: Colors.faint, fontSize: Typography.tiny },
-  emptyWatchlist: { color: Colors.faint, fontSize: Typography.small, paddingVertical: 8 },
   codeBox: { backgroundColor: Colors.s1, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.border, marginBottom: 20 },
   codeLabel: { color: Colors.faint, fontSize: Typography.tiny, fontWeight: Typography.semibold, letterSpacing: 1, marginBottom: 8 },
   codeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  codeValue: { color: Colors.accent, fontFamily: Typography.fontMedium, fontSize: Typography.h1, fontWeight: Typography.medium, letterSpacing: 4 },
+  codeValue: { color: Colors.accent, fontFamily: 'monospace', fontSize: 22, fontWeight: Typography.bold, letterSpacing: 4 },
   copyBtn: { backgroundColor: Colors.s2, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
   copyBtnText: { color: Colors.sub, fontSize: Typography.small },
   primaryBtn: { backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginBottom: 12 },

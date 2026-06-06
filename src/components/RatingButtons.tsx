@@ -31,7 +31,7 @@ interface Props {
   onSelect: (r: Rating) => void;
 }
 
-function RatingRow({ buttons, selected, onSelect }: { buttons: typeof ROW1; selected: Rating | null; onSelect: (r: Rating) => void }) {
+export default function RatingButtons({ selected, onSelect }: Props) {
   return (
     <View style={styles.grid}>
       {BUTTONS.map(b => {
@@ -52,15 +52,6 @@ function RatingRow({ buttons, selected, onSelect }: { buttons: typeof ROW1; sele
           </TouchableOpacity>
         );
       })}
-    </View>
-  );
-}
-
-export default function RatingButtons({ selected, onSelect }: Props) {
-  return (
-    <View style={styles.grid}>
-      <RatingRow buttons={ROW1} selected={selected} onSelect={onSelect} />
-      <RatingRow buttons={ROW2} selected={selected} onSelect={onSelect} />
     </View>
   );
 }
@@ -88,6 +79,4 @@ const styles = StyleSheet.create({
   iconWrap: { marginBottom: 6, height: 26, justifyContent: 'center', alignItems: 'center' },
   label: { fontSize: Typography.small, color: Colors.sub, textAlign: 'center' },
   labelSelected: { color: Colors.accent },
-  doubleThumb: { flexDirection: 'row', marginBottom: 4, height: 22 },
-  doubleThumbBack: { marginLeft: -8 },
 });

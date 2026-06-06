@@ -199,10 +199,7 @@ export function onAuthChange(cb: (user: UserProfile | null) => void): Unsubscrib
   return onAuthStateChanged(auth(), async fireUser => {
     if (!fireUser) { cb(null); return; }
     const profile = await getUserProfile(fireUser.uid);
-    // Only propagate when profile exists. If null, the user is authenticated but the
-    // Firestore doc hasn't been created yet (race during sign-up). LoginScreen creates
-    // the profile and calls setUser directly — we should not clear the user here.
-    if (profile) cb(profile);
+    cb(profile);
   });
 }
 
@@ -276,11 +273,6 @@ export async function joinGroupByCode(
 
 export async function deleteGroup(groupId: string): Promise<void> {
   await deleteDoc(doc(db(), 'groups', groupId));
-}
-
-/** Salir de un grupo del que NO sos propietario: se quita el uid de members. */
-export async function leaveGroup(groupId: string, uid: string): Promise<void> {
-  await updateDoc(doc(db(), 'groups', groupId), { members: arrayRemove(uid) });
 }
 
 export async function incrementGroupTurn(groupId: string): Promise<void> {
@@ -566,42 +558,14 @@ export interface PendingRatingItem {
   rec: import('../services/claude').Recommendation;
 }
 
-// Pendientes de valorar en modo solo. Los matches solo no se guardan en la
-// colección `matches`, así que cuando el usuario "Elige para ver esta noche"
-// en solo, persistimos el título acá para que aparezca en "A valorar".
-interface SoloPendingDoc extends PendingRatingItem { addedAt: number }
-
-export async function addToPendingRatings(uid: string, item: PendingRatingItem): Promise<void> {
-  const tmdbId = item.rec.tmdbId;
-  if (!tmdbId) return;
-  await setDoc(doc(db(), 'users', uid, 'pending', String(tmdbId)), { ...item, addedAt: Date.now() });
-}
-
-export async function removeFromPendingRatings(uid: string, tmdbId: number): Promise<void> {
-  await deleteDoc(doc(db(), 'users', uid, 'pending', String(tmdbId)));
-}
-
 export async function getPendingRatingsForUser(uid: string): Promise<PendingRatingItem[]> {
-  const items: PendingRatingItem[] = [];
-  const seen = new Set<number>();
-
-  // 1) Pendientes personales (modo solo)
-  try {
-    const snap = await getDocs(collection(db(), 'users', uid, 'pending'));
-    snap.docs.forEach(d => {
-      const data = d.data() as SoloPendingDoc;
-      items.push({ matchId: data.matchId, groupId: data.groupId, groupName: data.groupName, rec: data.rec });
-      if (data.rec.tmdbId) seen.add(data.rec.tmdbId);
-    });
-  } catch { /* silenciar */ }
-
-  // 2) Pendientes de grupos: matches con un título "chosen"
   const groups = await getUserGroups(uid);
+  const items: PendingRatingItem[] = [];
   for (const group of groups) {
     const matches = await getGroupMatches(group.id);
     for (const match of matches) {
       for (const rec of match.recommendations) {
-        if (rec.groupStatus === 'chosen' && !(rec.tmdbId && seen.has(rec.tmdbId))) {
+        if (rec.groupStatus === 'chosen') {
           items.push({ matchId: match.id, groupId: group.id, groupName: group.name, rec });
         }
       }
