@@ -43,9 +43,15 @@ const GENRE_MAP: Record<number, string> = {
 };
 
 async function tmdbGet(path: string): Promise<unknown> {
-  const res = await fetch(tmdbUrl(path), { headers: tmdbHeaders() });
-  if (!res.ok) throw new Error(`TMDB ${res.status}: ${path}`);
-  return res.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const res = await fetch(tmdbUrl(path), { headers: tmdbHeaders(), signal: controller.signal });
+    if (!res.ok) throw new Error(`TMDB ${res.status}: ${path}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function fetchTitle(

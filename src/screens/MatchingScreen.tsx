@@ -17,9 +17,15 @@ function friendlyError(raw: string): string {
     return 'Error de autenticación. Verificá tu EXPO_PUBLIC_ANTHROPIC_API_KEY e intentá de nuevo.';
   if (raw.includes('429') || raw.includes('rate'))
     return 'Demasiadas solicitudes. Esperá un momento y volvé a intentar.';
-  if (raw.includes('network') || raw.includes('fetch') || raw.includes('Network'))
+  if (raw.includes('timeout') || raw.includes('tardó'))
+    return 'Claude tardó demasiado en responder. Volvé a intentar.';
+  if (raw.includes('Sin conexión') || raw.includes('network') || raw.includes('fetch') || raw.includes('Network'))
     return 'Sin conexión. Verificá tu internet y volvé a intentar.';
-  if (raw.includes('500') || raw.includes('overloaded'))
+  if (raw.includes('se cortó') || raw.includes('max_tokens'))
+    return 'La respuesta se cortó. Volvé a intentar.';
+  if (raw.includes('no devolvió') || raw.includes('JSON'))
+    return 'Hubo un problema generando las recomendaciones. Volvé a intentar.';
+  if (raw.includes('500') || raw.includes('529') || raw.includes('overloaded'))
     return 'El servicio está ocupado. Volvé a intentar en un momento.';
   return 'Algo salió mal. Volvé a intentar.';
 }
