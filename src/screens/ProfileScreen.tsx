@@ -8,6 +8,9 @@ import { useColors } from '../context/ThemeContext';
 import { LogoWordmark } from '../components/Logo';
 import { useAuthStore } from '../store/useAuthStore';
 import { logout, deleteUserData, reAuthenticateUser, updateUserPlatforms } from '../services/firebase';
+import { clearPushToken } from '../services/notifications';
+import { useGroupStore } from '../store/useGroupStore';
+import { useMatchStore } from '../store/useMatchStore';
 import type { RootStackParamList } from '../navigation/types';
 import { useTheme, type ThemePreference } from '../context/ThemeContext';
 import { PLATFORMS } from '../constants/platforms';
@@ -46,12 +49,17 @@ export default function ProfileScreen() {
   const seenCount   = Object.values(user?.ratings ?? {}).filter(r => r === 'seen_disliked').length;
 
   async function handleLogout() {
-    Alert.alert('Cerrar sesión', '¿Seguro?', [
+    Alert.alert('Cerrar sesión', '¿Querés cerrar sesión?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Salir', style: 'destructive',
         onPress: async () => {
-          if (!USE_MOCK) { try { await logout(); } catch { /* silenciar */ } }
+          if (!USE_MOCK && user) {
+            clearPushToken(user.uid).catch(() => {});
+            try { await logout(); } catch { /* silenciar */ }
+          }
+          useGroupStore.getState().reset();
+          useMatchStore.getState().reset();
           setUser(null);
         },
       },
@@ -71,6 +79,8 @@ export default function ProfileScreen() {
             setDeleting(true);
             try {
               if (user) await deleteUserData(user.uid);
+              useGroupStore.getState().reset();
+              useMatchStore.getState().reset();
               setUser(null);
             } catch (e) {
               const code = (e as { code?: string })?.code;
@@ -96,6 +106,8 @@ export default function ProfileScreen() {
       await reAuthenticateUser(user.email, reAuthPwd);
       await deleteUserData(user.uid);
       setReAuthModal(false);
+      useGroupStore.getState().reset();
+      useMatchStore.getState().reset();
       setUser(null);
     } catch {
       Alert.alert('Error', 'Contraseña incorrecta. Verificá e intentá de nuevo.');

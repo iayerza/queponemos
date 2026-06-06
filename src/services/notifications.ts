@@ -1,6 +1,6 @@
 import * as ExpoNotifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { doc, updateDoc, getFirestore } from 'firebase/firestore';
+import { doc, updateDoc, deleteField, getFirestore } from 'firebase/firestore';
 import { getApp } from './firebase';
 
 ExpoNotifications.setNotificationHandler({
@@ -20,6 +20,14 @@ export async function registerPushToken(uid: string): Promise<void> {
   }
   if (finalStatus !== 'granted') return;
 
+  // Android channel must be created before requesting the token
+  if (Platform.OS === 'android') {
+    await ExpoNotifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: ExpoNotifications.AndroidImportance.MAX,
+    });
+  }
+
   const tokenData = await ExpoNotifications.getExpoPushTokenAsync({
     projectId: '716f60da-b777-4a66-aa39-20a1c788f254',
   });
@@ -27,13 +35,13 @@ export async function registerPushToken(uid: string): Promise<void> {
 
   const db = getFirestore(getApp());
   await updateDoc(doc(db, 'users', uid), { pushToken: token });
+}
 
-  if (Platform.OS === 'android') {
-    await ExpoNotifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: ExpoNotifications.AndroidImportance.MAX,
-    });
-  }
+export async function clearPushToken(uid: string): Promise<void> {
+  try {
+    const db = getFirestore(getApp());
+    await updateDoc(doc(db, 'users', uid), { pushToken: deleteField() });
+  } catch { /* non-blocking */ }
 }
 
 export async function sendMoodSelectedNotification(

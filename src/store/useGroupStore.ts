@@ -21,6 +21,7 @@ interface GroupStore {
   updateGroup: (groupId: string, patch: Partial<GroupDoc>) => void;
   removeGroup: (groupId: string) => void;
   setPendingInviteCode: (code: string | null) => void;
+  reset: () => void;
 }
 
 export const useGroupStore = create<GroupStore>(set => ({
@@ -58,4 +59,5 @@ export const useGroupStore = create<GroupStore>(set => ({
     groups: s.groups.filter(g => g.id !== groupId),
     currentGroup: s.currentGroup?.id === groupId ? null : s.currentGroup,
   })),
+  reset: () => set({ groups: [], currentGroup: null, pendingInvites: [], pendingInviteCode: null }),
 }));

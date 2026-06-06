@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { darkColors, lightColors, type ColorPalette } from '../constants/colors';
@@ -31,18 +31,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  async function setPreference(p: ThemePreference) {
+  const setPreference = useCallback(async (p: ThemePreference) => {
     setPreferenceState(p);
     await AsyncStorage.setItem(STORAGE_KEY, p);
-  }
+  }, []);
 
   const isDark =
     preference === 'system' ? systemScheme !== 'light' : preference === 'dark';
 
   const colors = isDark ? darkColors : lightColors;
 
+  const value = useMemo(
+    () => ({ colors, preference, setPreference }),
+    [colors, preference, setPreference],
+  );
+
   return (
-    <ThemeContext.Provider value={{ colors, preference, setPreference }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

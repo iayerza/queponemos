@@ -104,6 +104,9 @@ export default function RootNavigator() {
           if (history.length > 0) setHistory(history);
           registerPushToken(u.uid).catch(() => {});
         } catch { /* silenciar */ }
+      } else {
+        useGroupStore.getState().reset();
+        useMatchStore.getState().reset();
       }
     });
     return unsub;
