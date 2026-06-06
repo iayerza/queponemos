@@ -85,7 +85,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'transparent',
   },
-  hint: { color: '#fff', fontSize: Typography.body, textShadowColor: '#000', textShadowRadius: 6 },
+  hint: {
+    color: '#fff',
+    fontSize: Typography.body,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
   closeBtn: {
     backgroundColor: Colors.s1,
     borderRadius: 10,

@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   codeBox: { backgroundColor: Colors.s1, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.border, marginBottom: 20 },
   codeLabel: { color: Colors.faint, fontSize: Typography.tiny, fontWeight: Typography.semibold, letterSpacing: 1, marginBottom: 8 },
   codeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  codeValue: { color: Colors.accent, fontFamily: 'monospace', fontSize: 22, fontWeight: Typography.bold, letterSpacing: 4 },
+  codeValue: { color: Colors.accent, fontFamily: Typography.fontMedium, fontSize: Typography.h1, fontWeight: Typography.medium, letterSpacing: 4 },
   copyBtn: { backgroundColor: Colors.s2, borderRadius: 6, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
   copyBtnText: { color: Colors.sub, fontSize: Typography.small },
   primaryBtn: { backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginBottom: 12 },
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   platformOption: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 16, paddingVertical: 14 },
   platformOptionEmoji: { fontSize: 28 },
   platformOptionName: { flex: 1, color: Colors.sub, fontSize: Typography.body, fontWeight: Typography.medium },
-  checkmark: { fontSize: 16, fontWeight: '700' },
+  checkmark: { fontSize: Typography.h3, fontWeight: Typography.medium },
   cancelBtn: { alignItems: 'center', paddingVertical: 12 },
   cancelBtnText: { color: Colors.sub, fontSize: Typography.body },
 });

@@ -46,7 +46,7 @@ export default function MatchingScreen() {
         {isSolo
           ? 'Buscando\nalgo para vos…'
           : isLeader
-            ? 'Analizando\nlos dos moods…'
+            ? 'Analizando\nlos moods…'
             : 'Esperando\nel resultado…'}
       </Text>
       <Text style={styles.sub}>

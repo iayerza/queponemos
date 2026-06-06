@@ -333,7 +333,9 @@ export default function MoodScreen() {
         <Text style={styles.sub}>
           {isSoloRoute
             ? 'Queponemos va a encontrar algo perfecto para vos en tus plataformas.'
-            : 'Tu compañero también va a elegir. Queponemos va a encontrar algo que les funcione a los dos.'}
+            : members.length === 2
+              ? 'Tu compañero también va a elegir. Queponemos va a encontrar algo que les funcione a los dos.'
+              : 'Cada miembro va a elegir su mood. Queponemos va a encontrar algo que les funcione a todos.'}
         </Text>
 
         <View style={styles.grid}>

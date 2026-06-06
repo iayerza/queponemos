@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
   },
   codeValue: {
     color: Colors.accent,
-    fontFamily: 'monospace',
+    fontFamily: Typography.fontMedium,
     fontSize: 26,
     fontWeight: Typography.bold,
     letterSpacing: 6,
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   qrText: { color: Colors.sub, fontSize: Typography.small, textAlign: 'center' },
   codeDisplay: {
     color: Colors.accent,
-    fontFamily: 'monospace',
+    fontFamily: Typography.fontMedium,
     fontSize: Typography.h2,
     fontWeight: Typography.bold,
     letterSpacing: 4,

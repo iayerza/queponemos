@@ -78,7 +78,7 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
     isLoading,
     error,
     rate,
-    canSkip: currentIndex >= 15,
+    canSkip: currentIndex >= 12, // alineado con MIN_TO_SKIP del OnboardingScreen y el umbral de ProfileScreen
     isFinished: titles.length > 0 && currentIndex >= titles.length,
   };
 }
