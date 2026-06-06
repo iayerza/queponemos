@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   counter: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium },
   counterTotal: { color: Colors.faint, fontWeight: Typography.regular },
-  skipHeaderText: { color: Colors.faint, fontSize: Typography.small },
+  skipHeaderText: { color: Colors.faint, fontSize: Typography.body },
 
   progressWrap: { paddingHorizontal: 20, marginBottom: 16 },
   progressTrack: {
@@ -183,19 +183,11 @@ const styles = StyleSheet.create({
   },
   progressHint: {
     color: Colors.faint,
-    fontSize: Typography.tiny,
+    fontSize: Typography.small,
   },
 
   scroll: { paddingHorizontal: 20, paddingTop: 4 },
   ratingSection: { marginTop: 20, gap: 12 },
-  ratingQuestion: {
-    color: Colors.sub,
-    fontSize: Typography.tiny,
-    fontWeight: Typography.medium,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-
   continueBtn: {
     marginTop: 28,
     backgroundColor: Colors.accent,

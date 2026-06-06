@@ -77,6 +77,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accentFaint,
   },
   iconWrap: { marginBottom: 6, height: 26, justifyContent: 'center', alignItems: 'center' },
-  label: { fontSize: Typography.tiny, color: Colors.sub, textAlign: 'center' },
+  label: { fontSize: Typography.small, color: Colors.sub, textAlign: 'center' },
   labelSelected: { color: Colors.accent },
 });
