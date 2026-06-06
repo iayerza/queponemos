@@ -187,9 +187,10 @@ export default function MoodScreen() {
     if (!allReady || navigating || !myMood) return;
     setNavigating(true);
     Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
     }, 1400);
+    return () => clearTimeout(timer);
   }, [allReady, navigating, myMood, sessionMoods]);
 
   async function handleSelect(id: MoodId) {

@@ -1,6 +1,83 @@
 import type { PlatformId } from '../constants/platforms';
+import { PLATFORMS } from '../constants/platforms';
 import type { UserProfile } from './firebase';
 import { fetchTitle, searchTitles } from './tmdb';
+
+const VALID_PLATFORMS = new Set(PLATFORMS.map(p => p.id));
+
+/** Strip accents + punctuation + lowercase for robust TMDB title matching. */
+function normalizeTitle(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')   // combining diacritics (accents)
+    .replace(/[^\w\s]/g, '')           // punctuation
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function toNumber(v: unknown, fallback: number): number {
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n));
+}
+
+interface ClaudeResponse {
+  content: { text: string }[];
+  stop_reason?: string;
+}
+
+/** Call Anthropic with a 45s timeout and exponential backoff for 429/500/529. */
+async function callClaudeWithRetry(body: object, apiKey: string, maxRetries = 3): Promise<ClaudeResponse> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45_000);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (res.ok) return await res.json() as ClaudeResponse;
+
+      // Retry on rate-limit / overload / transient server errors
+      if ((res.status === 429 || res.status === 500 || res.status === 529) && attempt < maxRetries) {
+        const retryAfter = parseFloat(res.headers.get('retry-after') ?? '');
+        const waitMs = Number.isFinite(retryAfter)
+          ? retryAfter * 1000
+          : Math.min(8000, 1000 * 2 ** attempt);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+
+      const err = await res.text();
+      throw new Error(`Claude API ${res.status}: ${err}`);
+    } catch (e) {
+      lastErr = e;
+      const name = (e as { name?: string })?.name;
+      // Retry on abort/network only if attempts remain
+      if (attempt < maxRetries && (name === 'AbortError' || name === 'TypeError')) {
+        await new Promise(r => setTimeout(r, Math.min(8000, 1000 * 2 ** attempt)));
+        continue;
+      }
+      throw e;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastErr ?? new Error('Claude API: error desconocido');
+}
 
 export type MoodId = 'chill' | 'intense' | 'laugh' | 'think' | 'cry' | 'scared';
 
@@ -100,28 +177,17 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
   if (!apiKey) throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY no configurada');
   if (!apiKey.startsWith('sk-ant-')) throw new Error(`API key inválida (debe empezar con sk-ant-). Verificá EXPO_PUBLIC_ANTHROPIC_API_KEY.`);
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: buildPrompt(input) }],
-    }),
-  });
+  const data = await callClaudeWithRetry({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 2048,
+    messages: [{ role: 'user', content: buildPrompt(input) }],
+  }, apiKey);
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Claude API ${res.status}: ${err}`);
-  }
-
-  const data = await res.json() as { content: { text: string }[] };
   const raw = data.content[0]?.text ?? '{}';
+
+  if (data.stop_reason === 'max_tokens') {
+    throw new Error('La respuesta se cortó (max_tokens). Volvé a intentar.');
+  }
 
   // Strip markdown code fences if present
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
@@ -134,12 +200,26 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
   }
 
-  const baseRecs: Recommendation[] = (parsed.recommendations ?? []).map(r => ({
-    ...r,
-    posterPath: null,
-    groupStatus: 'pending' as const,
-    platform: (r.platform ?? input.platforms[0]) as PlatformId,
-  }));
+  const fallbackPlatform = input.platforms[0] ?? 'netflix';
+  const baseRecs: Recommendation[] = (parsed.recommendations ?? []).map(r => {
+    const platform = (r.platform && VALID_PLATFORMS.has(r.platform as PlatformId))
+      ? r.platform as PlatformId
+      : fallbackPlatform;
+    return {
+      ...r,
+      title: String(r.title ?? '').trim() || 'Título',
+      year: Math.round(toNumber(r.year, 0)),
+      type: r.type === 'series' ? 'series' : 'movie',
+      genres: Array.isArray(r.genres) ? r.genres : [],
+      synopsis: String(r.synopsis ?? ''),
+      rating: clamp(toNumber(r.rating, 0), 0, 10),
+      compatibilityScore: Math.round(clamp(toNumber(r.compatibilityScore, 70), 0, 100)),
+      whyUs: String(r.whyUs ?? ''),
+      posterPath: null,
+      groupStatus: 'pending' as const,
+      platform,
+    };
+  });
 
   // Enriquecer con pósters de TMDB: buscar por título (confiable) y usar tmdbId de Claude solo como desempate
   const recommendations = await Promise.all(
@@ -148,9 +228,13 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
         const mediaType = rec.type === 'series' ? 'tv' : 'movie';
         // Buscar por título primero — más confiable que el tmdbId de Claude
         const results = await searchTitles(rec.title);
-        const byYear = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1);
-        const byType = results.find(r => r.type === mediaType);
-        const match = byYear ?? byType;
+        const wanted = normalizeTitle(rec.title);
+        // Priority: exact normalized title + type + year → title + type → type + year → type
+        const exactTitleYear = results.find(r => r.type === mediaType && normalizeTitle(r.title) === wanted && Math.abs(r.year - rec.year) <= 1);
+        const exactTitle     = results.find(r => r.type === mediaType && normalizeTitle(r.title) === wanted);
+        const byYear         = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1);
+        const byType         = results.find(r => r.type === mediaType);
+        const match = exactTitleYear ?? exactTitle ?? byYear ?? byType;
         if (match) {
           // Fetch full details to get runtime
           try {

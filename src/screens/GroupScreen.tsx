@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   platformOption: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 16, paddingVertical: 14 },
   platformOptionEmoji: { fontSize: 28 },
   platformOptionName: { flex: 1, color: Colors.sub, fontSize: Typography.body, fontWeight: Typography.medium },
-  checkmark: { fontSize: 16, fontWeight: '700' },
+  checkmark: { fontSize: 16, fontWeight: Typography.medium },
   cancelBtn: { alignItems: 'center', paddingVertical: 12 },
   cancelBtnText: { color: Colors.sub, fontSize: Typography.body },
 });
