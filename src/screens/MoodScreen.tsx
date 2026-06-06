@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Alert,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
@@ -135,33 +135,47 @@ export default function MoodScreen() {
   };
   const myMoodData = myMood ? MOODS.find(m => m.id === myMood) : null;
 
-  // Limpiar estado local al entrar a esta pantalla
-  // (clearGroupSession se llama desde GroupScreen antes de navegar — no acá)
-  useEffect(() => {
-    const { clearMoods } = useMatchStore.getState();
-    clearMoods();
-    setSoloMode(isSoloRoute);
-    setSessionMoods({});
-    // Si llegamos via notificación y currentGroup no está seteado, lo seteamos ahora
-    if (!isSoloRoute && group && group.id !== currentGroup?.id) {
-      setCurrentGroup(group);
-    }
-  }, []);
-
-  // Listen to Firestore session moods (solo mode skips this)
-  useEffect(() => {
-    if (USE_MOCK || isSoloRoute) return;
-    const unsub = onGroupChange(groupId, g => {
-      if (!g) {
-        Alert.alert('Grupo eliminado', 'El creador eliminó este grupo.');
-        nav.navigate('App');
-        return;
+  // Resetear estado local + (re)suscribir a Firestore CADA vez que la pantalla
+  // gana foco — no solo al montar.
+  //
+  // Con native-stack, navigate('Mood') cuando la pantalla ya está en el stack
+  // hace pop a la instancia existente SIN remontarla, así que un useEffect([])
+  // no vuelve a correr: quedarían myMood/sessionMoods de la sesión anterior y
+  // handleSelect haría early-return (if (myMood) return), por lo que el mood
+  // del usuario NUNCA se subiría a Firestore. Esto rompía el sync entre dos
+  // usuarios al hacer una nueva búsqueda o usar el botón atrás de Android.
+  //
+  // Re-suscribir en el focus también garantiza que onSnapshot vuelva a emitir
+  // el estado actual de Firestore (un listener persistente no re-emite en un
+  // pop-to-existing).
+  useFocusEffect(
+    useCallback(() => {
+      const { clearMoods } = useMatchStore.getState();
+      clearMoods();
+      setSoloMode(isSoloRoute);
+      setMyMood(null);
+      setSessionMoods({});
+      setNavigating(false);
+      setShowSkip(false);
+      setShowContinue(false);
+      // Si llegamos via notificación y currentGroup no está seteado, lo seteamos ahora
+      if (!isSoloRoute && group && group.id !== currentGroup?.id) {
+        setCurrentGroup(group);
       }
-      const moods = g.currentSession?.moods ?? {};
-      setSessionMoods(moods);
-    });
-    return unsub;
-  }, [groupId, isSoloRoute]);
+
+      if (USE_MOCK || isSoloRoute) return;
+
+      const unsub = onGroupChange(groupId, g => {
+        if (!g) {
+          Alert.alert('Grupo eliminado', 'El creador eliminó este grupo.');
+          nav.navigate('App');
+          return;
+        }
+        setSessionMoods(g.currentSession?.moods ?? {});
+      });
+      return unsub;
+    }, [groupId, isSoloRoute, group?.id])
+  );
 
   // Show skip button after 30s of waiting for partner
   useEffect(() => {
@@ -177,7 +191,7 @@ export default function MoodScreen() {
     return () => clearTimeout(timer);
   }, [allReady, navigating, isSoloRoute]);
 
-  // When both moods ready → sync to MatchStore and navigate
+  // When all moods ready → sync to MatchStore and navigate
   useEffect(() => {
     if (!allReady || navigating || !myMood) return;
     setNavigating(true);
