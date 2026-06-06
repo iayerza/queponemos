@@ -6,10 +6,14 @@ import type { Rating } from '../services/firebase';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
-const BUTTONS: { rating: Rating; icon: FeatherName; label: string }[] = [
-  { rating: 'loved',         icon: 'heart',       label: 'Me encantó' },
-  { rating: 'seen_disliked', icon: 'thumbs-down',  label: 'No me gustó' },
-  { rating: 'not_seen',      icon: 'eye',          label: 'No la vi' },
+const ROW1: { rating: Rating; icon: FeatherName; label: string }[] = [
+  { rating: 'loved', icon: 'heart',      label: 'Me encantó' },
+  { rating: 'liked', icon: 'thumbs-up',  label: 'Me gustó'   },
+];
+
+const ROW2: { rating: Rating; icon: FeatherName; label: string }[] = [
+  { rating: 'seen_disliked', icon: 'thumbs-down', label: 'No me gustó' },
+  { rating: 'not_seen',      icon: 'eye',          label: 'No la vi'   },
 ];
 
 interface Props {
@@ -17,10 +21,10 @@ interface Props {
   onSelect: (r: Rating) => void;
 }
 
-export default function RatingButtons({ selected, onSelect }: Props) {
+function RatingRow({ buttons, selected, onSelect }: { buttons: typeof ROW1; selected: Rating | null; onSelect: (r: Rating) => void }) {
   return (
     <View style={styles.row}>
-      {BUTTONS.map(b => {
+      {buttons.map(b => {
         const isSelected = selected === b.rating;
         return (
           <TouchableOpacity
@@ -40,8 +44,18 @@ export default function RatingButtons({ selected, onSelect }: Props) {
   );
 }
 
+export default function RatingButtons({ selected, onSelect }: Props) {
+  return (
+    <View style={styles.grid}>
+      <RatingRow buttons={ROW1} selected={selected} onSelect={onSelect} />
+      <RatingRow buttons={ROW2} selected={selected} onSelect={onSelect} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 10, paddingHorizontal: 4 },
+  grid: { gap: 10, paddingHorizontal: 4 },
+  row: { flexDirection: 'row', gap: 10 },
   btn: {
     flex: 1,
     alignItems: 'center',
