@@ -88,9 +88,9 @@ const styles = StyleSheet.create({
   hint: {
     color: '#fff',
     fontSize: Typography.body,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 8,
     overflow: 'hidden',
   },

@@ -14,6 +14,13 @@ interface Props {
   onLaVi: () => void;
 }
 
+function formatRuntime(min: number, type: 'movie' | 'series'): string {
+  if (type === 'series') return `~${min}m/ep`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
 function scoreLabel(score: number): string {
   if (score >= 92) return 'Match perfecto';
   if (score >= 83) return 'Match excelente';
@@ -245,8 +252,8 @@ const styles = StyleSheet.create({
   },
   genreChipText: { color: Colors.sub, fontSize: Typography.tiny },
   synopsis: { color: Colors.sub, fontSize: Typography.body, lineHeight: 20, marginBottom: 4 },
-  readMore: { color: Colors.accent, fontSize: Typography.small, fontWeight: Typography.medium, marginBottom: 10 },
-  trailerBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, alignSelf: 'flex-start' },
+  readMore: { color: Colors.accent, fontSize: Typography.small, marginBottom: 10 },
+  trailerBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10, alignSelf: 'flex-start' },
   trailerText: { color: Colors.accent, fontSize: Typography.small, fontWeight: Typography.medium },
   whyHeader: {
     flexDirection: 'row',

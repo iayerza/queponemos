@@ -9,19 +9,7 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.uid == uid;
 
       match /history/{matchId} {
-        // El dueño lee su propio historial.
-        allow read: if request.auth != null && request.auth.uid == uid;
-        // El dueño escribe su entrada; además, un miembro del match puede
-        // escribir una entrada de match grupal en el historial de otro miembro
-        // (el líder difunde el historial a todo el grupo). Los matchId "solo-…"
-        // no existen en /matches, así que esos solo los escribe el propio dueño.
-        allow write: if request.auth != null && (
-          request.auth.uid == uid
-          || (
-            exists(/databases/$(database)/documents/matches/$(matchId))
-            && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.members
-          )
-        );
+        allow read, write: if request.auth != null && request.auth.uid == uid;
       }
       match /watchlist/{tmdbId} {
         allow read, write: if request.auth != null && request.auth.uid == uid;

@@ -34,8 +34,8 @@ export default function ResultsScreen() {
   function celebrateAndGoHome() {
     Alert.alert(
       '¡Encontraste queponemos! 🍿',
-      'Disfrutá la peli. No te olvides de valorarla después en "A valorar".',
-      [{ text: 'Listo', onPress: () => nav.navigate('App') }],
+      'Acordate de puntuar el título después de verlo.',
+      [{ text: '¡Vamos!', onPress: () => nav.navigate('App') }],
     );
   }
 
@@ -45,39 +45,34 @@ export default function ResultsScreen() {
       Animated.timing(anim, { toValue: 0.3, duration: 200, useNativeDriver: true }).start();
     }
     updateTitleAction(0, idx, status);
-
-    const rec = currentMatch?.recommendations[idx];
-
-    if (!USE_MOCK && currentMatchId && rec) {
-      if (status === 'watchlist' && isSolo && user) {
-        try {
-          await addToPersonalWatchlist(user.uid, {
-            tmdbId: rec.tmdbId ?? 0,
-            title: rec.title,
-            year: rec.year,
-            type: rec.type,
-            posterPath: rec.posterPath,
-            genres: rec.genres,
-            platform: rec.platform,
-            synopsis: rec.synopsis,
-            rating: rec.rating,
-            addedAt: Date.now(),
-          });
-        } catch (e) { console.warn('Results: acción no persistida', e); }
-      } else if (status === 'chosen' && isSolo && user) {
-        // En solo el match no vive en Firestore: lo persistimos en pendientes
-        // personales para que aparezca en "A valorar".
-        try {
-          await addToPendingRatings(user.uid, {
-            matchId: currentMatchId,
-            groupId: `solo-${user.uid}`,
-            groupName: 'Solo',
-            rec,
-          });
-        } catch (e) { console.warn('Results: acción no persistida', e); }
-      } else if (rec.tmdbId) {
-        try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as import('../services/firebase').TitleStatus); }
-        catch (e) { console.warn('Results: acción no persistida', e); }
+    if (!USE_MOCK && currentMatchId) {
+      const rec = currentMatch?.recommendations[idx];
+      if (rec) {
+        if (status === 'watchlist' && isSolo && user) {
+          try {
+            await addToPersonalWatchlist(user.uid, {
+              tmdbId: rec.tmdbId ?? 0,
+              title: rec.title,
+              year: rec.year,
+              type: rec.type,
+              posterPath: rec.posterPath,
+              genres: rec.genres,
+              platform: rec.platform,
+              synopsis: rec.synopsis,
+              rating: rec.rating,
+              addedAt: Date.now(),
+            });
+          } catch { /* silenciar */ }
+        } else if (status === 'chosen' && user && rec.tmdbId) {
+          try {
+            const groupName = isSolo ? 'Solo' : (currentGroup?.name ?? 'Grupo');
+            await addToPendingRatings(user.uid, currentMatchId, groupName, rec);
+          } catch { /* silenciar */ }
+          celebrateAndGoHome();
+        } else if (rec.tmdbId) {
+          try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as import('../services/firebase').TitleStatus); }
+          catch { /* silenciar */ }
+        }
       }
     }
 
@@ -107,7 +102,7 @@ export default function ResultsScreen() {
 
   if (!currentMatch) {
     return (
-      <View style={styles.empty}>
+      <View style={[styles.empty, { backgroundColor: themeColors.bg }]}>
         <Text style={styles.emptyText}>No hay resultados</Text>
         <TouchableOpacity onPress={() => nav.goBack()}>
           <Text style={styles.backLink}>← Volver</Text>
@@ -155,10 +150,7 @@ export default function ResultsScreen() {
 
       <TouchableOpacity
         style={styles.backBtn}
-        onPress={() => {
-          if (!isSolo && currentGroup) nav.navigate('Group', { groupId: currentGroup.id });
-          else nav.navigate('App');
-        }}
+        onPress={() => !isSolo && currentGroup ? nav.navigate('Group', { groupId: currentGroup.id }) : nav.navigate('App')}
         activeOpacity={0.8}
       >
         <Text style={styles.backBtnText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>

@@ -5,28 +5,25 @@ import { Colors, Typography } from '../constants/colors';
 import type { Rating } from '../services/firebase';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
+type IconType = FeatherName | 'double';
 
-// 'double' = doble pulgar (Me encantó); el resto usa un ícono Feather normal
-const ROW1: { rating: Rating; icon: FeatherName | 'double'; label: string }[] = [
-  { rating: 'loved', icon: 'double',    label: 'Me encantó' },
-  { rating: 'liked', icon: 'thumbs-up', label: 'Me gustó'   },
+const BUTTONS: { rating: Rating; icon: IconType; label: string }[] = [
+  { rating: 'loved',         icon: 'double',       label: 'Me encantó' },
+  { rating: 'liked',         icon: 'thumbs-up',    label: 'Me gustó' },
+  { rating: 'seen_disliked', icon: 'thumbs-down',  label: 'No me gustó' },
+  { rating: 'not_seen',      icon: 'eye-off',      label: 'No la vi' },
 ];
 
-const ROW2: { rating: Rating; icon: FeatherName | 'double'; label: string }[] = [
-  { rating: 'seen_disliked', icon: 'thumbs-down', label: 'No me gustó' },
-  { rating: 'not_seen',      icon: 'eye',          label: 'No la vi'   },
-];
-
-function RatingIcon({ icon, color }: { icon: FeatherName | 'double'; color: string }) {
+function RatingIcon({ icon, color, size }: { icon: IconType; color: string; size: number }) {
   if (icon === 'double') {
     return (
-      <View style={styles.doubleThumb}>
-        <Feather name="thumbs-up" size={22} color={color} />
-        <Feather name="thumbs-up" size={22} color={color} style={styles.doubleThumbBack} />
+      <View style={{ width: size + 8, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        <Feather name="thumbs-up" size={size - 4} color={color} style={{ position: 'absolute', left: 0, top: 2 }} />
+        <Feather name="thumbs-up" size={size}     color={color} style={{ position: 'absolute', right: 0 }} />
       </View>
     );
   }
-  return <Feather name={icon} size={22} color={color} style={{ marginBottom: 4 }} />;
+  return <Feather name={icon} size={size} color={color} />;
 }
 
 interface Props {
@@ -36,8 +33,8 @@ interface Props {
 
 function RatingRow({ buttons, selected, onSelect }: { buttons: typeof ROW1; selected: Rating | null; onSelect: (r: Rating) => void }) {
   return (
-    <View style={styles.row}>
-      {buttons.map(b => {
+    <View style={styles.grid}>
+      {BUTTONS.map(b => {
         const isSelected = selected === b.rating;
         return (
           <TouchableOpacity
@@ -46,7 +43,9 @@ function RatingRow({ buttons, selected, onSelect }: { buttons: typeof ROW1; sele
             onPress={() => onSelect(b.rating)}
             activeOpacity={0.75}
           >
-            <RatingIcon icon={b.icon} color={isSelected ? Colors.accent : Colors.sub} />
+            <View style={styles.iconWrap}>
+              <RatingIcon icon={b.icon} size={22} color={isSelected ? Colors.accent : Colors.sub} />
+            </View>
             <Text style={[styles.label, isSelected && styles.labelSelected]}>
               {b.label}
             </Text>
@@ -67,10 +66,14 @@ export default function RatingButtons({ selected, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
-  grid: { gap: 10, paddingHorizontal: 4 },
-  row: { flexDirection: 'row', gap: 10 },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingHorizontal: 4,
+  },
   btn: {
-    flex: 1,
+    width: '47%',
     alignItems: 'center',
     paddingVertical: 14,
     borderRadius: 10,
@@ -82,7 +85,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.accentBorder,
     backgroundColor: Colors.accentFaint,
   },
-  label: { fontSize: Typography.tiny, color: Colors.sub, textAlign: 'center' },
+  iconWrap: { marginBottom: 6, height: 26, justifyContent: 'center', alignItems: 'center' },
+  label: { fontSize: Typography.small, color: Colors.sub, textAlign: 'center' },
   labelSelected: { color: Colors.accent },
   doubleThumb: { flexDirection: 'row', marginBottom: 4, height: 22 },
   doubleThumbBack: { marginLeft: -8 },

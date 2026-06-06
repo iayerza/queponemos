@@ -5,11 +5,9 @@ import { getPosterUrl } from '../services/tmdb';
 import { Colors, Typography } from '../constants/colors';
 import type { NormalizedTitle } from '../services/tmdb';
 
-// Altura 2:3, pero con cap por altura de pantalla para que los 4 botones de
-// rating entren sin scroll en el onboarding.
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-const CARD_W = SCREEN_W - 40;
-const POSTER_H = Math.round(Math.min(CARD_W * 1.5, SCREEN_H * 0.46));
+const SCREEN_H = Dimensions.get('window').height;
+const CARD_W   = Dimensions.get('window').width - 40;
+const POSTER_H = Math.min(Math.round(CARD_W * 1.5), Math.round(SCREEN_H * 0.40));
 
 interface Props {
   title: NormalizedTitle;
@@ -34,8 +32,8 @@ export default function TitlePoster({ title }: Props) {
         </View>
       )}
 
-      {/* Flat dark overlay — always dark so text stays readable regardless of theme */}
-      <View style={styles.overlay} />
+      {/* Flat dark overlay for readability — no gradient (brand rule) */}
+      <View style={[StyleSheet.absoluteFill, styles.overlay]} />
 
       <View style={styles.info}>
         <Text style={styles.titleText} numberOfLines={2}>{title.title}</Text>
@@ -65,11 +63,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   fallback: { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.s2 },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  info: { padding: 20 },
+  overlay: { backgroundColor: 'rgba(0,0,0,0.30)' },
+  info: { padding: 20, backgroundColor: 'rgba(0,0,0,0.60)' },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   titleText: {
     color: '#ffffff',

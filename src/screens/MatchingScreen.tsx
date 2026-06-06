@@ -36,12 +36,9 @@ export default function MatchingScreen() {
   const route = useRoute<Route>();
   const { runMatch, error, isLeader } = useMatching();
   const { isSolo } = useMatchStore();
-  const { currentGroup } = useGroupStore();
   const ranRef = useRef(false);
 
   useEffect(() => {
-    // Guard: correr el matching una sola vez (evita doble match/historial/turno
-    // por remontaje o StrictMode).
     if (ranRef.current) return;
     ranRef.current = true;
     runMatch().then(matchId => {
@@ -77,24 +74,22 @@ export default function MatchingScreen() {
 
       {error ? (
         <View style={styles.errorBox}>
-          <Text style={styles.errorText}>
-            {!isSolo && !isLeader
-              ? 'Esperá a que quien inició la búsqueda reintente.'
-              : friendlyError(error)}
-          </Text>
-          <View style={styles.errorActions}>
-            {(isSolo || isLeader) && (
-              <TouchableOpacity
-                onPress={() => nav.replace('Mood', route.params)}
-                style={styles.retryBtn}
-              >
-                <Text style={styles.retryText}>Volver a intentar</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity onPress={exitToSafety} style={styles.exitBtn}>
-              <Text style={styles.retryText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.errorText}>{friendlyError(error)}</Text>
+          {!isLeader && (
+            <Text style={styles.followerHint}>Si el problema persiste, pedile a quien inició la búsqueda que vuelva a intentar.</Text>
+          )}
+          <TouchableOpacity
+            onPress={() => { ranRef.current = false; nav.replace('Mood', route.params); }}
+            style={styles.retryBtn}
+          >
+            <Text style={styles.retryText}>Volver a intentar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => nav.navigate('App')}
+            style={[styles.retryBtn, { marginTop: 4 }]}
+          >
+            <Text style={styles.retryText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>
+          </TouchableOpacity>
         </View>
       ) : null}
     </View>
@@ -169,5 +164,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: Typography.small,
     fontWeight: Typography.medium,
+  },
+  followerHint: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: Typography.tiny,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: -4,
   },
 });

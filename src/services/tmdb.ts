@@ -28,7 +28,7 @@ export interface NormalizedTitle {
   rating: number;
   posterPath: string | null;
   synopsis: string;
-  runtime?: number; // minutos: película = duración; serie = duración por episodio
+  runtime?: number;
 }
 
 const GENRE_MAP: Record<number, string> = {
@@ -48,7 +48,7 @@ async function tmdbGet(path: string): Promise<unknown> {
   try {
     const res = await fetch(tmdbUrl(path), { headers: tmdbHeaders(), signal: controller.signal });
     if (!res.ok) throw new Error(`TMDB ${res.status}: ${path}`);
-    return await res.json();
+    return res.json();
   } finally {
     clearTimeout(timeout);
   }
@@ -67,9 +67,10 @@ export async function fetchTitle(
     : (data.first_air_date as string);
   const year = dateStr ? parseInt(dateStr.slice(0, 4), 10) : 0;
   const genreIds = (data.genres as { id: number }[]).map(g => g.id);
-  const runtime = type === 'movie'
+  const rawRuntime = type === 'movie'
     ? (data.runtime as number | undefined)
     : ((data.episode_run_time as number[] | undefined)?.[0]);
+
   return {
     id: tmdbId,
     tmdbId,
@@ -80,7 +81,7 @@ export async function fetchTitle(
     rating: parseFloat(((data.vote_average as number) ?? 0).toFixed(1)),
     posterPath: (data.poster_path as string | null) ?? null,
     synopsis: (data.overview as string) ?? '',
-    runtime: runtime && runtime > 0 ? runtime : undefined,
+    runtime: rawRuntime && rawRuntime > 0 ? rawRuntime : undefined,
   };
 }
 

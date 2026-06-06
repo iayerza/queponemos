@@ -55,7 +55,7 @@ export default function ProfileScreen() {
         text: 'Salir', style: 'destructive',
         onPress: async () => {
           if (!USE_MOCK && user) {
-            clearPushToken(user.uid).catch(() => {});
+            try { await clearPushToken(user.uid); } catch { /* silenciar */ }
             try { await logout(); } catch { /* silenciar */ }
           }
           useGroupStore.getState().reset();
@@ -75,7 +75,11 @@ export default function ProfileScreen() {
         {
           text: 'Eliminar', style: 'destructive',
           onPress: async () => {
-            if (USE_MOCK) { setUser(null); return; }
+            if (USE_MOCK) {
+              useGroupStore.getState().reset();
+              useMatchStore.getState().reset();
+              setUser(null); return;
+            }
             setDeleting(true);
             try {
               if (user) await deleteUserData(user.uid);
