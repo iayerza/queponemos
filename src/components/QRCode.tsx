@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import QRCodeLib from 'react-native-qrcode-svg';
-import { Colors } from '../constants/colors';
+import { Colors, Typography } from '../constants/colors';
 
 interface Props {
   value: string;
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     color: Colors.accent,
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: Typography.medium,
     backgroundColor: Colors.s2,
     paddingHorizontal: 4,
     borderRadius: 4,

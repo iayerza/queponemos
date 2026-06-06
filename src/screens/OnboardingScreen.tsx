@@ -121,7 +121,6 @@ export default function OnboardingScreen() {
             <>
               <TitlePoster title={current} />
               <View style={styles.ratingSection}>
-                <Text style={styles.ratingQuestion}>¿La viste?</Text>
                 <RatingButtons
                   selected={ratings[current.tmdbId] ?? null}
                   onSelect={handleRate}
@@ -132,9 +131,8 @@ export default function OnboardingScreen() {
         </Animated.View>
 
         {canSkip && (
-          <TouchableOpacity style={styles.skipBtn} onPress={handleFinish} activeOpacity={0.7}>
-            <Text style={styles.skipText}>Ya tenés suficiente contexto</Text>
-            <Feather name="chevron-right" size={14} color={Colors.sub} />
+          <TouchableOpacity style={styles.continueBtn} onPress={handleFinish} activeOpacity={0.85}>
+            <Text style={styles.continueBtnText}>Continuar →</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -198,13 +196,12 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  skipBtn: {
-    flexDirection: 'row',
+  continueBtn: {
+    marginTop: 28,
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 24,
-    paddingVertical: 12,
   },
-  skipText: { color: Colors.sub, fontSize: Typography.small },
+  continueBtnText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
 });

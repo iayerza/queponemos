@@ -13,6 +13,7 @@ export interface Recommendation {
   genres: string[];
   synopsis: string;
   rating: number;
+  runtime?: number;
   platform: PlatformId;
   compatibilityScore: number;
   whyUs: string;
@@ -150,11 +151,19 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
         const byYear = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1);
         const byType = results.find(r => r.type === mediaType);
         const match = byYear ?? byType;
-        if (match) return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath };
+        if (match) {
+          // Fetch full details to get runtime
+          try {
+            const full = await fetchTitle(match.tmdbId, mediaType);
+            return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath, runtime: full.runtime };
+          } catch {
+            return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath };
+          }
+        }
         // Último recurso: ID de Claude (puede ser incorrecto)
         if (rec.tmdbId) {
           const tmdbData = await fetchTitle(rec.tmdbId, mediaType);
-          return { ...rec, posterPath: tmdbData.posterPath };
+          return { ...rec, posterPath: tmdbData.posterPath, runtime: tmdbData.runtime };
         }
       } catch { /* ignore */ }
       return rec;
