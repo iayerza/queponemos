@@ -16,6 +16,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   collection,
   query,
   where,
@@ -25,6 +26,8 @@ import {
   addDoc,
   serverTimestamp,
   arrayUnion,
+  arrayRemove,
+  runTransaction,
 } from 'firebase/firestore';
 import type { NormalizedTitle } from './tmdb';
 import type { TasteProfile } from '../utils/tasteProfile';
@@ -74,6 +77,7 @@ export interface GroupDoc {
   currentSession?: {
     moods: Record<string, MoodId>;
     matchId?: string;
+    leaderUid?: string;
   };
 }
 
@@ -283,6 +287,24 @@ export async function clearGroupSession(groupId: string): Promise<void> {
   });
 }
 
+export async function startGroupSession(groupId: string, leaderUid: string): Promise<void> {
+  await updateDoc(doc(db(), 'groups', groupId), {
+    'currentSession.moods': {},
+    'currentSession.matchId': null,
+    'currentSession.leaderUid': leaderUid,
+  });
+}
+
+export async function getGroupById(groupId: string): Promise<GroupDoc | null> {
+  const snap = await getDoc(doc(db(), 'groups', groupId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as GroupDoc;
+}
+
+export async function leaveGroup(groupId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db(), 'groups', groupId), { members: arrayRemove(uid) });
+}
+
 export async function reAuthenticateUser(email: string, password: string): Promise<void> {
   const { EmailAuthProvider, reauthenticateWithCredential } = await import('firebase/auth');
   const currentUser = auth().currentUser;
@@ -335,21 +357,23 @@ export async function getMatchById(matchId: string): Promise<MatchDoc | null> {
   return { id: snap.id, ...snap.data() } as MatchDoc;
 }
 
-/** Poll Firestore until the leader writes a matchId into the session (max 45s). */
-export async function pollForMatchId(groupId: string): Promise<string | null> {
-  // Snapshot the matchId that exists RIGHT NOW — could be stale from a previous session.
-  // We only accept a matchId that is different from this one.
-  const initial = await getDoc(doc(db(), 'groups', groupId));
-  const staleMatchId = initial.data()?.currentSession?.matchId as string | undefined;
+/** Listen via onSnapshot until the leader writes a matchId (max 45s). */
+export function pollForMatchId(groupId: string): Promise<string | null> {
+  return new Promise(async resolve => {
+    const initial = await getDoc(doc(db(), 'groups', groupId));
+    const staleMatchId = initial.data()?.currentSession?.matchId as string | undefined;
 
-  const deadline = Date.now() + 45_000;
-  while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 1500));
-    const snap = await getDoc(doc(db(), 'groups', groupId));
-    const matchId = snap.data()?.currentSession?.matchId as string | undefined;
-    if (matchId && matchId !== staleMatchId) return matchId;
-  }
-  return null;
+    const timeout = setTimeout(() => { unsub(); resolve(null); }, 45_000);
+
+    const unsub = onSnapshot(doc(db(), 'groups', groupId), snap => {
+      const matchId = snap.data()?.currentSession?.matchId as string | undefined;
+      if (matchId && matchId !== staleMatchId) {
+        clearTimeout(timeout);
+        unsub();
+        resolve(matchId);
+      }
+    });
+  });
 }
 
 export async function getUserGroups(uid: string): Promise<GroupDoc[]> {
@@ -487,7 +511,12 @@ export async function getGroupWatchlist(groupId: string): Promise<WatchlistItem[
 
 export async function registerUsername(username: string, email: string, uid: string): Promise<void> {
   const key = username.toLowerCase().trim();
-  await setDoc(doc(db(), 'usernames', key), { uid, email });
+  const ref = doc(db(), 'usernames', key);
+  await runTransaction(db(), async tx => {
+    const snap = await tx.get(ref);
+    if (snap.exists()) throw new Error('username_taken');
+    tx.set(ref, { uid, email });
+  });
 }
 
 export async function getEmailByUsername(username: string): Promise<string | null> {
@@ -495,6 +524,31 @@ export async function getEmailByUsername(username: string): Promise<string | nul
   const snap = await getDoc(doc(db(), 'usernames', key));
   if (!snap.exists()) return null;
   return (snap.data() as { email: string }).email;
+}
+
+export async function addToPendingRatings(
+  uid: string,
+  matchId: string,
+  groupName: string,
+  rec: Recommendation,
+): Promise<void> {
+  const key = `${matchId}-${rec.tmdbId ?? rec.title}`;
+  await setDoc(doc(db(), 'users', uid, 'pending', key), {
+    matchId,
+    groupName,
+    rec,
+    addedAt: Date.now(),
+  });
+}
+
+export async function removeFromPendingRatings(
+  uid: string,
+  matchId: string,
+  tmdbId?: number,
+): Promise<void> {
+  if (!tmdbId) return;
+  const key = `${matchId}-${tmdbId}`;
+  await deleteDoc(doc(db(), 'users', uid, 'pending', key));
 }
 
 export interface PendingRatingItem {
