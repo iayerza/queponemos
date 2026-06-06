@@ -131,8 +131,7 @@ export default function OnboardingScreen() {
 
         {canSkip && (
           <TouchableOpacity style={styles.continueBtn} onPress={handleFinish} activeOpacity={0.85}>
-            <Text style={styles.continueBtnText}>Continuar</Text>
-            <Feather name="arrow-right" size={16} color="#fff" />
+            <Text style={styles.continueBtnText}>Continuar →</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -190,14 +189,11 @@ const styles = StyleSheet.create({
   ratingSection: { marginTop: 14 },
 
   continueBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 18,
     backgroundColor: Colors.accent,
     borderRadius: 12,
     paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 24,
   },
   continueBtnText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
 });
