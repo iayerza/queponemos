@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Alert,
+  View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Alert, ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -110,6 +111,16 @@ export default function MoodScreen() {
   // Cuando Person B llega via notificación, currentGroup puede ser null.
   // Buscamos el grupo por groupId en el store para no caer en modo solo accidentalmente.
   const group = isSoloRoute ? null : (groups.find(g => g.id === groupId) ?? currentGroup ?? null);
+
+  // Cold-start guard: if group not yet loaded in store, show spinner instead of falling into solo mode
+  if (!isSoloRoute && !group && !USE_MOCK) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color={Colors.accent} size="large" />
+      </View>
+    );
+  }
+
   const members = isSoloRoute ? (user ? [user.uid] : []) : (group?.members ?? []);
   const partnerUid = isSoloRoute ? null : (members.find(uid => uid !== user?.uid) ?? null);
   const isSolo = isSoloRoute || members.length <= 1;
@@ -202,13 +213,11 @@ export default function MoodScreen() {
     } else {
       try {
         await setSessionMood(groupId, user.uid, id);
-        const tokens = await getGroupMemberTokens(members, user.uid);
-        if (tokens.length > 0) {
-          sendMoodSelectedNotification(tokens[0], user.displayName ?? 'Tu compañero', groupId).catch(() => {});
+        const targets = await getGroupMemberTokens(members, user.uid);
+        if (targets.length > 0) {
+          sendMoodSelectedNotification(targets, user.displayName ?? 'Tu compañero', groupId).catch(() => {});
         }
-      } catch (e) {
-        console.error('setSessionMood failed:', e);
-      }
+      } catch { /* non-blocking */ }
     }
   }
 
@@ -298,7 +307,13 @@ export default function MoodScreen() {
   // ── Picking view ────────────────────────────────────────────────────────────
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: themeColors.bg }]}>
-      <TouchableOpacity style={styles.back} onPress={() => nav.goBack()}>
+      <TouchableOpacity
+        style={styles.back}
+        onPress={() => nav.goBack()}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel="Volver"
+      >
         <Feather name="arrow-left" size={18} color={Colors.sub} />
       </TouchableOpacity>
 

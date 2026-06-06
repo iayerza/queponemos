@@ -1,8 +1,9 @@
 import React from 'react';
 import { View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { Colors } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import HomeScreen    from '../screens/HomeScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -10,7 +11,6 @@ import type { AppTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<AppTabParamList>();
 
-// ─── Íconos Feather inline (sin dependencia extra) ────────────────────────────
 function IconHome({ color }: { color: string }) {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -36,7 +36,6 @@ function IconProfile({ color }: { color: string }) {
   );
 }
 
-// Punto activo debajo del ícono
 function ActiveDot() {
   return (
     <View style={{
@@ -48,8 +47,8 @@ function ActiveDot() {
   );
 }
 
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const color = focused ? Colors.accent : '#444444';
+function TabIcon({ name, focused, inactiveColor }: { name: string; focused: boolean; inactiveColor: string }) {
+  const color = focused ? Colors.accent : inactiveColor;
   return (
     <View style={{ alignItems: 'center' }}>
       {name === 'Home'    && <IconHome    color={color} />}
@@ -61,21 +60,25 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 }
 
 export default function AppTabs() {
+  const themeColors = useColors();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: Colors.bg,
+          backgroundColor: themeColors.bg,
           borderTopWidth: 0.5,
-          borderTopColor: Colors.s1,
+          borderTopColor: themeColors.border,
           height: 60,
           paddingBottom: 8,
         },
         tabBarIcon: ({ focused }) => (
-          <TabIcon name={route.name} focused={focused} />
+          <TabIcon name={route.name} focused={focused} inactiveColor={themeColors.faint} />
         ),
+        tabBarAccessibilityLabel:
+          route.name === 'Home' ? 'Inicio' :
+          route.name === 'History' ? 'Mis listas' : 'Perfil',
       })}
     >
       <Tab.Screen name="Home"    component={HomeScreen} />
