@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Alert,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
+import Svg, { Line } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,7 +13,8 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useColors } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
-import { setSessionMood, onGroupChange } from '../services/firebase';
+import { setSessionMood, onGroupChange, fetchMemberNames } from '../services/firebase';
+import type { GroupDoc } from '../services/firebase';
 import { sendMoodSelectedNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import type { MoodId } from '../services/claude';
@@ -32,67 +34,113 @@ const MOODS: { id: MoodId; icon: FeatherName; label: string; desc: string }[] = 
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
-// ─── Pulsing dots animation ───────────────────────────────────────────────────
-function PulsingDots() {
-  const [count, setCount] = useState(1);
-  useEffect(() => {
-    const iv = setInterval(() => setCount(c => (c % 3) + 1), 500);
-    return () => clearInterval(iv);
-  }, []);
-  return <Text style={dotStyles.dots}>{'.'.repeat(count)}</Text>;
-}
-const dotStyles = StyleSheet.create({
-  dots: { color: Colors.accent, fontSize: 28, letterSpacing: 4, minWidth: 32 },
-});
+// ─── Group mood orbit ────────────────────────────────────────────────────────
+// Cada miembro es un nodo que orbita el núcleo central, conectado por una línea.
+// Mientras elige: nodo tenue pulsante con su inicial. Cuando elige: se ilumina con
+// el ícono de su mood y la línea al centro se enciende. Escala a cualquier N.
+interface OrbitMember { uid: string; name: string; mood: MoodId | null; isMe: boolean }
 
-// ─── Mood card (shown in waiting view) ───────────────────────────────────────
-function MoodCard({
-  label, iconName, moodLabel, waiting,
+function GroupMoodOrbit({
+  members, allReady, total, readyCount,
 }: {
-  label: string; iconName: FeatherName; moodLabel: string; waiting?: boolean;
+  members: OrbitMember[]; allReady: boolean; total: number; readyCount: number;
 }) {
+  const SIZE = 300;
+  const C = SIZE / 2;
+  const R = 104;
+  const NODE = 56;
   const pulse = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
-    if (!waiting) return;
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.55, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1,    duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.5, duration: 850, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1,   duration: 850, useNativeDriver: true }),
       ]),
     );
     loop.start();
     return () => loop.stop();
-  }, [waiting]);
+  }, []);
+
+  const positions = members.map((m, i) => {
+    const angle = (-90 + (360 / Math.max(members.length, 1)) * i) * (Math.PI / 180);
+    return { m, x: C + R * Math.cos(angle), y: C + R * Math.sin(angle) };
+  });
 
   return (
-    <View style={[cardStyles.card, waiting && cardStyles.cardWaiting]}>
-      <Text style={cardStyles.who}>{label}</Text>
-      <Animated.View style={[{ marginBottom: 10 }, waiting && { opacity: pulse }]}>
-        <Feather
-          name={iconName}
-          size={36}
-          color={waiting ? Colors.sub : Colors.accent}
-        />
-      </Animated.View>
-      <Text style={[cardStyles.mood, waiting && cardStyles.moodWaiting]}>{moodLabel}</Text>
+    <View style={{ width: SIZE, height: SIZE, alignSelf: 'center' }}>
+      <Svg width={SIZE} height={SIZE} style={StyleSheet.absoluteFill}>
+        {positions.map(({ m, x, y }) => (
+          <Line
+            key={m.uid}
+            x1={C} y1={C} x2={x} y2={y}
+            stroke={m.mood ? Colors.accent : Colors.border}
+            strokeWidth={m.mood ? 2 : 1}
+          />
+        ))}
+      </Svg>
+
+      {/* Núcleo central */}
+      <View style={orbitStyles.core}>
+        {allReady ? (
+          <Feather name="star" size={30} color={Colors.accent} />
+        ) : (
+          <>
+            <Text style={orbitStyles.coreCount}>{readyCount}/{total}</Text>
+            <Text style={orbitStyles.coreLabel}>listos</Text>
+          </>
+        )}
+      </View>
+
+      {/* Nodos de miembros */}
+      {positions.map(({ m, x, y }) => {
+        const moodData = m.mood ? MOODS.find(mm => mm.id === m.mood) : null;
+        const waiting = !m.mood;
+        const initial = (m.name || (m.isMe ? 'Vos' : 'M')).charAt(0).toUpperCase();
+        return (
+          <Animated.View
+            key={m.uid}
+            style={[
+              orbitStyles.node,
+              { left: x - NODE / 2, top: y - NODE / 2, width: NODE },
+              waiting && { opacity: pulse },
+            ]}
+          >
+            <View style={[orbitStyles.nodeCircle, { width: NODE, height: NODE, borderRadius: NODE / 2 }, !!m.mood && orbitStyles.nodeCircleReady]}>
+              {moodData
+                ? <Feather name={moodData.icon} size={24} color={Colors.accent} />
+                : <Text style={orbitStyles.nodeInitial}>{initial}</Text>}
+            </View>
+            <Text numberOfLines={1} style={[orbitStyles.nodeName, m.isMe && orbitStyles.nodeNameMe]}>
+              {m.isMe ? 'Vos' : (m.name || 'Miembro')}
+            </Text>
+          </Animated.View>
+        );
+      })}
     </View>
   );
 }
-const cardStyles = StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: Colors.s1,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: Colors.accentBorder,
-    alignItems: 'center',
-    paddingVertical: 28,
-    paddingHorizontal: 12,
+const orbitStyles = StyleSheet.create({
+  core: {
+    position: 'absolute',
+    left: 150 - 42, top: 150 - 42,
+    width: 84, height: 84, borderRadius: 42,
+    backgroundColor: Colors.accentFaint,
+    borderWidth: 1.5, borderColor: Colors.accentBorder,
+    alignItems: 'center', justifyContent: 'center',
   },
-  cardWaiting: { borderColor: Colors.border, backgroundColor: Colors.s2 },
-  who:  { color: Colors.sub, fontSize: Typography.tiny, letterSpacing: 1, marginBottom: 12 },
-  mood: { color: Colors.accent, fontWeight: Typography.bold, fontSize: Typography.small, textAlign: 'center' },
-  moodWaiting: { color: Colors.sub },
+  coreCount: { color: Colors.accent, fontSize: Typography.h1, fontWeight: Typography.bold },
+  coreLabel: { color: Colors.sub, fontSize: Typography.tiny, marginTop: -2 },
+  node: { position: 'absolute', alignItems: 'center' },
+  nodeCircle: {
+    backgroundColor: Colors.s2,
+    borderWidth: 1.5, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  nodeCircleReady: { backgroundColor: Colors.accentFaint, borderColor: Colors.accentBorder },
+  nodeInitial: { color: Colors.sub, fontSize: Typography.h3, fontWeight: Typography.bold },
+  nodeName: { color: Colors.sub, fontSize: Typography.tiny, marginTop: 6, maxWidth: 72, textAlign: 'center' },
+  nodeNameMe: { color: Colors.text },
 });
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
@@ -110,25 +158,48 @@ export default function MoodScreen() {
   // Cuando Person B llega via notificación, currentGroup puede ser null.
   // Buscamos el grupo por groupId en el store para no caer en modo solo accidentalmente.
   const group = isSoloRoute ? null : (groups.find(g => g.id === groupId) ?? currentGroup ?? null);
-  const members = isSoloRoute ? (user ? [user.uid] : []) : (group?.members ?? []);
-  const isSolo = isSoloRoute || members.length <= 1;
 
   const [myMood,       setMyMood]       = useState<MoodId | null>(null);
   const [sessionMoods, setSessionMoods] = useState<Record<string, MoodId>>({});
+  const [liveGroup,    setLiveGroup]    = useState<GroupDoc | null>(null);
+  const [memberNames,  setMemberNames]  = useState<Record<string, string>>({});
   const [navigating,   setNavigating]   = useState(false);
   const [showSkip,     setShowSkip]     = useState(false);
   const [showContinue, setShowContinue] = useState(false);
 
-  const myStoredMood = user ? (sessionMoods[user.uid] ?? null) : null;
-  // Derive partner's mood directly from sessionMoods — don't rely on partnerUid which
-  // can be null when the group hasn't loaded yet in the store (e.g. cold-start via notification).
+  // Members come from the live Firestore snapshot first (always fresh, even for a guest
+  // who arrived via notification before the store loaded), then the store as fallback.
+  const members = isSoloRoute ? (user ? [user.uid] : []) : (liveGroup?.members ?? group?.members ?? []);
+  const otherMembers = members.filter(uid => uid !== user?.uid);
+  const isSolo = isSoloRoute || members.length <= 1;
+
+  // Merge my locally-picked mood immediately so my own node lights up without waiting
+  // for the Firestore listener round-trip.
+  const effectiveMoods = (myMood && user)
+    ? { ...sessionMoods, [user.uid]: myMood }
+    : sessionMoods;
+
+  const myStoredMood = user ? (effectiveMoods[user.uid] ?? null) : null;
+  // Partner mood (for the 2-person header copy) — scan moods directly.
   const partnerMood  = !isSoloRoute
-    ? (Object.entries(sessionMoods).find(([uid]) => uid !== user?.uid)?.[1] ?? null)
+    ? (Object.entries(effectiveMoods).find(([uid]) => uid !== user?.uid)?.[1] ?? null)
     : null;
-  // allReady requires myMood (local pick this session) to avoid stale Firestore data
-  // from a previous session triggering navigation before the user picks.
-  // Use isSoloRoute (reliable route param) instead of isSolo (derived from group load state).
-  const allReady = isSoloRoute ? !!myMood : !!(myMood && partnerMood);
+  // allReady: solo mode needs only my pick; group mode needs every known member to have
+  // picked. members.length > 1 guards against an empty/not-yet-loaded member list.
+  const readyCount = members.filter(uid => !!effectiveMoods[uid]).length;
+  const allReady = isSoloRoute
+    ? !!myMood
+    : (!!myMood && members.length > 1 && members.every(uid => !!effectiveMoods[uid]));
+
+  // Orbit nodes: me first (top), then the rest in order.
+  const orbitMembers: OrbitMember[] = user
+    ? [user.uid, ...otherMembers].map(uid => ({
+        uid,
+        name: memberNames[uid] ?? '',
+        mood: effectiveMoods[uid] ?? null,
+        isMe: uid === user.uid,
+      }))
+    : [];
 
   const myMoodData      = (myMood ?? myStoredMood) ? MOODS.find(m => m.id === (myMood ?? myStoredMood)) : null;
   const partnerMoodData = partnerMood ? MOODS.find(m => m.id === partnerMood) : null;
@@ -155,11 +226,18 @@ export default function MoodScreen() {
         nav.navigate('App');
         return;
       }
+      setLiveGroup(g);
       const moods = g.currentSession?.moods ?? {};
       setSessionMoods(moods);
     });
     return unsub;
   }, [groupId, isSoloRoute]);
+
+  // Fetch member display names for the orbit nodes
+  useEffect(() => {
+    if (USE_MOCK || isSoloRoute || members.length === 0) return;
+    fetchMemberNames(members).then(setMemberNames).catch(() => {});
+  }, [members.join(',')]);
 
   // Show skip button after 30s of waiting for partner
   useEffect(() => {
@@ -191,12 +269,17 @@ export default function MoodScreen() {
     setMood(user.uid, id);
 
     if (USE_MOCK) {
-      setSessionMoods({ [user.uid]: id });
-      if (partnerUid) {
+      // Simulate every other member picking a random mood after a short delay.
+      const base = { [user.uid]: id };
+      setSessionMoods(base);
+      if (otherMembers.length > 0) {
         const mockMoods: MoodId[] = ['chill', 'laugh', 'intense', 'think', 'scared', 'cry'];
-        const partnerMock = mockMoods[Math.floor(Math.random() * mockMoods.length)];
         setTimeout(() => {
-          setSessionMoods({ [user.uid]: id, [partnerUid]: partnerMock });
+          const filled = { ...base };
+          otherMembers.forEach(uid => {
+            filled[uid] = mockMoods[Math.floor(Math.random() * mockMoods.length)];
+          });
+          setSessionMoods(filled);
         }, 2200);
       }
       return;
@@ -231,39 +314,27 @@ export default function MoodScreen() {
       );
     }
 
+    const waitingCount = members.length - readyCount;
+    const headerTitle = allReady
+      ? '¡Listos!'
+      : (otherMembers.length === 1 ? '¿Cómo está\ntu compañero?' : 'Esperando\nal grupo');
+    const headerSub = allReady
+      ? `Queponemos está analizando los ${members.length} moods…`
+      : (otherMembers.length === 1
+          ? 'Esperá que elija su mood esta noche'
+          : `Faltan ${waitingCount} por elegir su mood`);
+
     return (
       <View style={[styles.root, { paddingTop: insets.top + 20, backgroundColor: themeColors.bg }]}>
-        <Text style={styles.waitTitle}>
-          {allReady ? '¡Listos!' : '¿Cómo está\ntu compañero?'}
-        </Text>
-        <Text style={styles.waitSub}>
-          {allReady
-            ? 'Queponemos está analizando los dos moods…'
-            : 'Esperá que elija su mood esta noche'}
-        </Text>
+        <Text style={styles.waitTitle}>{headerTitle}</Text>
+        <Text style={styles.waitSub}>{headerSub}</Text>
 
-        <View style={styles.cards}>
-          <MoodCard
-            label="VOS"
-            iconName={myMoodData?.icon ?? 'smile'}
-            moodLabel={myMoodData?.label ?? ''}
-          />
-
-          <View style={styles.vsCol}>
-            {allReady ? (
-              <Feather name="star" size={22} color={Colors.accent} />
-            ) : (
-              <PulsingDots />
-            )}
-          </View>
-
-          <MoodCard
-            label="EL GRUPO"
-            iconName={partnerMoodData?.icon ?? 'clock'}
-            moodLabel={partnerMoodData?.label ?? 'Eligiendo…'}
-            waiting={!partnerMood}
-          />
-        </View>
+        <GroupMoodOrbit
+          members={orbitMembers}
+          allReady={allReady}
+          total={members.length}
+          readyCount={readyCount}
+        />
 
         {showSkip && !allReady && (
           <TouchableOpacity
@@ -277,9 +348,15 @@ export default function MoodScreen() {
         {allReady && (
           <View style={styles.readyBadge}>
             <Text style={styles.readyText}>
-              {myMoodData?.label}  ×  {partnerMoodData?.label}
+              {otherMembers.length === 1
+                ? `${myMoodData?.label}  ×  ${partnerMoodData?.label}`
+                : `${members.length} moods listos`}
             </Text>
-            <Text style={styles.readySub}>Queponemos va a encontrar algo perfecto para los dos</Text>
+            <Text style={styles.readySub}>
+              {otherMembers.length === 1
+                ? 'Queponemos va a encontrar algo perfecto para los dos'
+                : 'Queponemos va a encontrar algo para todo el grupo'}
+            </Text>
           </View>
         )}
 
@@ -380,17 +457,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     marginBottom: 40,
     lineHeight: 22,
-  },
-  cards: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    gap: 0,
-    alignItems: 'center',
-  },
-  vsCol: {
-    width: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   readyBadge: {
     marginTop: 36,
