@@ -23,7 +23,7 @@ export default function ResultsScreen() {
   const nav    = useNavigation<Nav>();
   const { currentMatch, currentMatchId, updateTitleAction, isSolo } = useMatchStore();
   const { currentGroup } = useGroupStore();
-  const { user } = useAuthStore();
+  const { user, updateRatings } = useAuthStore();
   const themeColors = useColors();
   const fadeAnimsRef = useRef<Animated.Value[]>([]);
   function getFadeAnim(i: number): Animated.Value {
@@ -94,6 +94,7 @@ export default function ResultsScreen() {
     const { rec, idx } = ratingTarget;
     setRatingTarget(null);
     handleAction(idx, 'watched');
+    if (rec.tmdbId) updateRatings(rec.tmdbId, rating);
     if (!USE_MOCK && rec.tmdbId) {
       try {
         await rateTitleAndUpdateProfile(user.uid, rec.tmdbId, rating, {

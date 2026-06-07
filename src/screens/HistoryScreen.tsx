@@ -8,7 +8,7 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { getPosterUrl } from '../services/tmdb';
 import {
-  getPersonalWatchlist, removeFromPersonalWatchlist,
+  getPersonalWatchlist, removeFromPersonalWatchlist, removeFromPendingRatings,
   getPendingRatingsForUser, rateTitleAndUpdateProfile, updateTitleStatus,
   type PersonalWatchlistItem,
   type PendingRatingItem,
@@ -23,6 +23,7 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   watched:   { label: 'Vista',       color: Colors.accent },
   watchlist: { label: 'Para después', color: Colors.warning },
+  chosen:    { label: 'Elegida',     color: Colors.accent },
   skipped:   { label: 'Pasada',      color: Colors.danger },
   pending:   { label: 'Sin acción',  color: Colors.sub },
 };
@@ -32,7 +33,7 @@ type Tab = 'history' | 'watchlist' | 'pending';
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const { history } = useMatchStore();
-  const { user } = useAuthStore();
+  const { user, updateRatings } = useAuthStore();
   const themeColors = useColors();
 
   const [activeTab, setActiveTab] = useState<Tab>('history');
@@ -76,6 +77,7 @@ export default function HistoryScreen() {
     const { matchId, rec } = ratingPending;
     setRatingPending(null);
     setPendingItems(prev => prev.filter(i => !(i.matchId === matchId && i.rec.tmdbId === rec.tmdbId)));
+    if (rec.tmdbId) updateRatings(rec.tmdbId, rating);
     if (!USE_MOCK && rec.tmdbId) {
       try {
         await Promise.all([
@@ -85,6 +87,7 @@ export default function HistoryScreen() {
             genres: rec.genres, rating: rec.rating, posterPath: rec.posterPath, synopsis: rec.synopsis,
           }),
           updateTitleStatus(matchId, rec.tmdbId, 'watched'),
+          removeFromPendingRatings(user.uid, matchId, rec.tmdbId),
         ]);
       } catch { /* silenciar */ }
     }
@@ -112,6 +115,7 @@ export default function HistoryScreen() {
     const item = ratingWatchlist;
     setRatingWatchlist(null);
     setWatchlist(prev => prev.filter(i => i.tmdbId !== item.tmdbId));
+    if (item.tmdbId) updateRatings(item.tmdbId, rating);
     if (!USE_MOCK && item.tmdbId) {
       try {
         await Promise.all([
