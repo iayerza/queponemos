@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
   },
   headline: {
     fontFamily: Typography.fontMedium,
-    fontSize: 26,
+    fontSize: Typography.hero,
     fontWeight: Typography.medium,
     color: Colors.text,
     letterSpacing: -0.5,

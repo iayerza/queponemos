@@ -1,0 +1,33 @@
+mutation CreateUser($username: String!, $email: String!) @auth(level: PUBLIC, insecureReason: "New user registration should be public") {
+  user_insert(data: {username: $username, email: $email, createdAt_expr: "request.time", id_expr: "uuidV4()"}) {
+    id
+  }
+}
+
+query MyProfile @auth(level: USER) {
+  user(key: {id_expr: "auth.uid"}) {
+    id
+    username
+    email
+    createdAt
+    profilePictureUrl
+    languagePreference
+  }
+}
+
+query ListAllContent @auth(level: PUBLIC, insecureReason: "Listing general content information is safe to expose publicly") {
+  contents {
+    id
+    title
+    type
+    releaseYear
+    rating
+    posterUrl
+  }
+}
+
+mutation AddNewGenre($name: String!) @auth(level: USER, insecureReason: "Only logged-in users can add genres.") {
+  genre_insert(data: {name: $name, id_expr: "uuidV4()"}) {
+    id
+  }
+}

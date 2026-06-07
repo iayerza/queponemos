@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 24 },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 24, marginBottom: 24 },
   avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontSize: 26, fontWeight: Typography.medium },
+  avatarText: { color: '#fff', fontSize: Typography.h1, fontWeight: Typography.medium },
   displayName: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium },
   email: { color: Colors.sub, fontSize: Typography.small, marginTop: 2 },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 28 },
