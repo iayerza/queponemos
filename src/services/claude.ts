@@ -268,36 +268,35 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     throw new Error('Claude no devolvió recomendaciones válidas. Intentá de nuevo.');
   }
 
-  // Enriquecer con pósters de TMDB: buscar por título (confiable) y usar tmdbId de Claude solo como desempate
+  // Enriquecer con pósters de TMDB: buscar por título y validar antes de usar tmdbId de Claude
   const recommendations = await Promise.all(
     baseRecs.map(async rec => {
       try {
         const mediaType = rec.type === 'series' ? 'tv' : 'movie';
-        // Buscar por título primero — más confiable que el tmdbId de Claude
         const results = await searchTitles(rec.title);
         const wanted = normalizeTitle(rec.title);
         const altMediaType = mediaType === 'movie' ? 'tv' : 'movie';
 
-        // 1st pass: exact title match with the declared type
-        const exactTitleYear = results.find(r => r.type === mediaType && normalizeTitle(r.title) === wanted && Math.abs(r.year - rec.year) <= 1);
-        const exactTitle     = results.find(r => r.type === mediaType && normalizeTitle(r.title) === wanted);
-        let match = exactTitleYear ?? exactTitle;
+        function titleMatches(r: { title: string; originalTitle: string }): boolean {
+          return normalizeTitle(r.title) === wanted || normalizeTitle(r.originalTitle) === wanted;
+        }
+
+        // 1st pass: title match (localized or original) + type + year
+        const pass1 = results.find(r => r.type === mediaType && titleMatches(r) && Math.abs(r.year - rec.year) <= 1);
+        // 2nd pass: title match + type (any year)
+        const pass2 = results.find(r => r.type === mediaType && titleMatches(r));
+        let match = pass1 ?? pass2;
         let resolvedType = rec.type;
 
-        // 2nd pass: if no exact match, try the OPPOSITE type (handles Claude type misclassification)
+        // 3rd pass: try opposite type (handles Claude misclassifications)
         if (!match) {
-          const altExactYear = results.find(r => r.type === altMediaType && normalizeTitle(r.title) === wanted && Math.abs(r.year - rec.year) <= 1);
-          const altExact     = results.find(r => r.type === altMediaType && normalizeTitle(r.title) === wanted);
-          const altMatch     = altExactYear ?? altExact;
+          const altYear = results.find(r => r.type === altMediaType && titleMatches(r) && Math.abs(r.year - rec.year) <= 1);
+          const altAny  = results.find(r => r.type === altMediaType && titleMatches(r));
+          const altMatch = altYear ?? altAny;
           if (altMatch) {
             match = altMatch;
             resolvedType = altMediaType === 'tv' ? 'series' : 'movie';
           }
-        }
-
-        // 3rd pass: loose fallback — type + year (title not checked)
-        if (!match) {
-          match = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1);
         }
 
         if (match) {
@@ -309,10 +308,14 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
             return { ...rec, type: resolvedType, tmdbId: match.tmdbId, posterPath: match.posterPath };
           }
         }
-        // Último recurso: ID de Claude (puede ser incorrecto)
+
+        // Fallback: ID de Claude — verificar que el año coincida para evitar póster incorrecto
         if (rec.tmdbId) {
           const tmdbData = await fetchTitle(rec.tmdbId, mediaType);
-          return { ...rec, posterPath: tmdbData.posterPath, runtime: tmdbData.runtime };
+          if (Math.abs(tmdbData.year - rec.year) <= 2) {
+            return { ...rec, posterPath: tmdbData.posterPath, runtime: tmdbData.runtime };
+          }
+          // Año no coincide → tmdbId de Claude es incorrecto, omitir póster
         }
       } catch { /* ignore */ }
       return rec;
