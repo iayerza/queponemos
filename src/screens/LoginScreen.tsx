@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   },
   headline: {
     fontFamily: Typography.fontMedium,
-    fontSize: 24,
+    fontSize: Typography.h1,
     fontWeight: Typography.medium,
     color: Colors.text,
     lineHeight: 30,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   forgotText: { fontFamily: Typography.fontRegular, color: Colors.faint, fontSize: Typography.small, textDecorationLine: 'underline' },
   legal: {
     fontFamily: Typography.fontRegular,
-    fontSize: 11,
+    fontSize: Typography.tiny,
     color: Colors.faint,
     textAlign: 'center',
     lineHeight: 16,

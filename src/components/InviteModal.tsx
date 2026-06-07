@@ -128,8 +128,8 @@ const styles = StyleSheet.create({
   codeValue: {
     color: Colors.accent,
     fontFamily: Typography.fontMedium,
-    fontSize: 26,
-    fontWeight: Typography.bold,
+    fontSize: Typography.hero,
+    fontWeight: Typography.medium,
     letterSpacing: 6,
   },
   primaryBtn: {
