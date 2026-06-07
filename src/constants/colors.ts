@@ -11,27 +11,27 @@ export interface ColorPalette {
   isDark: boolean;
 }
 
-// Dark — cinematográfico, cool-neutral (HBO Max / Apple TV+ inspired)
+// Dark — azul-negro profundo, capas con contraste claro (HBO Max inspired)
 export const darkColors: ColorPalette = {
-  bg:  '#09090E',
-  s1:  '#13131A',
-  s2:  '#1B1B24',
-  s3:  '#0F0F14',
-  border:  '#23232E',
-  border2: '#381C22',
+  bg:  '#0C0C16',
+  s1:  '#161622',
+  s2:  '#1E1E2E',
+  s3:  '#0A0A12',
+  border:  '#2A2A40',
+  border2: '#3D1E28',
   accent:       '#C8302A',
-  accentFaint:  'rgba(200,48,42,0.14)',
-  accentBorder: 'rgba(200,48,42,0.38)',
+  accentFaint:  'rgba(200,48,42,0.16)',
+  accentBorder: 'rgba(200,48,42,0.42)',
   coral: '#E8503A',
-  text:  '#EDEDF4',
-  sub:   '#7A7A92',
-  faint: '#48485C',
+  text:  '#EEEEF8',
+  sub:   '#6C6C90',
+  faint: '#424260',
   success: '#1D9E75',
   warning: '#BA7517',
   danger:  '#C8302A',
-  dangerFaint: 'rgba(200,48,42,0.14)',
-  redBg:     '#130A0D',
-  redSubtle: 'rgba(200,48,42,0.10)',
+  dangerFaint: 'rgba(200,48,42,0.16)',
+  redBg:     '#160A10',
+  redSubtle: 'rgba(200,48,42,0.12)',
   isDark: true,
 };
 
