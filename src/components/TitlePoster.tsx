@@ -5,9 +5,8 @@ import { getPosterUrl } from '../services/tmdb';
 import { Colors, Typography } from '../constants/colors';
 import type { NormalizedTitle } from '../services/tmdb';
 
-const SCREEN_H = Dimensions.get('window').height;
 const CARD_W   = Dimensions.get('window').width - 48; // 24px paddingHorizontal × 2
-const POSTER_H = Math.min(Math.round(CARD_W * 1.5), Math.round(SCREEN_H * 0.40));
+const POSTER_H = Math.round(CARD_W * 1.5); // full 2:3 ratio, scroll to see buttons
 
 interface Props {
   title: NormalizedTitle;
