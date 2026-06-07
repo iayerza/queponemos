@@ -49,7 +49,7 @@ export default function OnboardingScreen() {
     if (ageRange) setAgeRange(ageRange);
     if (!USE_MOCK) completeOnboarding(user.uid, ageRange).catch(() => {});
     if (fromProfile) {
-      nav.goBack();
+      nav.navigate('App');
     } else {
       markOnboardingDone();
     }
