@@ -53,6 +53,7 @@ export interface PersonalWatchlistItem {
   synopsis: string;
   rating: number;
   addedAt: number;
+  matchId?: string;
 }
 
 export interface UserProfile {

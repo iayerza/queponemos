@@ -71,6 +71,7 @@ export default function ResultsScreen() {
               synopsis: rec.synopsis,
               rating: rec.rating,
               addedAt: Date.now(),
+              matchId: currentMatchId,
             });
           } catch { /* silenciar */ }
           // Also update match doc for group mode

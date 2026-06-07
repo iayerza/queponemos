@@ -14,6 +14,7 @@ import { getPosterUrl } from '../services/tmdb';
 import {
   getPersonalWatchlist, removeFromPersonalWatchlist, removeFromPendingRatings,
   getPendingRatingsForUser, rateTitleAndUpdateProfile, updateTitleStatus,
+  updateUserHistoryRecommendations,
   type PersonalWatchlistItem,
   type PendingRatingItem,
   type Rating,
@@ -85,12 +86,32 @@ export default function HistoryScreen() {
     if (activeTab === 'pending') loadPending();
   }, [activeTab, loadPending]);
 
+  function syncHistoryStatus(matchId: string, tmdbId: number, status: 'watched' | 'watchlist' | 'skipped' | 'chosen') {
+    if (!user) return;
+    const store = useMatchStore.getState();
+    const updatedHistory = store.history.map(e => {
+      if (e.matchId !== matchId) return e;
+      return {
+        ...e,
+        recommendations: e.recommendations.map(r =>
+          r.tmdbId === tmdbId ? { ...r, groupStatus: status } : r
+        ),
+      };
+    });
+    store.setHistory(updatedHistory);
+    const updatedEntry = updatedHistory.find(e => e.matchId === matchId);
+    if (updatedEntry && !USE_MOCK) {
+      updateUserHistoryRecommendations(user.uid, matchId, updatedEntry.recommendations).catch(() => {});
+    }
+  }
+
   async function handleRatePending(rating: Rating) {
     if (!ratingPending || !user) return;
     const { matchId, rec } = ratingPending;
     setRatingPending(null);
     setPendingItems(prev => prev.filter(i => !(i.matchId === matchId && i.rec.tmdbId === rec.tmdbId)));
     if (rec.tmdbId) updateRatings(rec.tmdbId, rating);
+    if (rec.tmdbId) syncHistoryStatus(matchId, rec.tmdbId, 'watched');
     if (!USE_MOCK && rec.tmdbId) {
       try {
         await Promise.all([
@@ -129,6 +150,7 @@ export default function HistoryScreen() {
     setRatingWatchlist(null);
     setWatchlist(prev => prev.filter(i => i.tmdbId !== item.tmdbId));
     if (item.tmdbId) updateRatings(item.tmdbId, rating);
+    if (item.matchId && item.tmdbId) syncHistoryStatus(item.matchId, item.tmdbId, 'watched');
     if (!USE_MOCK && item.tmdbId) {
       try {
         await Promise.all([
