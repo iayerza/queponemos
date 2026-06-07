@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
   saveMatch, setSessionMatchId, pollForMatchId, getMatchById,
@@ -14,10 +14,22 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
 export function useMatching() {
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const { user }                          = useAuthStore();
   const { currentGroup }                  = useGroupStore();
-  const { moods, setCurrentMatch, isSolo } = useMatchStore();
+  const { moods, setCurrentMatch, isSolo, history } = useMatchStore();
+
+  // Cancel any in-progress poll when the component unmounts.
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+
+  // Build tmdbId → "Title (year)" map from local history for better Claude prompts.
+  const titleMap: Record<number, string> = {};
+  for (const entry of history) {
+    for (const rec of entry.recommendations) {
+      if (rec.tmdbId) titleMap[rec.tmdbId] = `${rec.title} (${rec.year})`;
+    }
+  }
 
   // The group creator is always the "leader" who calls Claude.
   const isLeader = isSolo || !currentGroup || user?.uid === currentGroup.createdBy;
@@ -27,10 +39,14 @@ export function useMatching() {
     if (!isSolo && !currentGroup) return null;
     setError(null);
 
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const { signal } = abortRef.current;
+
     try {
       // ── Follower path: wait for leader to produce a matchId ────────────────
       if (!isLeader && !USE_MOCK && currentGroup) {
-        const matchId = await pollForMatchId(currentGroup.id);
+        const matchId = await pollForMatchId(currentGroup.id, signal);
         if (!matchId) throw new Error('El tiempo de espera agotó. Intentá de nuevo.');
 
         const match = await getMatchById(matchId);
@@ -93,6 +109,7 @@ export function useMatching() {
           users:     memberProfiles,
           moods:     moods as Record<string, MoodId>,
           platforms,
+          titleMap:  Object.keys(titleMap).length > 0 ? titleMap : undefined,
         });
       }
 

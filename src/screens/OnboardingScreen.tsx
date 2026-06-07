@@ -27,7 +27,7 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const nav   = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { user, updateRatings, markOnboardingDone } = useAuthStore();
+  const { user, updateRatings, markOnboardingDone, setAgeRange } = useAuthStore();
   const ageRange = route.params?.ageRange;
   const { titles, currentIndex, ratings, isLoading, error, rate, canSkip, isFinished } = useOnboarding(ageRange);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -36,8 +36,9 @@ export default function OnboardingScreen() {
   async function handleFinish() {
     if (!user) return;
     if (!USE_MOCK) {
-      try { await completeOnboarding(user.uid); } catch { /* silenciar */ }
+      try { await completeOnboarding(user.uid, ageRange); } catch { /* silenciar */ }
     }
+    if (ageRange) setAgeRange(ageRange);
     if (fromProfile) {
       nav.goBack();
     } else {

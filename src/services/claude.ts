@@ -23,6 +23,7 @@ export interface MatchingInput {
   users: UserProfile[];
   moods: Record<string, MoodId>;
   platforms: PlatformId[];
+  titleMap?: Record<number, string>; // tmdbId → "Título (año)" para usar en el prompt
 }
 
 export interface MatchingOutput {
@@ -39,22 +40,41 @@ const MOOD_LABELS: Record<MoodId, string> = {
   scared:  'Asustarse — terror o suspenso',
 };
 
+const AGE_RANGE_LABELS: Record<string, string> = {
+  young:  'menos de 25 años',
+  mid:    '25 a 35 años',
+  adult:  '36 a 50 años',
+  senior: 'más de 50 años',
+};
+
+function titleLabel(id: number, titleMap?: Record<number, string>): string {
+  return titleMap?.[id] ?? `tmdbId:${id}`;
+}
+
 function buildPrompt(input: MatchingInput): string {
   const userBlocks = input.users.map(u => {
-    const loved = Object.entries(u.ratings ?? {})
+    const entries = Object.entries(u.ratings ?? {});
+    const loved = entries
       .filter(([, r]) => r === 'loved')
-      .map(([id]) => `ID:${id}`)
+      .map(([id]) => titleLabel(Number(id), input.titleMap))
       .join(', ') || 'ninguno aún';
-    const disliked = Object.entries(u.ratings ?? {})
+    const disliked = entries
       .filter(([, r]) => r === 'seen_disliked')
-      .map(([id]) => `ID:${id}`)
+      .map(([id]) => titleLabel(Number(id), input.titleMap))
       .join(', ') || 'ninguno';
+    const alreadySeen = entries
+      .filter(([, r]) => r === 'loved' || r === 'liked' || r === 'seen_disliked')
+      .map(([id]) => titleLabel(Number(id), input.titleMap));
     const mood = MOOD_LABELS[input.moods[u.uid] ?? 'chill'];
     const genres = Object.entries(u.tasteProfile?.genres ?? {})
       .filter(([, s]) => s > 0.5)
       .map(([g]) => g)
       .join(', ') || 'variado';
-    return `- ${u.displayName}: géneros favoritos [${genres}], le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
+    const age = u.ageRange ? ` (${AGE_RANGE_LABELS[u.ageRange]})` : '';
+    const seenNote = alreadySeen.length > 0
+      ? `\n  ya visto (NO recomendar): ${alreadySeen.join(', ')}`
+      : '';
+    return `- ${u.displayName}${age}: géneros favoritos [${genres}], le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}${seenNote}`;
   }).join('\n');
 
   return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.
@@ -65,16 +85,18 @@ ${userBlocks}
 PLATAFORMAS DISPONIBLES: ${input.platforms.join(', ')}
 
 REGLAS:
-1. VARIEDAD DE ERA: uno anterior a 2010, uno entre 2010-2019, uno de 2020 en adelante.
-2. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos.
-3. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
-4. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
+1. NUNCA recomendés títulos marcados como "ya visto" en los perfiles.
+2. VARIEDAD DE ERA: intentá cubrir distintas décadas (no es obligatorio uno por era si no hay buenos candidatos).
+3. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos.
+4. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
+5. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
    - 60-70: buena opción, aunque no es un match perfecto
    - 71-82: muy buena opción, varios puntos de coincidencia
    - 83-91: match excelente, coincidencia clara en gustos y mood
    - 92-100: solo para coincidencia casi perfecta y evidente
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
-5. No repetir siempre los mismos títulos populares del momento.
+6. No repetir siempre los mismos títulos populares del momento.
+7. Considerá la edad de los usuarios al elegir referencias culturales y títulos.
 
 Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
 {
@@ -133,7 +155,14 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
   }
 
-  const baseRecs: Recommendation[] = (parsed.recommendations ?? []).map(r => ({
+  const validRecs = (parsed.recommendations ?? []).filter(r =>
+    r.title && typeof r.year === 'number' && r.type && r.platform && r.whyUs && r.synopsis
+  );
+  if (validRecs.length === 0) {
+    throw new Error('Claude no devolvió recomendaciones válidas. Intentá de nuevo.');
+  }
+
+  const baseRecs: Recommendation[] = validRecs.map(r => ({
     ...r,
     posterPath: null,
     groupStatus: 'pending' as const,

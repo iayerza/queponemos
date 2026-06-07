@@ -60,6 +60,7 @@ export interface UserProfile {
   tasteProfile: TasteProfile;
   onboardingDone: boolean;
   platforms: PlatformId[];
+  ageRange?: 'young' | 'mid' | 'adult' | 'senior';
 }
 
 export interface GroupDoc {
@@ -228,9 +229,13 @@ export async function rateTitleAndUpdateProfile(
   return newProfile;
 }
 
-export async function completeOnboarding(uid: string): Promise<void> {
+export async function completeOnboarding(
+  uid: string,
+  ageRange?: UserProfile['ageRange'],
+): Promise<void> {
   await updateDoc(doc(db(), 'users', uid), {
     onboardingDone: true,
+    ...(ageRange ? { ageRange } : {}),
     updatedAt: serverTimestamp(),
   });
 }
@@ -335,16 +340,20 @@ export async function getMatchById(matchId: string): Promise<MatchDoc | null> {
   return { id: snap.id, ...snap.data() } as MatchDoc;
 }
 
-/** Poll Firestore until the leader writes a matchId into the session (max 45s). */
-export async function pollForMatchId(groupId: string): Promise<string | null> {
-  // Snapshot the matchId that exists RIGHT NOW — could be stale from a previous session.
-  // We only accept a matchId that is different from this one.
+/** Poll Firestore until the leader writes a matchId into the session (max 45s).
+ *  Pass an AbortSignal to cancel early (e.g. when the user navigates back). */
+export async function pollForMatchId(
+  groupId: string,
+  signal?: AbortSignal,
+): Promise<string | null> {
   const initial = await getDoc(doc(db(), 'groups', groupId));
   const staleMatchId = initial.data()?.currentSession?.matchId as string | undefined;
 
   const deadline = Date.now() + 45_000;
   while (Date.now() < deadline) {
+    if (signal?.aborted) return null;
     await new Promise(r => setTimeout(r, 1500));
+    if (signal?.aborted) return null;
     const snap = await getDoc(doc(db(), 'groups', groupId));
     const matchId = snap.data()?.currentSession?.matchId as string | undefined;
     if (matchId && matchId !== staleMatchId) return matchId;
