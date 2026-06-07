@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { PLATFORMS } from '../constants/platforms';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
   saveMatchAndBroadcast, pollForMatchId, getMatchById,
@@ -83,9 +84,10 @@ export function useMatching() {
       }
 
       // ── Leader / Solo path: call Claude, save, broadcast matchId ──────────
+      const allPlatformIds = PLATFORMS.map(p => p.id);
       const platforms = isSolo
-        ? (user.platforms ?? ['netflix'])
-        : (currentGroup?.platforms ?? ['netflix']);
+        ? (user.platforms?.length ? user.platforms : allPlatformIds)
+        : (currentGroup?.platforms?.length ? currentGroup.platforms : ['netflix']);
 
       const members = isSolo
         ? [user.uid]
