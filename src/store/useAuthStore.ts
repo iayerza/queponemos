@@ -10,6 +10,7 @@ interface AuthStore {
   updateRatings: (titleId: number, rating: Rating) => void;
   markOnboardingDone: () => void;
   setPlatforms: (platforms: PlatformId[]) => void;
+  setAgeRange: (range: UserProfile['ageRange']) => void;
 }
 
 export const useAuthStore = create<AuthStore>(set => ({
@@ -26,4 +27,6 @@ export const useAuthStore = create<AuthStore>(set => ({
     set(s => s.user ? { user: { ...s.user, onboardingDone: true } } : s),
   setPlatforms: platforms =>
     set(s => s.user ? { user: { ...s.user, platforms } } : s),
+  setAgeRange: range =>
+    set(s => s.user ? { user: { ...s.user, ageRange: range } } : s),
 }));

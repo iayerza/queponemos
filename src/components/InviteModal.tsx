@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Share, Clipboard } from 'react-native';
 import BottomSheet from './BottomSheet';
 import QRCode from './QRCode';
@@ -15,9 +15,12 @@ interface Props {
 type TabId = 'link' | 'qr';
 
 export default function InviteModal({ visible, onClose, group }: Props) {
-  const [tab, setTab]     = useState<TabId>('link');
+  const [tab, setTab]       = useState<TabId>('link');
   const [copied, setCopied] = useState(false);
-  const { user }          = useAuthStore();
+  const copiedTimer         = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { user }            = useAuthStore();
+
+  useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
 
   const inviteLink = `https://queponemos.web.app?code=${group.inviteCode}&from=${encodeURIComponent(user?.email ?? '')}`;
 
@@ -33,7 +36,8 @@ export default function InviteModal({ visible, onClose, group }: Props) {
   function handleCopyLink() {
     Clipboard.setString(inviteLink);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -81,7 +85,7 @@ export default function InviteModal({ visible, onClose, group }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 20 },
+  container: { paddingHorizontal: 24 },
   title: {
     color: Colors.text,
     fontSize: Typography.h2,
@@ -123,9 +127,9 @@ const styles = StyleSheet.create({
   },
   codeValue: {
     color: Colors.accent,
-    fontFamily: 'monospace',
-    fontSize: 26,
-    fontWeight: Typography.bold,
+    fontFamily: Typography.fontMedium,
+    fontSize: Typography.hero,
+    fontWeight: Typography.medium,
     letterSpacing: 6,
   },
   primaryBtn: {
@@ -147,7 +151,7 @@ const styles = StyleSheet.create({
   qrText: { color: Colors.sub, fontSize: Typography.small, textAlign: 'center' },
   codeDisplay: {
     color: Colors.accent,
-    fontFamily: 'monospace',
+    fontFamily: Typography.fontMedium,
     fontSize: Typography.h2,
     fontWeight: Typography.bold,
     letterSpacing: 4,

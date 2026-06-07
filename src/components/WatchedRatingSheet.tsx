@@ -42,7 +42,7 @@ export default function WatchedRatingSheet({ visible, title, onClose, onRate }: 
 }
 
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: 20, paddingBottom: 8 },
+  container: { paddingHorizontal: 24, paddingBottom: 8 },
   heading: {
     color: Colors.text,
     fontSize: Typography.h2,

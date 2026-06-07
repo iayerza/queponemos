@@ -1,0 +1,52 @@
+type User @table {
+  username: String!
+  createdAt: Timestamp!
+  email: String
+  profilePictureUrl: String
+  languagePreference: String
+}
+
+type Genre @table {
+  name: String!
+}
+
+type Content @table {
+  title: String!
+  type: String!
+  releaseYear: Int!
+  synopsis: String
+  posterUrl: String
+  rating: Float
+  runtimeMinutes: Int
+  numberOfSeasons: Int
+}
+
+type ContentGenre @table(key: ["content", "genre"]) {
+  content: Content!
+  genre: Genre!
+}
+
+type UserPreference @table {
+  user: User!
+  genre: Genre!
+  preferenceType: String!
+  createdAt: Timestamp!
+}
+
+type WatchingGroup @table {
+  groupName: String!
+  createdAt: Timestamp!
+}
+
+type GroupMember @table(key: ["watchingGroup", "user"]) {
+  watchingGroup: WatchingGroup!
+  user: User!
+  joinedAt: Timestamp!
+}
+
+type Recommendation @table {
+  watchingGroup: WatchingGroup!
+  content: Content!
+  suggestedAt: Timestamp!
+  matchScore: Float
+}

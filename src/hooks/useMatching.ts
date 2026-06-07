@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
-  saveMatch, setSessionMatchId, pollForMatchId, getMatchById,
-  getUserProfile, addMatchToUserHistory,
+  saveMatchAndBroadcast, pollForMatchId, getMatchById,
+  getUserProfile, addMatchToUserHistory, getGroupById, incrementGroupTurn,
 } from '../services/firebase';
 import { useAuthStore }  from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
@@ -14,33 +14,72 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
 export function useMatching() {
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const { user }                          = useAuthStore();
-  const { currentGroup }                  = useGroupStore();
-  const { moods, setCurrentMatch, isSolo } = useMatchStore();
+  const { user }                                      = useAuthStore();
+  const { currentGroup }                              = useGroupStore();
+  const { moods, setCurrentMatch, isSolo, history }   = useMatchStore();
 
-  // The group creator is always the "leader" who calls Claude.
-  const isLeader = isSolo || !currentGroup || user?.uid === currentGroup.createdBy;
+  // Cancel any in-progress poll when the component unmounts.
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+
+  // Build tmdbId → "Title (year)" map from local history for better Claude prompts.
+  const titleMap: Record<number, string> = {};
+  for (const entry of history) {
+    for (const rec of entry.recommendations) {
+      if (rec.tmdbId) titleMap[rec.tmdbId] = `${rec.title} (${rec.year})`;
+    }
+  }
+
+  // Dynamic leader: whoever called startGroupSession sets leaderUid.
+  // Fallback to createdBy for sessions started before this field existed.
+  const leaderUid = currentGroup?.currentSession?.leaderUid ?? currentGroup?.createdBy;
+  const isLeader = isSolo || !currentGroup || user?.uid === leaderUid;
 
   const runMatch = useCallback(async (): Promise<string | null> => {
     if (!user) return null;
     if (!isSolo && !currentGroup) return null;
     setError(null);
 
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const { signal } = abortRef.current;
+
     try {
       // ── Follower path: wait for leader to produce a matchId ────────────────
       if (!isLeader && !USE_MOCK && currentGroup) {
-        const matchId = await pollForMatchId(currentGroup.id);
-        if (!matchId) throw new Error('El tiempo de espera agotó. Intentá de nuevo.');
+        // Re-read fresh group to confirm leader (may have changed since mount)
+        const freshGroup = await getGroupById(currentGroup.id);
+        const freshLeaderUid = freshGroup?.currentSession?.leaderUid ?? freshGroup?.createdBy;
+        if (user.uid === freshLeaderUid) {
+          // We are actually the leader now — fall through to leader path
+        } else {
+          const matchId = await pollForMatchId(currentGroup.id, signal);
+          if (!matchId) throw new Error('El tiempo de espera agotó. Intentá de nuevo.');
 
-        const match = await getMatchById(matchId);
-        if (!match) throw new Error('No se encontró el resultado.');
+          const match = await getMatchById(matchId);
+          if (!match) throw new Error('No se encontró el resultado.');
 
-        setCurrentMatch(
-          { recommendations: match.recommendations, groupInsight: match.groupInsight ?? '' },
-          matchId,
-        );
-        return matchId;
+          setCurrentMatch(
+            { recommendations: match.recommendations, groupInsight: match.groupInsight ?? '' },
+            matchId,
+          );
+
+          // Each follower writes only their own history entry
+          const followerEntry = {
+            matchId,
+            groupId: currentGroup.id,
+            groupName: currentGroup.name,
+            createdAt: Date.now(),
+            recommendations: match.recommendations,
+            moods: moods as Record<string, MoodId>,
+          };
+          const { addToHistory } = useMatchStore.getState();
+          addToHistory(followerEntry);
+          addMatchToUserHistory(user.uid, followerEntry).catch(() => {});
+
+          return matchId;
+        }
       }
 
       // ── Leader / Solo path: call Claude, save, broadcast matchId ──────────
@@ -93,6 +132,7 @@ export function useMatching() {
           users:     memberProfiles,
           moods:     moods as Record<string, MoodId>,
           platforms,
+          titleMap:  Object.keys(titleMap).length > 0 ? titleMap : undefined,
         });
       }
 
@@ -102,19 +142,21 @@ export function useMatching() {
         if (isSolo) {
           matchId = `solo-${Date.now()}`;
         } else if (currentGroup) {
-          matchId = await saveMatch(
+          matchId = await saveMatchAndBroadcast(
             currentGroup.id,
             members,
             output.recommendations,
             moods as Record<string, MoodId>,
             output.groupInsight,
           );
-          await setSessionMatchId(currentGroup.id, matchId);
+          // Advance the rotating leader turn after the match is committed.
+          incrementGroupTurn(currentGroup.id).catch(() => {});
         }
       }
 
       setCurrentMatch(output, matchId);
 
+      // Leader writes only their own history entry
       const historyEntry = {
         matchId,
         groupId: isSolo ? `solo-${user.uid}` : (currentGroup?.id ?? 'solo'),
@@ -129,16 +171,12 @@ export function useMatching() {
 
       if (!USE_MOCK) {
         await addMatchToUserHistory(user.uid, historyEntry);
-        if (!isSolo && currentGroup) {
-          await Promise.all(
-            members.filter(uid => uid !== user.uid).map(uid => addMatchToUserHistory(uid, historyEntry))
-          );
-        }
       }
 
       return matchId;
 
     } catch (e) {
+      console.error('[useMatching] runMatch error:', e);
       setError(String(e));
       return null;
     }

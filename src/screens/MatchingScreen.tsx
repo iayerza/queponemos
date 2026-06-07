@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,7 +21,9 @@ function friendlyError(raw: string): string {
     return 'Sin conexión. Verificá tu internet y volvé a intentar.';
   if (raw.includes('500') || raw.includes('overloaded'))
     return 'El servicio está ocupado. Volvé a intentar en un momento.';
-  return 'Algo salió mal. Volvé a intentar.';
+  if (raw.includes('no configurada') || raw.includes('inválida'))
+    return 'Problema de configuración. Contactá al soporte.';
+  return `Algo salió mal. (${raw.slice(0, 100)})`;
 }
 
 export default function MatchingScreen() {
@@ -29,8 +31,11 @@ export default function MatchingScreen() {
   const route = useRoute<Route>();
   const { runMatch, error, isLeader } = useMatching();
   const { isSolo } = useMatchStore();
+  const ranRef = useRef(false);
 
   useEffect(() => {
+    if (ranRef.current) return;
+    ranRef.current = true;
     runMatch().then(matchId => {
       if (matchId) nav.replace('Results', { matchId });
     });
@@ -60,11 +65,20 @@ export default function MatchingScreen() {
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.errorText}>{friendlyError(error)}</Text>
+          {!isLeader && (
+            <Text style={styles.followerHint}>Si el problema persiste, pedile a quien inició la búsqueda que vuelva a intentar.</Text>
+          )}
           <TouchableOpacity
-            onPress={() => nav.replace('Mood', route.params)}
+            onPress={() => { ranRef.current = false; nav.replace('Mood', route.params); }}
             style={styles.retryBtn}
           >
             <Text style={styles.retryText}>Volver a intentar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => nav.navigate('App')}
+            style={[styles.retryBtn, { marginTop: 4 }]}
+          >
+            <Text style={styles.retryText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -126,5 +140,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: Typography.small,
     fontWeight: Typography.medium,
+  },
+  followerHint: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: Typography.tiny,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: -4,
   },
 });
