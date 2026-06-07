@@ -11,18 +11,18 @@ export interface ColorPalette {
   isDark: boolean;
 }
 
-// Dark — azul-negro profundo, capas con contraste claro (HBO Max inspired)
+// Dark — azul-negro profundo, acento azul eléctrico
 export const darkColors: ColorPalette = {
   bg:  '#0C0C16',
   s1:  '#161622',
   s2:  '#1E1E2E',
   s3:  '#0A0A12',
   border:  '#2A2A40',
-  border2: '#3D1E28',
-  accent:       '#C8302A',
-  accentFaint:  'rgba(200,48,42,0.16)',
-  accentBorder: 'rgba(200,48,42,0.42)',
-  coral: '#E8503A',
+  border2: '#1A2448',
+  accent:       '#2563EB',
+  accentFaint:  'rgba(37,99,235,0.16)',
+  accentBorder: 'rgba(37,99,235,0.42)',
+  coral: '#60A5FA',
   text:  '#EEEEF8',
   sub:   '#6C6C90',
   faint: '#424260',
@@ -30,23 +30,23 @@ export const darkColors: ColorPalette = {
   warning: '#BA7517',
   danger:  '#C8302A',
   dangerFaint: 'rgba(200,48,42,0.16)',
-  redBg:     '#160A10',
-  redSubtle: 'rgba(200,48,42,0.12)',
+  redBg:     '#0E1428',
+  redSubtle: 'rgba(37,99,235,0.12)',
   isDark: true,
 };
 
-// Light — limpio, alto contraste (iOS system grays)
+// Light — limpio, alto contraste (iOS system grays), acento azul
 export const lightColors: ColorPalette = {
   bg:  '#F2F2F7',
   s1:  '#FFFFFF',
   s2:  '#E5E5EA',
   s3:  '#EAEAEF',
   border:  '#C7C7CC',
-  border2: '#F7D0D4',
-  accent:       '#C8302A',
-  accentFaint:  'rgba(200,48,42,0.09)',
-  accentBorder: 'rgba(200,48,42,0.32)',
-  coral: '#E8503A',
+  border2: '#C8D8FA',
+  accent:       '#2563EB',
+  accentFaint:  'rgba(37,99,235,0.10)',
+  accentBorder: 'rgba(37,99,235,0.35)',
+  coral: '#3B82F6',
   text:  '#1C1C1E',
   sub:   '#48484A',
   faint: '#8E8E93',
@@ -54,8 +54,8 @@ export const lightColors: ColorPalette = {
   warning: '#BA7517',
   danger:  '#C8302A',
   dangerFaint: 'rgba(200,48,42,0.09)',
-  redBg:     '#FFF0F1',
-  redSubtle: 'rgba(200,48,42,0.07)',
+  redBg:     '#EEF3FF',
+  redSubtle: 'rgba(37,99,235,0.08)',
   isDark: false,
 };
 
