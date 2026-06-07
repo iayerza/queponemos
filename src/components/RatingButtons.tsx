@@ -5,13 +5,26 @@ import { Colors, Typography } from '../constants/colors';
 import type { Rating } from '../services/firebase';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
+type IconType = FeatherName | 'double';
 
-const BUTTONS: { rating: Rating; icon: FeatherName; label: string }[] = [
-  { rating: 'loved',         icon: 'heart',       label: 'Me encantó' },
+const BUTTONS: { rating: Rating; icon: IconType; label: string }[] = [
+  { rating: 'loved',         icon: 'double',      label: 'Me encantó' },
   { rating: 'liked',         icon: 'thumbs-up',   label: 'Me gustó' },
   { rating: 'seen_disliked', icon: 'thumbs-down', label: 'No me gustó' },
   { rating: 'not_seen',      icon: 'eye-off',     label: 'No la vi' },
 ];
+
+function RatingIcon({ icon, color, size }: { icon: IconType; color: string; size: number }) {
+  if (icon === 'double') {
+    return (
+      <View style={{ width: size + 10, height: size, alignItems: 'center', justifyContent: 'center' }}>
+        <Feather name="thumbs-up" size={size - 4} color={color} style={{ position: 'absolute', left: 0, top: 2 }} />
+        <Feather name="thumbs-up" size={size}     color={color} style={{ position: 'absolute', right: 0 }} />
+      </View>
+    );
+  }
+  return <Feather name={icon} size={size} color={color} />;
+}
 
 interface Props {
   selected: Rating | null;
@@ -30,7 +43,9 @@ export default function RatingButtons({ selected, onSelect }: Props) {
             onPress={() => onSelect(b.rating)}
             activeOpacity={0.75}
           >
-            <Feather name={b.icon} size={20} color={isSelected ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
+            <View style={styles.iconWrap}>
+              <RatingIcon icon={b.icon} size={20} color={isSelected ? Colors.accent : Colors.sub} />
+            </View>
             <Text style={[styles.label, isSelected && styles.labelSelected]}>
               {b.label}
             </Text>
@@ -56,6 +71,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.accentBorder,
     backgroundColor: Colors.accentFaint,
   },
+  iconWrap: { marginBottom: 4, height: 24, justifyContent: 'center', alignItems: 'center' },
   label: { fontSize: Typography.tiny, color: Colors.sub, textAlign: 'center' },
   labelSelected: { color: Colors.accent },
 });
