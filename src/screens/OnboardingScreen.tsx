@@ -27,22 +27,21 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const nav   = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { user, updateRatings, markOnboardingDone } = useAuthStore();
+  const { user, updateRatings, markOnboardingDone, setAgeRange } = useAuthStore();
   const ageRange = route.params?.ageRange;
   const { titles, currentIndex, ratings, isLoading, error, rate, canSkip, isFinished } = useOnboarding(ageRange);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const fromProfile = route.params?.fromProfile === true;
 
-  async function handleFinish() {
+  function handleFinish() {
     if (!user) return;
-    if (!USE_MOCK) {
-      try { await completeOnboarding(user.uid); } catch { /* silenciar */ }
-    }
+    if (ageRange) setAgeRange(ageRange);
+    if (!USE_MOCK) completeOnboarding(user.uid, ageRange).catch(() => {});
     if (fromProfile) {
       nav.goBack();
     } else {
       markOnboardingDone();
-      nav.reset({ index: 0, routes: [{ name: 'App' }] });
+      // RootNavigator cambia al stack de App automáticamente
     }
   }
 

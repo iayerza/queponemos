@@ -265,7 +265,7 @@ export default function ProfileScreen() {
       </View>
 
       {ratingCount < 30 && (
-        <TouchableOpacity style={styles.onboardingBtn} onPress={() => nav.navigate('Onboarding', { fromProfile: true })} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.onboardingBtn} onPress={() => nav.navigate('AgeSelect', { fromProfile: true })} activeOpacity={0.85}>
           <Text style={styles.onboardingBtnText}>
             {ratingCount === 0 ? 'Completar onboarding' : `Completar calificaciones (${ratingCount}/30)`}
           </Text>
