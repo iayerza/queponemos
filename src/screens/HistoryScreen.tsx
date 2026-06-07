@@ -2,10 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography } from '../constants/colors';
 import { useColors } from '../context/ThemeContext';
 import { useMatchStore } from '../store/useMatchStore';
+import type { MatchEntry } from '../store/useMatchStore';
 import { useAuthStore } from '../store/useAuthStore';
+import type { RootStackParamList } from '../navigation/types';
 import { getPosterUrl } from '../services/tmdb';
 import {
   getPersonalWatchlist, removeFromPersonalWatchlist, removeFromPendingRatings,
@@ -29,12 +33,21 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 type Tab = 'history' | 'watchlist' | 'pending';
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
-  const { history } = useMatchStore();
+  const nav = useNavigation<Nav>();
+  const { history, setCurrentMatch, setSoloMode } = useMatchStore();
   const { user, updateRatings } = useAuthStore();
   const themeColors = useColors();
+
+  function handleViewMatch(entry: MatchEntry) {
+    const isSolo = entry.groupId.startsWith('solo-');
+    setSoloMode(isSolo);
+    setCurrentMatch({ recommendations: entry.recommendations, groupInsight: '' }, entry.matchId);
+    nav.navigate('Results', { matchId: entry.matchId });
+  }
 
   const [activeTab, setActiveTab] = useState<Tab>('history');
   const [watchlist, setWatchlist] = useState<PersonalWatchlistItem[]>([]);
@@ -176,14 +189,17 @@ export default function HistoryScreen() {
             </View>
           ) : (
             history.map(entry => (
-              <View key={entry.matchId} style={styles.card}>
+              <TouchableOpacity key={entry.matchId} style={styles.card} onPress={() => handleViewMatch(entry)} activeOpacity={0.75}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardDate}>
-                    {new Date(entry.createdAt).toLocaleDateString('es-AR', {
-                      day: 'numeric', month: 'long',
-                    })}
-                  </Text>
-                  <Text style={styles.cardGroup}>{entry.groupName}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardDate}>
+                      {new Date(entry.createdAt).toLocaleDateString('es-AR', {
+                        day: 'numeric', month: 'long',
+                      })}
+                    </Text>
+                    <Text style={styles.cardGroup}>{entry.groupName}</Text>
+                  </View>
+                  <Feather name="chevron-right" size={18} color={Colors.faint} />
                 </View>
                 {entry.recommendations.map(r => {
                   const st = STATUS_LABELS[r.groupStatus] ?? STATUS_LABELS.pending;
@@ -207,7 +223,7 @@ export default function HistoryScreen() {
                     </View>
                   );
                 })}
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </ScrollView>
@@ -374,15 +390,15 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     paddingBottom: 10,
+    gap: 8,
   },
   cardDate: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body },
-  cardGroup: { color: Colors.sub, fontSize: Typography.small },
+  cardGroup: { color: Colors.sub, fontSize: Typography.small, marginTop: 2 },
   recRow: {
     flexDirection: 'row',
     alignItems: 'center',
