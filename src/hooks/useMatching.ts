@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
   saveMatchAndBroadcast, pollForMatchId, getMatchById,
-  getUserProfile, addMatchToUserHistory,
+  getUserProfile, addMatchToUserHistory, getGroupById, incrementGroupTurn,
 } from '../services/firebase';
 import { useAuthStore }  from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
@@ -15,12 +15,14 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 export function useMatching() {
   const [error, setError] = useState<string | null>(null);
 
-  const { user }                          = useAuthStore();
-  const { currentGroup }                  = useGroupStore();
+  const { user }                           = useAuthStore();
+  const { currentGroup }                   = useGroupStore();
   const { moods, setCurrentMatch, isSolo } = useMatchStore();
 
-  // The group creator is always the "leader" who calls Claude.
-  const isLeader = isSolo || !currentGroup || user?.uid === currentGroup.createdBy;
+  // Dynamic leader: whoever called startGroupSession sets leaderUid.
+  // Fallback to createdBy for sessions started before this field existed.
+  const leaderUid = currentGroup?.currentSession?.leaderUid ?? currentGroup?.createdBy;
+  const isLeader = isSolo || !currentGroup || user?.uid === leaderUid;
 
   const runMatch = useCallback(async (): Promise<string | null> => {
     if (!user) return null;
@@ -30,17 +32,38 @@ export function useMatching() {
     try {
       // ── Follower path: wait for leader to produce a matchId ────────────────
       if (!isLeader && !USE_MOCK && currentGroup) {
-        const matchId = await pollForMatchId(currentGroup.id);
-        if (!matchId) throw new Error('El tiempo de espera agotó. Intentá de nuevo.');
+        // Re-read fresh group to confirm leader (may have changed since mount)
+        const freshGroup = await getGroupById(currentGroup.id);
+        const freshLeaderUid = freshGroup?.currentSession?.leaderUid ?? freshGroup?.createdBy;
+        if (user.uid === freshLeaderUid) {
+          // We are actually the leader now — fall through to leader path
+        } else {
+          const matchId = await pollForMatchId(currentGroup.id);
+          if (!matchId) throw new Error('El tiempo de espera agotó. Intentá de nuevo.');
 
-        const match = await getMatchById(matchId);
-        if (!match) throw new Error('No se encontró el resultado.');
+          const match = await getMatchById(matchId);
+          if (!match) throw new Error('No se encontró el resultado.');
 
-        setCurrentMatch(
-          { recommendations: match.recommendations, groupInsight: match.groupInsight ?? '' },
-          matchId,
-        );
-        return matchId;
+          setCurrentMatch(
+            { recommendations: match.recommendations, groupInsight: match.groupInsight ?? '' },
+            matchId,
+          );
+
+          // Each follower writes only their own history entry
+          const followerEntry = {
+            matchId,
+            groupId: currentGroup.id,
+            groupName: currentGroup.name,
+            createdAt: Date.now(),
+            recommendations: match.recommendations,
+            moods: moods as Record<string, MoodId>,
+          };
+          const { addToHistory } = useMatchStore.getState();
+          addToHistory(followerEntry);
+          addMatchToUserHistory(user.uid, followerEntry).catch(() => {});
+
+          return matchId;
+        }
       }
 
       // ── Leader / Solo path: call Claude, save, broadcast matchId ──────────
@@ -109,11 +132,14 @@ export function useMatching() {
             moods as Record<string, MoodId>,
             output.groupInsight,
           );
+          // Advance the rotating leader turn after the match is committed.
+          incrementGroupTurn(currentGroup.id).catch(() => {});
         }
       }
 
       setCurrentMatch(output, matchId);
 
+      // Leader writes only their own history entry
       const historyEntry = {
         matchId,
         groupId: isSolo ? `solo-${user.uid}` : (currentGroup?.id ?? 'solo'),
@@ -128,11 +154,6 @@ export function useMatching() {
 
       if (!USE_MOCK) {
         await addMatchToUserHistory(user.uid, historyEntry);
-        if (!isSolo && currentGroup) {
-          await Promise.all(
-            members.filter(uid => uid !== user.uid).map(uid => addMatchToUserHistory(uid, historyEntry))
-          );
-        }
       }
 
       return matchId;

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,7 +10,7 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import WatchedRatingSheet from '../components/WatchedRatingSheet';
-import { updateTitleStatus, addToPersonalWatchlist, rateTitleAndUpdateProfile } from '../services/firebase';
+import { updateTitleStatus, addToPersonalWatchlist, addToPendingRatings, rateTitleAndUpdateProfile } from '../services/firebase';
 import type { Rating } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import type { Recommendation } from '../services/claude';
@@ -25,14 +25,24 @@ export default function ResultsScreen() {
   const { currentGroup } = useGroupStore();
   const { user } = useAuthStore();
   const themeColors = useColors();
-  const fadeAnims = useRef(
-    Array.from({ length: 3 }, () => new Animated.Value(1))
-  ).current;
+  const fadeAnimsRef = useRef<Animated.Value[]>([]);
+  function getFadeAnim(i: number): Animated.Value {
+    if (!fadeAnimsRef.current[i]) fadeAnimsRef.current[i] = new Animated.Value(1);
+    return fadeAnimsRef.current[i];
+  }
 
   const [ratingTarget, setRatingTarget] = useState<{ rec: Recommendation; idx: number } | null>(null);
 
+  function celebrateAndGoHome() {
+    Alert.alert(
+      '¡Encontraste queponemos! 🍿',
+      'Acordate de puntuar el título después de verlo.',
+      [{ text: '¡Vamos!', onPress: () => nav.navigate('App') }],
+    );
+  }
+
   async function handleAction(idx: number, status: Recommendation['groupStatus']) {
-    const anim = fadeAnims[idx];
+    const anim = getFadeAnim(idx);
     if (anim) {
       Animated.timing(anim, { toValue: 0.3, duration: 200, useNativeDriver: true }).start();
     }
@@ -55,6 +65,12 @@ export default function ResultsScreen() {
               addedAt: Date.now(),
             });
           } catch { /* silenciar */ }
+        } else if (status === 'chosen' && user && rec.tmdbId) {
+          try {
+            const groupName = isSolo ? 'Solo' : (currentGroup?.name ?? 'Grupo');
+            await addToPendingRatings(user.uid, currentMatchId, groupName, rec);
+          } catch { /* silenciar */ }
+          celebrateAndGoHome();
         } else if (rec.tmdbId) {
           try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as import('../services/firebase').TitleStatus); }
           catch { /* silenciar */ }
@@ -85,7 +101,7 @@ export default function ResultsScreen() {
 
   if (!currentMatch) {
     return (
-      <View style={styles.empty}>
+      <View style={[styles.empty, { backgroundColor: themeColors.bg }]}>
         <Text style={styles.emptyText}>No hay resultados</Text>
         <TouchableOpacity onPress={() => nav.goBack()}>
           <Text style={styles.backLink}>← Volver</Text>
@@ -113,8 +129,8 @@ export default function ResultsScreen() {
         </View>
       ) : null}
 
-      {currentMatch.recommendations.map((rec, i) => (
-        <Animated.View key={`${rec.title}-${i}`} style={{ opacity: fadeAnims[i] }}>
+      {(currentMatch.recommendations ?? []).map((rec, i) => (
+        <Animated.View key={`${rec.title}-${i}`} style={{ opacity: getFadeAnim(i) }}>
           <ResultCard
             rec={rec}
             onAction={status => handleAction(i, status)}
@@ -133,7 +149,7 @@ export default function ResultsScreen() {
 
       <TouchableOpacity
         style={styles.backBtn}
-        onPress={() => nav.navigate('App')}
+        onPress={() => !isSolo && currentGroup ? nav.navigate('Group', { groupId: currentGroup.id }) : nav.navigate('App')}
         activeOpacity={0.8}
       >
         <Text style={styles.backBtnText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>

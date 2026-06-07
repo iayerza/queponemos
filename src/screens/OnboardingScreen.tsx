@@ -33,16 +33,14 @@ export default function OnboardingScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const fromProfile = route.params?.fromProfile === true;
 
-  async function handleFinish() {
+  function handleFinish() {
     if (!user) return;
-    if (!USE_MOCK) {
-      try { await completeOnboarding(user.uid); } catch { /* silenciar */ }
-    }
     if (fromProfile) {
+      if (!USE_MOCK) completeOnboarding(user.uid).catch(() => {});
       nav.goBack();
     } else {
-      markOnboardingDone();
-      nav.reset({ index: 0, routes: [{ name: 'App' }] });
+      markOnboardingDone(); // RootNavigator handles the transition
+      if (!USE_MOCK) completeOnboarding(user.uid).catch(() => {});
     }
   }
 
@@ -121,7 +119,6 @@ export default function OnboardingScreen() {
             <>
               <TitlePoster title={current} />
               <View style={styles.ratingSection}>
-                <Text style={styles.ratingQuestion}>¿La viste?</Text>
                 <RatingButtons
                   selected={ratings[current.tmdbId] ?? null}
                   onSelect={handleRate}
@@ -132,9 +129,8 @@ export default function OnboardingScreen() {
         </Animated.View>
 
         {canSkip && (
-          <TouchableOpacity style={styles.skipBtn} onPress={handleFinish} activeOpacity={0.7}>
-            <Text style={styles.skipText}>Ya tenés suficiente contexto</Text>
-            <Feather name="chevron-right" size={14} color={Colors.sub} />
+          <TouchableOpacity style={styles.continueBtn} onPress={handleFinish} activeOpacity={0.85}>
+            <Text style={styles.continueBtnText}>Continuar →</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -153,15 +149,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 12,
   },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   counter: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium },
   counterTotal: { color: Colors.faint, fontWeight: Typography.regular },
-  skipHeaderText: { color: Colors.faint, fontSize: Typography.small },
+  skipHeaderText: { color: Colors.faint, fontSize: Typography.body },
 
-  progressWrap: { paddingHorizontal: 20, marginBottom: 16 },
+  progressWrap: { paddingHorizontal: 24, marginBottom: 16 },
   progressTrack: {
     height: 5,
     backgroundColor: Colors.s2,
@@ -185,26 +181,17 @@ const styles = StyleSheet.create({
   },
   progressHint: {
     color: Colors.faint,
-    fontSize: Typography.tiny,
+    fontSize: Typography.small,
   },
 
-  scroll: { paddingHorizontal: 20, paddingTop: 4 },
+  scroll: { paddingHorizontal: 24, paddingTop: 4 },
   ratingSection: { marginTop: 20, gap: 12 },
-  ratingQuestion: {
-    color: Colors.sub,
-    fontSize: Typography.tiny,
-    fontWeight: Typography.medium,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-
-  skipBtn: {
-    flexDirection: 'row',
+  continueBtn: {
+    marginTop: 28,
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 24,
-    paddingVertical: 12,
   },
-  skipText: { color: Colors.sub, fontSize: Typography.small },
+  continueBtnText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
 });

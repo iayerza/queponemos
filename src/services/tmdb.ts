@@ -28,6 +28,7 @@ export interface NormalizedTitle {
   rating: number;
   posterPath: string | null;
   synopsis: string;
+  runtime?: number;
 }
 
 const GENRE_MAP: Record<number, string> = {
@@ -42,9 +43,15 @@ const GENRE_MAP: Record<number, string> = {
 };
 
 async function tmdbGet(path: string): Promise<unknown> {
-  const res = await fetch(tmdbUrl(path), { headers: tmdbHeaders() });
-  if (!res.ok) throw new Error(`TMDB ${res.status}: ${path}`);
-  return res.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const res = await fetch(tmdbUrl(path), { headers: tmdbHeaders(), signal: controller.signal });
+    if (!res.ok) throw new Error(`TMDB ${res.status}: ${path}`);
+    return res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function fetchTitle(
@@ -60,6 +67,10 @@ export async function fetchTitle(
     : (data.first_air_date as string);
   const year = dateStr ? parseInt(dateStr.slice(0, 4), 10) : 0;
   const genreIds = (data.genres as { id: number }[]).map(g => g.id);
+  const rawRuntime = type === 'movie'
+    ? (data.runtime as number | undefined)
+    : ((data.episode_run_time as number[] | undefined)?.[0]);
+
   return {
     id: tmdbId,
     tmdbId,
@@ -70,6 +81,7 @@ export async function fetchTitle(
     rating: parseFloat(((data.vote_average as number) ?? 0).toFixed(1)),
     posterPath: (data.poster_path as string | null) ?? null,
     synopsis: (data.overview as string) ?? '',
+    runtime: rawRuntime && rawRuntime > 0 ? rawRuntime : undefined,
   };
 }
 
