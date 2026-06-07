@@ -25,6 +25,7 @@ import {
   addDoc,
   serverTimestamp,
   arrayUnion,
+  writeBatch,
 } from 'firebase/firestore';
 import type { NormalizedTitle } from './tmdb';
 import type { TasteProfile } from '../utils/tasteProfile';
@@ -369,6 +370,11 @@ export function onGroupChange(
 
 // ─── Matches ────────────────────────────────────────────────────────────────
 
+// Strips undefined values so Firestore doesn't reject the document.
+function toFirestore<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data));
+}
+
 export async function saveMatch(
   groupId: string,
   members: string[],
@@ -379,12 +385,38 @@ export async function saveMatch(
   const ref = await addDoc(collection(db(), 'matches'), {
     groupId,
     members,
-    recommendations: recs,
+    recommendations: toFirestore(recs),
     moods,
     groupInsight: groupInsight ?? '',
     createdAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+// Atomic: saves match doc + writes matchId to group in a single batch.
+// Followers polling currentSession.matchId will see it immediately after.
+export async function saveMatchAndBroadcast(
+  groupId: string,
+  members: string[],
+  recs: Recommendation[],
+  moods: Record<string, MoodId>,
+  groupInsight?: string,
+): Promise<string> {
+  const matchRef = doc(collection(db(), 'matches'));
+  const batch = writeBatch(db());
+  batch.set(matchRef, {
+    groupId,
+    members,
+    recommendations: toFirestore(recs),
+    moods,
+    groupInsight: groupInsight ?? '',
+    createdAt: serverTimestamp(),
+  });
+  batch.update(doc(db(), 'groups', groupId), {
+    'currentSession.matchId': matchRef.id,
+  });
+  await batch.commit();
+  return matchRef.id;
 }
 
 export async function getGroupMatches(groupId: string): Promise<MatchDoc[]> {
@@ -422,7 +454,7 @@ export async function addMatchToUserHistory(
   uid: string,
   entry: HistoryEntry,
 ): Promise<void> {
-  await setDoc(doc(db(), 'users', uid, 'history', entry.matchId), entry);
+  await setDoc(doc(db(), 'users', uid, 'history', entry.matchId), toFirestore(entry));
 }
 
 export async function getUserHistory(uid: string): Promise<HistoryEntry[]> {

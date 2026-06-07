@@ -264,7 +264,10 @@ export default function MoodScreen() {
         {showSkip && !allReady && (
           <TouchableOpacity
             style={styles.skipBtn}
-            onPress={() => nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId })}
+            onPress={() => {
+              setNavigating(true);
+              nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
+            }}
           >
             <Text style={styles.skipText}>Omitir y continuar solo</Text>
           </TouchableOpacity>

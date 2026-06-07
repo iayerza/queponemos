@@ -81,6 +81,11 @@ export default function RootNavigator() {
 
     setLoading(true);
     const unsub = onAuthChange(async u => {
+      if (!u) {
+        // Limpiar stores al cerrar sesión para que no queden datos del usuario anterior
+        useGroupStore.getState().reset();
+        useMatchStore.getState().reset();
+      }
       setUser(u);
       if (u) {
         try {

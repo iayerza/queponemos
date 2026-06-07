@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
-  saveMatch, setSessionMatchId, pollForMatchId, getMatchById,
+  saveMatchAndBroadcast, pollForMatchId, getMatchById,
   getUserProfile, addMatchToUserHistory,
 } from '../services/firebase';
 import { useAuthStore }  from '../store/useAuthStore';
@@ -102,14 +102,13 @@ export function useMatching() {
         if (isSolo) {
           matchId = `solo-${Date.now()}`;
         } else if (currentGroup) {
-          matchId = await saveMatch(
+          matchId = await saveMatchAndBroadcast(
             currentGroup.id,
             members,
             output.recommendations,
             moods as Record<string, MoodId>,
             output.groupInsight,
           );
-          await setSessionMatchId(currentGroup.id, matchId);
         }
       }
 
@@ -139,6 +138,7 @@ export function useMatching() {
       return matchId;
 
     } catch (e) {
+      console.error('[useMatching] runMatch error:', e);
       setError(String(e));
       return null;
     }
