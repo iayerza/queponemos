@@ -21,7 +21,9 @@ function friendlyError(raw: string): string {
     return 'Sin conexión. Verificá tu internet y volvé a intentar.';
   if (raw.includes('500') || raw.includes('overloaded'))
     return 'El servicio está ocupado. Volvé a intentar en un momento.';
-  return 'Algo salió mal. Volvé a intentar.';
+  if (raw.includes('no configurada') || raw.includes('inválida'))
+    return 'Problema de configuración. Contactá al soporte.';
+  return `Algo salió mal. (${raw.slice(0, 100)})`;
 }
 
 export default function MatchingScreen() {

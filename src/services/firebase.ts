@@ -393,6 +393,11 @@ export function onGroupChange(
 
 // ─── Matches ────────────────────────────────────────────────────────────────
 
+/** Firestore rejects `undefined` inside arrays; strip them via JSON round-trip. */
+function toFirestore<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data));
+}
+
 export async function saveMatch(
   groupId: string,
   members: string[],
@@ -403,7 +408,7 @@ export async function saveMatch(
   const ref = await addDoc(collection(db(), 'matches'), {
     groupId,
     members,
-    recommendations: recs,
+    recommendations: toFirestore(recs),
     moods,
     groupInsight: groupInsight ?? '',
     createdAt: serverTimestamp(),
@@ -446,7 +451,7 @@ export async function addMatchToUserHistory(
   uid: string,
   entry: HistoryEntry,
 ): Promise<void> {
-  await setDoc(doc(db(), 'users', uid, 'history', entry.matchId), entry);
+  await setDoc(doc(db(), 'users', uid, 'history', entry.matchId), toFirestore(entry));
 }
 
 export async function getUserHistory(uid: string): Promise<HistoryEntry[]> {

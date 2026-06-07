@@ -160,6 +160,7 @@ export function useMatching() {
       return matchId;
 
     } catch (e) {
+      console.error('[useMatching] runMatch error:', e);
       setError(String(e));
       return null;
     }
