@@ -81,6 +81,11 @@ export default function RootNavigator() {
 
     setLoading(true);
     const unsub = onAuthChange(async u => {
+      if (!u) {
+        // Limpiar stores al cerrar sesión para que no queden datos del usuario anterior
+        useGroupStore.getState().reset();
+        useMatchStore.getState().reset();
+      }
       setUser(u);
       if (u) {
         try {
@@ -89,9 +94,12 @@ export default function RootNavigator() {
             getUserHistory(u.uid),
           ]);
           setGroups(groups);
-          if (history.length > 0) setHistory(history);
+          setHistory(history);
           registerPushToken(u.uid).catch(() => {});
         } catch { /* silenciar */ }
+      } else {
+        useGroupStore.getState().reset();
+        useMatchStore.getState().reset();
       }
     });
     return unsub;
