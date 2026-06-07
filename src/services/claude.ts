@@ -177,7 +177,7 @@ ${input.platforms.map(id => {
   const p = PLATFORMS.find(pl => pl.id === id);
   return `  "${id}" → ${p?.name ?? id}`;
 }).join('\n')}
-REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar en alguna de las plataformas listadas. El campo "platform" debe ser uno de los IDs entre comillas de arriba.
+REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar en alguna de las plataformas listadas. El campo "platform" debe ser uno de los IDs entre comillas de arriba. Si hay más de una plataforma disponible, distribuí los títulos entre ellas (no pongas los 3 en la misma plataforma).
 
 REGLAS:
 1. NUNCA recomendés títulos marcados como "ya visto" en los perfiles.
