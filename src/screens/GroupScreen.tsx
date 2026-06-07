@@ -91,10 +91,10 @@ export default function GroupScreen() {
 
   async function handleFindMatch() {
     setCurrentGroup(group);
-    // Marca al líder de esta sesión y limpia moods/matchId.
-    // El turno NO se incrementa acá — solo cuando el líder cierra un match (en useMatching).
+    // Inicializar sesión antes de navegar: si el líder elige mood antes de que
+    // startGroupSession termine, ese call borra los moods y el seguidor queda atascado.
     if (!USE_MOCK && user) {
-      startGroupSession(group.id, user.uid).catch(() => {});
+      await startGroupSession(group.id, user.uid).catch(() => {});
     }
     nav.navigate('Mood', { groupId: group.id });
     if (!USE_MOCK && user) {
