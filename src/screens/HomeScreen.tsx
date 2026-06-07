@@ -1,18 +1,17 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  TextInput, Modal, Alert, Image, Dimensions,
-  LayoutAnimation, Platform, UIManager,
+  TextInput, Modal, Alert, Image,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Ellipse } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography } from '../constants/colors';
 import { useColors } from '../context/ThemeContext';
-import { LogoWordmark } from '../components/Logo';
+import { LogoMark, LogoWordmark } from '../components/Logo';
 import GroupCard from '../components/GroupCard';
 import PlatformLogo from '../components/PlatformLogo';
 import { useAuthStore } from '../store/useAuthStore';
@@ -32,41 +31,33 @@ import { MOCK_GROUP } from '../utils/mock';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-const SCREEN_H = Dimensions.get('window').height;
 
-if (Platform.OS === 'android') {
-  UIManager.setLayoutAnimationEnabledExperimental?.(true);
-}
+const POSTER_W = 80;
+const POSTER_H = 120;
 
-const POSTER_SM = { w: 70, h: 105 };
-const POSTER_LG = { w: 100, h: 150 };
-
-type PosterRowId = 'movies' | 'series' | 'watchlist';
 interface PosterItem { posterPath: string | null; title: string; platform: PlatformId }
 
 export default function HomeScreen() {
   const insets  = useSafeAreaInsets();
   const nav     = useNavigation<Nav>();
-  const { user, setPlatforms }                                              = useAuthStore();
+  const { user, setPlatforms }                                                        = useAuthStore();
   const { groups, addGroup, setCurrentGroup, pendingInviteCode, setPendingInviteCode } = useGroupStore();
-  const { history }                                                         = useMatchStore();
+  const { history }                                                                   = useMatchStore();
   const themeColors = useColors();
   const firstName   = user?.displayName?.split(' ')[0] ?? '';
 
-  const [createModal, setCreateModal]           = useState(false);
-  const [joinModal,   setJoinModal]             = useState(false);
-  const [groupName,   setGroupName]             = useState('');
-  const [joinCode,    setJoinCode]              = useState('');
-  const [selPlatforms, setSelPlatforms]         = useState<PlatformId[]>(['netflix']);
-  const [working,     setWorking]               = useState(false);
-  const [scannerVisible, setScannerVisible]     = useState(false);
+  const [createModal,       setCreateModal]       = useState(false);
+  const [joinModal,         setJoinModal]         = useState(false);
+  const [groupName,         setGroupName]         = useState('');
+  const [joinCode,          setJoinCode]          = useState('');
+  const [selPlatforms,      setSelPlatforms]      = useState<PlatformId[]>(['netflix']);
+  const [working,           setWorking]           = useState(false);
+  const [scannerVisible,    setScannerVisible]    = useState(false);
   const [soloPlatformModal, setSoloPlatformModal] = useState(false);
-  const [soloPlatforms, setSoloPlatforms]       = useState<PlatformId[]>([]);
-  const [watchlist,   setWatchlist]             = useState<PersonalWatchlistItem[]>([]);
-  const [pendingCount, setPendingCount]         = useState(0);
-  const [notifDismissed, setNotifDismissed]     = useState(false);
-  const [activePosterRow, setActivePosterRow]   = useState<PosterRowId>('movies');
-  const sectionTops = useRef<Partial<Record<PosterRowId, number>>>({});
+  const [soloPlatforms,     setSoloPlatforms]     = useState<PlatformId[]>([]);
+  const [watchlist,         setWatchlist]         = useState<PersonalWatchlistItem[]>([]);
+  const [pendingCount,      setPendingCount]      = useState(0);
+  const [notifDismissed,    setNotifDismissed]    = useState(false);
 
   const { recentMovies, recentSeries } = useMemo(() => {
     const recentMovies: PosterItem[] = [];
@@ -188,42 +179,20 @@ export default function HomeScreen() {
     finally { setWorking(false); }
   }
 
-  function handleScroll(e: { nativeEvent: { contentOffset: { y: number } } }) {
-    const y      = e.nativeEvent.contentOffset.y;
-    const focusY = y + SCREEN_H * 0.35;
-    const rows: PosterRowId[] = ['movies', 'series', 'watchlist'];
-    let best: PosterRowId = activePosterRow;
-    let bestDist = Infinity;
-    for (const row of rows) {
-      const top = sectionTops.current[row];
-      if (top === undefined) continue;
-      const dist = Math.abs(top - focusY);
-      if (dist < bestDist) { bestDist = dist; best = row; }
-    }
-    if (best !== activePosterRow) {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      setActivePosterRow(best);
-    }
-  }
-
   const watchlistItems: PosterItem[] = watchlist.map(item => ({
     posterPath: item.posterPath, title: item.title, platform: item.platform,
   }));
 
-  function renderPosterRow(items: PosterItem[], rowId: PosterRowId) {
-    const isActive = activePosterRow === rowId;
-    const pw = isActive ? POSTER_LG.w : POSTER_SM.w;
-    const ph = isActive ? POSTER_LG.h : POSTER_SM.h;
+  function renderPosterRow(items: PosterItem[]) {
     return (
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
+        horizontal showsHorizontalScrollIndicator={false}
         style={styles.posterRowScroll}
         contentContainerStyle={styles.posterRowContent}
         nestedScrollEnabled
       >
         {items.map((item, i) => (
-          <View key={i} style={[styles.posterCard, { width: pw, height: ph }]}>
+          <View key={i} style={styles.posterCard}>
             {item.posterPath ? (
               <Image
                 source={{ uri: getPosterUrl(item.posterPath) ?? '' }}
@@ -236,7 +205,7 @@ export default function HomeScreen() {
               </View>
             )}
             <View style={styles.posterPlatformBadge}>
-              <PlatformLogo id={item.platform} size={13} />
+              <PlatformLogo id={item.platform} size={18} />
             </View>
           </View>
         ))}
@@ -244,13 +213,13 @@ export default function HomeScreen() {
     );
   }
 
+  const hasHistory = recentMovies.length > 0 || recentSeries.length > 0 || watchlistItems.length > 0;
+
   return (
     <View style={[styles.root, { backgroundColor: themeColors.bg }]}>
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }}
+        contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32 }}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
       >
 
         {/* ── Header ─────────────────────────────────────────────── */}
@@ -259,44 +228,13 @@ export default function HomeScreen() {
           {firstName ? <Text style={styles.greeting}>Hola, {firstName}</Text> : null}
         </View>
 
-        {/* ── Hero ───────────────────────────────────────────────── */}
-        <TouchableOpacity onPress={handleSoloPress} activeOpacity={0.88} style={styles.heroWrap}>
-          <LinearGradient
-            colors={['#0D27A0', '#1B50D4', '#2A6AEC']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={styles.heroGrad}
-          >
-            <View style={styles.heroVenn} pointerEvents="none">
-              <Svg width={190} height={190} viewBox="0 0 28 28" fill="none">
-                <Circle cx={10} cy={14} r={8} fill="white" fillOpacity={0.07} />
-                <Circle cx={18} cy={14} r={8} fill="white" fillOpacity={0.07} />
-              </Svg>
-            </View>
-            <View style={styles.heroTop}>
-              <View style={styles.heroPlayBtn}>
-                <Feather name="play" size={26} color="#fff" />
-              </View>
-              <View style={styles.heroText}>
-                <Text style={styles.heroTitle}>¿Qué ves hoy?</Text>
-                <Text style={styles.heroSub}>Tus plataformas · tu mood</Text>
-              </View>
-              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.45)" />
-            </View>
-            <Text style={styles.heroTagline}>LA PELI PARA HOY</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/* ── Notificación ───────────────────────────────────────── */}
+        {/* ── Notificación pendientes ─────────────────────────────── */}
         {pendingCount > 0 && !notifDismissed && (
           <View style={styles.notif}>
             <View style={styles.notifIco}>
               <Feather name="star" size={14} color={Colors.success} />
             </View>
-            <TouchableOpacity
-              style={styles.notifBody}
-              onPress={() => (nav as any).navigate('History')}
-              activeOpacity={0.75}
-            >
+            <TouchableOpacity style={styles.notifBody} onPress={() => (nav as any).navigate('History')} activeOpacity={0.75}>
               <Text style={styles.notifTitle}>{pendingCount} títulos esperan tu valoración</Text>
               <Text style={styles.notifSub}>Calificá lo que viste para mejorar las recomendaciones →</Text>
             </TouchableOpacity>
@@ -306,37 +244,65 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* ── Pelis recientes ────────────────────────────────────── */}
-        {recentMovies.length > 0 && (
-          <View style={styles.section} onLayout={e => { sectionTops.current.movies = e.nativeEvent.layout.y; }}>
-            <Text style={styles.sectionTitle}>Pelis recientes</Text>
-            {renderPosterRow(recentMovies, 'movies')}
-          </View>
-        )}
+        {/* ── Hero: ¿Qué ven hoy? ────────────────────────────────── */}
+        <TouchableOpacity onPress={handleSoloPress} activeOpacity={0.88} style={styles.heroWrap}>
+          <LinearGradient
+            colors={['#0D27A0', '#1B50D4', '#2A6AEC']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={styles.heroGrad}
+          >
+            {/* Venn decorativo */}
+            <View style={styles.heroVenn} pointerEvents="none">
+              <Svg width={160} height={160} viewBox="0 0 28 28" fill="none">
+                <Circle cx={10} cy={14} r={8}  fill="white" fillOpacity={0.07} />
+                <Circle cx={18} cy={14} r={8}  fill="white" fillOpacity={0.07} />
+                <Ellipse cx={14} cy={14} rx={4} ry={6.8} fill="white" fillOpacity={0.06} />
+              </Svg>
+            </View>
 
-        {/* ── Series recientes ───────────────────────────────────── */}
-        {recentSeries.length > 0 && (
-          <View style={styles.section} onLayout={e => { sectionTops.current.series = e.nativeEvent.layout.y; }}>
-            <Text style={styles.sectionTitle}>Series recientes</Text>
-            {renderPosterRow(recentSeries, 'series')}
-          </View>
-        )}
+            <View style={styles.heroTop}>
+              {/* LogoMark como ícono principal — no un play */}
+              <LogoMark size={36} />
+              <View style={styles.heroText}>
+                <Text style={styles.heroTitle}>¿Qué ven hoy?</Text>
+                <Text style={styles.heroSub}>Elegí tu mood · Claude recomienda</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.45)" />
+            </View>
 
-        {/* ── Para después ───────────────────────────────────────── */}
-        {watchlistItems.length > 0 && (
-          <View style={styles.section} onLayout={e => { sectionTops.current.watchlist = e.nativeEvent.layout.y; }}>
-            <Text style={styles.sectionTitle}>Para después</Text>
-            {renderPosterRow(watchlistItems, 'watchlist')}
-          </View>
-        )}
+            {/* Etiqueta de plataformas configuradas */}
+            {(user?.platforms ?? []).length > 0 && (
+              <View style={styles.heroPlatforms}>
+                {(user!.platforms!).slice(0, 4).map(pid => (
+                  <PlatformLogo key={pid} id={pid} size={14} />
+                ))}
+                {(user!.platforms!).length > 4 && (
+                  <Text style={styles.heroPlatformsMore}>+{(user!.platforms!).length - 4}</Text>
+                )}
+              </View>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
 
-        {/* ── Grupos ─────────────────────────────────────────────── */}
+        {/* ── Tus grupos ─────────────────────────────────────────── */}
         <View style={styles.section}>
+          <Text style={styles.sectionEyebrow}>Con quién ven</Text>
           <Text style={styles.sectionTitle}>Tus grupos</Text>
-          {groups.length === 0 && <Text style={styles.emptyText}>Todavía no tenés grupos. ¡Creá uno!</Text>}
+
+          {groups.length === 0 && (
+            <View style={styles.emptyGroups}>
+              <Svg width={40} height={40} viewBox="0 0 28 28" fill="none">
+                <Circle cx={10} cy={14} r={8} fill={Colors.accentFaint} stroke={Colors.accentBorder} strokeWidth={1} />
+                <Circle cx={18} cy={14} r={8} fill={Colors.accentFaint} stroke={Colors.accentBorder} strokeWidth={1} />
+              </Svg>
+              <Text style={styles.emptyGroupsText}>Invitá a alguien para encontrar la peli perfecta para los dos</Text>
+            </View>
+          )}
+
           {groups.map(g => (
             <GroupCard key={g.id} group={g} onPress={() => handleGroupPress(g.id)} />
           ))}
+
           <View style={styles.groupBtns}>
             <TouchableOpacity style={styles.createBtn} onPress={() => setCreateModal(true)} activeOpacity={0.8}>
               <Text style={styles.createBtnText}>+ Crear grupo</Text>
@@ -346,6 +312,39 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* ── Historial de sesiones ───────────────────────────────── */}
+        {hasHistory && (
+          <View style={styles.historySeparator}>
+            <View style={styles.historySeparatorLine} />
+            <Text style={styles.historySeparatorText}>Lo que recomendamos antes</Text>
+            <View style={styles.historySeparatorLine} />
+          </View>
+        )}
+
+        {recentMovies.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionEyebrow}>Sesiones anteriores</Text>
+            <Text style={styles.sectionTitle}>Pelis</Text>
+            {renderPosterRow(recentMovies)}
+          </View>
+        )}
+
+        {recentSeries.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionEyebrow}>Sesiones anteriores</Text>
+            <Text style={styles.sectionTitle}>Series</Text>
+            {renderPosterRow(recentSeries)}
+          </View>
+        )}
+
+        {watchlistItems.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionEyebrow}>Guardadas</Text>
+            <Text style={styles.sectionTitle}>Para después</Text>
+            {renderPosterRow(watchlistItems)}
+          </View>
+        )}
 
       </ScrollView>
 
@@ -460,28 +459,13 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 24, marginBottom: 18,
+    paddingHorizontal: 24, marginBottom: 16,
   },
   greeting: { fontFamily: Typography.fontRegular, fontSize: Typography.small, color: Colors.sub },
 
-  // Hero
-  heroWrap:    { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden', marginBottom: 20 },
-  heroGrad:    { borderRadius: 20, paddingHorizontal: 22, paddingTop: 22, paddingBottom: 18, minHeight: 148, justifyContent: 'space-between' },
-  heroVenn:    { position: 'absolute', right: -30, top: -30 },
-  heroTop:     { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  heroPlayBtn: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  heroText:    { flex: 1 },
-  heroTitle:   { color: '#fff', fontSize: Typography.h2, fontWeight: Typography.medium, letterSpacing: -0.3 },
-  heroSub:     { color: 'rgba(255,255,255,0.65)', fontSize: Typography.small, marginTop: 4 },
-  heroTagline: { color: 'rgba(255,255,255,0.35)', fontSize: Typography.tiny, fontWeight: Typography.medium, letterSpacing: 2, marginTop: 18 },
-
-  // Notification bar
+  // Notif bar
   notif: {
-    marginHorizontal: 24, marginBottom: 20,
+    marginHorizontal: 24, marginBottom: 16,
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: 'rgba(29,158,117,0.12)',
     borderWidth: 1, borderColor: 'rgba(29,158,117,0.28)',
@@ -497,22 +481,65 @@ const styles = StyleSheet.create({
   notifSub:   { color: Colors.sub, fontSize: Typography.tiny, marginTop: 2 },
   notifClose: { padding: 4 },
 
-  // Sections
-  section: { marginBottom: 28, paddingHorizontal: 24 },
-  sectionTitle: {
-    color: Colors.faint, fontSize: Typography.tiny, fontWeight: Typography.medium,
-    textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12,
+  // Hero
+  heroWrap: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden', marginBottom: 28 },
+  heroGrad: {
+    borderRadius: 20, paddingHorizontal: 22, paddingTop: 22, paddingBottom: 18,
+    minHeight: 130, justifyContent: 'space-between',
   },
-  emptyText: { color: Colors.faint, fontSize: Typography.small, marginBottom: 16 },
+  heroVenn:  { position: 'absolute', right: -20, top: -20 },
+  heroTop:   { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  heroText:  { flex: 1 },
+  heroTitle: { color: '#fff', fontSize: Typography.h2, fontWeight: Typography.medium, letterSpacing: -0.3 },
+  heroSub:   { color: 'rgba(255,255,255,0.65)', fontSize: Typography.small, marginTop: 4 },
+  heroPlatforms: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14,
+  },
+  heroPlatformsMore: {
+    color: 'rgba(255,255,255,0.5)', fontSize: Typography.tiny,
+    fontWeight: Typography.medium,
+  },
+
+  // Sections
+  section:       { marginBottom: 28, paddingHorizontal: 24 },
+  sectionEyebrow:{
+    color: Colors.faint, fontSize: Typography.tiny, fontWeight: Typography.medium,
+    textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 2,
+  },
+  sectionTitle:  { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium, marginBottom: 14 },
+
+  // Empty groups
+  emptyGroups: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: Colors.s1, borderRadius: 12,
+    borderWidth: 1, borderColor: Colors.border,
+    padding: 16, marginBottom: 14,
+  },
+  emptyGroupsText: { flex: 1, color: Colors.sub, fontSize: Typography.small, lineHeight: 20 },
+
+  // History separator
+  historySeparator: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 24, marginBottom: 24,
+  },
+  historySeparatorLine: { flex: 1, height: 1, backgroundColor: Colors.border },
+  historySeparatorText: {
+    color: Colors.faint, fontSize: Typography.tiny,
+    fontWeight: Typography.medium, textTransform: 'uppercase', letterSpacing: 1,
+  },
 
   // Poster rows
-  posterRowScroll:   { marginHorizontal: -24 },
-  posterRowContent:  { paddingHorizontal: 24, gap: 10, alignItems: 'flex-end' },
-  posterCard:        { borderRadius: 10, overflow: 'hidden', backgroundColor: Colors.s1 },
-  posterPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  posterPlatformBadge: {
-    position: 'absolute', bottom: 5, left: 5,
-    backgroundColor: 'rgba(0,0,0,0.68)', borderRadius: 5, padding: 3,
+  posterRowScroll:  { marginHorizontal: -24 },
+  posterRowContent: { paddingHorizontal: 24, gap: 10 },
+  posterCard: {
+    width: POSTER_W, height: POSTER_H,
+    borderRadius: 10, overflow: 'hidden',
+    backgroundColor: Colors.s1,
+  },
+  posterPlaceholder:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  posterPlatformBadge:  {
+    position: 'absolute', top: 6, right: 6,
+    backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: 6, padding: 4,
   },
 
   // Groups
