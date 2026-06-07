@@ -3,7 +3,23 @@
     "allow": [
       "PowerShell(cd C:\\\\Users\\\\iayer\\\\StreamMatch; $files = @\\(\"src\\\\components\\\\BottomSheet.tsx\",\"src\\\\components\\\\MatchingOrb.tsx\",\"src\\\\components\\\\TitlePoster.tsx\",\"src\\\\screens\\\\LoginScreen.tsx\"\\); foreach \\($f in $files\\) { \\(Get-Content $f\\) -replace 'StyleSheet\\\\.absoluteFillObject', 'StyleSheet.absoluteFill' | Set-Content $f -Encoding utf8 }; \\(Get-Content src\\\\components\\\\MatchingOrb.tsx\\) -replace 'Easing\\\\.sine', 'Easing.sin' | Set-Content src\\\\components\\\\MatchingOrb.tsx -Encoding utf8; Write-Output \"Fixed\")",
       "Bash(git add *)",
-      "Bash(git commit -m 'fix: wrap app in GestureHandlerRootView for swipe gestures *)"
+      "Bash(git commit -m 'fix: wrap app in GestureHandlerRootView for swipe gestures *)",
+      "Bash(npx eas *)",
+      "Bash(eas build:list --limit 3 --platform android --json)",
+      "PowerShell(eas build:list *)",
+      "PowerShell(npx eas build:list --limit 3 --platform android --json 2>&1 | Select-Object -First 80)",
+      "PowerShell(node node_modules/.bin/eas build:list --limit 3 --platform android --json 2>&1 | Select-Object -First 80)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\iayer\\\\.claude\\\\projects\\\\C--Users-iayer-StreamMatch\\\\\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object FullName, LastWriteTime | Sort-Object LastWriteTime -Descending | Select-Object -First 20)",
+      "Bash(claude config *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git remote *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('expo',{}\\).get\\('version','?'\\)\\)\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); deps=d.get\\('dependencies',{}\\); [print\\(k,v\\) for k in ['expo','react-native','firebase','@anthropic-ai/sdk','zustand','@react-navigation/native'] if k in deps]\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node -e \"require\\('docx'\\); console.log\\('ok'\\)\")",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const d=JSON.parse\\(require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\)\\); console.log\\(JSON.stringify\\(d.expo?.android,null,2\\)\\)\")"
     ]
   }
 }
