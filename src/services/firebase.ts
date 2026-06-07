@@ -553,23 +553,14 @@ export async function removeFromPendingRatings(
 
 export interface PendingRatingItem {
   matchId: string;
-  groupId: string;
+  groupId?: string;
   groupName: string;
   rec: import('../services/claude').Recommendation;
+  addedAt?: number;
 }
 
 export async function getPendingRatingsForUser(uid: string): Promise<PendingRatingItem[]> {
-  const groups = await getUserGroups(uid);
-  const items: PendingRatingItem[] = [];
-  for (const group of groups) {
-    const matches = await getGroupMatches(group.id);
-    for (const match of matches) {
-      for (const rec of match.recommendations) {
-        if (rec.groupStatus === 'chosen') {
-          items.push({ matchId: match.id, groupId: group.id, groupName: group.name, rec });
-        }
-      }
-    }
-  }
-  return items;
+  const q = query(collection(db(), 'users', uid, 'pending'), orderBy('addedAt', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as PendingRatingItem);
 }
