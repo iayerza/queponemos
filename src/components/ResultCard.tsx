@@ -29,6 +29,7 @@ function scoreLabel(score: number): string {
 }
 
 export default function ResultCard({ rec, onAction, onLaVi }: Props) {
+  const locked = !!rec.groupStatus;
   const [whyOpen, setWhyOpen] = useState(false);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
   const [trailerLoading, setTrailerLoading] = useState(false);
@@ -131,6 +132,7 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
       <TouchableOpacity
         style={[styles.chooseBtn, rec.groupStatus === 'chosen' && styles.chooseBtnActive]}
         onPress={() => onAction('chosen')}
+        disabled={locked}
         activeOpacity={0.85}
       >
         <Feather
@@ -149,6 +151,7 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
         <TouchableOpacity
           style={[styles.actionBtn, rec.groupStatus === 'watched' && styles.actionActive]}
           onPress={onLaVi}
+          disabled={locked}
           activeOpacity={0.75}
         >
           <Feather name="check-circle" size={16} color={rec.groupStatus === 'watched' ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
@@ -159,6 +162,7 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
         <TouchableOpacity
           style={[styles.actionBtn, rec.groupStatus === 'watchlist' && styles.actionActive]}
           onPress={() => onAction('watchlist')}
+          disabled={locked}
           activeOpacity={0.75}
         >
           <Feather name="bookmark" size={16} color={rec.groupStatus === 'watchlist' ? Colors.accent : Colors.sub} style={{ marginBottom: 4 }} />
@@ -169,6 +173,7 @@ export default function ResultCard({ rec, onAction, onLaVi }: Props) {
         <TouchableOpacity
           style={[styles.actionBtn, rec.groupStatus === 'skipped' && styles.actionSkipped]}
           onPress={() => onAction('skipped')}
+          disabled={locked}
           activeOpacity={0.75}
         >
           <Feather name="x" size={16} color={rec.groupStatus === 'skipped' ? Colors.danger : Colors.sub} style={{ marginBottom: 4 }} />
