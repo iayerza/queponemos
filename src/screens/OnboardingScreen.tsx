@@ -44,6 +44,7 @@ export default function OnboardingScreen() {
     } else {
       markOnboardingDone();
       if (!USE_MOCK) completeOnboarding(user.uid, ageRange).catch(() => {});
+      nav.reset({ index: 0, routes: [{ name: 'App' }] });
     }
   }
 
