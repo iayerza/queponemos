@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, Modal, Alert,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  TextInput, Modal, Alert, Image,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,6 +16,8 @@ import GroupCard from '../components/GroupCard';
 import PlatformLogo from '../components/PlatformLogo';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
+import { useMatchStore } from '../store/useMatchStore';
+import { getPosterUrl } from '../services/tmdb';
 import type { RootStackParamList } from '../navigation/types';
 import { createGroup, joinGroupByCode, updateUserPlatforms } from '../services/firebase';
 import QRScanner from '../components/QRScanner';
@@ -21,31 +26,43 @@ import type { PlatformId } from '../constants/platforms';
 import { MOCK_GROUP } from '../utils/mock';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
-
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const nav    = useNavigation<Nav>();
-  const { user } = useAuthStore();
+  const { user, setPlatforms } = useAuthStore();
   const { groups, addGroup, setCurrentGroup, pendingInviteCode, setPendingInviteCode } = useGroupStore();
+  const { history } = useMatchStore();
   const themeColors = useColors();
-
-  const { setPlatforms } = useAuthStore();
 
   const firstName = user?.displayName?.split(' ')[0] ?? '';
 
-  const [createModal, setCreateModal] = useState(false);
-  const [joinModal,   setJoinModal]   = useState(false);
-  const [groupName, setGroupName]     = useState('');
-  const [joinCode,  setJoinCode]      = useState('');
-  const [selPlatforms, setSelPlatforms] = useState<PlatformId[]>(['netflix']);
-  const [working, setWorking] = useState(false);
+  const [createModal, setCreateModal]       = useState(false);
+  const [joinModal,   setJoinModal]         = useState(false);
+  const [groupName, setGroupName]           = useState('');
+  const [joinCode,  setJoinCode]            = useState('');
+  const [selPlatforms, setSelPlatforms]     = useState<PlatformId[]>(['netflix']);
+  const [working, setWorking]               = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [soloPlatformModal, setSoloPlatformModal] = useState(false);
-  const [soloPlatforms, setSoloPlatforms] = useState<PlatformId[]>([]);
+  const [soloPlatforms, setSoloPlatforms]   = useState<PlatformId[]>([]);
 
-  // Process deep link invite code
+  // Posters únicos de las últimas sesiones (máx 12)
+  const recentPosters = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { posterPath: string; title: string }[] = [];
+    for (const entry of history) {
+      for (const rec of entry.recommendations ?? []) {
+        if (rec.posterPath && !seen.has(rec.posterPath) && out.length < 12) {
+          seen.add(rec.posterPath);
+          out.push({ posterPath: rec.posterPath, title: rec.title });
+        }
+      }
+    }
+    return out;
+  }, [history]);
+
   useEffect(() => {
     if (!pendingInviteCode || !user) return;
     const code = pendingInviteCode;
@@ -176,35 +193,72 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={[styles.root, { backgroundColor: themeColors.bg }]}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header blueprint */}
+      {/* Header */}
       <View style={styles.header}>
         <LogoWordmark markSize={20} />
+        {firstName ? <Text style={styles.greeting}>Hola, {firstName}</Text> : null}
       </View>
-      {firstName ? <Text style={styles.greeting}>Hola, {firstName}</Text> : null}
-      <Text style={styles.headline}>¿queponemos hoy?</Text>
 
-      {/* Solo card */}
-      <TouchableOpacity style={styles.soloCard} onPress={handleSoloPress} activeOpacity={0.85}>
-        <View style={styles.soloCardInner}>
-          <View style={styles.soloCardIcon}>
-            <Feather name="play-circle" size={22} color={Colors.accent} />
+      {/* ── Hero: modo solo ──────────────────────────────────────── */}
+      <TouchableOpacity onPress={handleSoloPress} activeOpacity={0.88} style={styles.heroWrap}>
+        <LinearGradient
+          colors={['#0D27A0', '#1B50D4', '#2A6AEC']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroGrad}
+        >
+          {/* Venn decorativo en fondo */}
+          <View style={styles.heroVenn} pointerEvents="none">
+            <Svg width={190} height={190} viewBox="0 0 28 28" fill="none">
+              <Circle cx={10} cy={14} r={8} fill="white" fillOpacity={0.07} />
+              <Circle cx={18} cy={14} r={8} fill="white" fillOpacity={0.07} />
+            </Svg>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.soloCardTitle}>¿Qué ves hoy?</Text>
-            <Text style={styles.soloCardSub}>Modo solo · tus plataformas · tu mood</Text>
+
+          <View style={styles.heroTop}>
+            <View style={styles.heroPlayBtn}>
+              <Feather name="play" size={26} color="#fff" />
+            </View>
+            <View style={styles.heroText}>
+              <Text style={styles.heroTitle}>¿Qué ves hoy?</Text>
+              <Text style={styles.heroSub}>Modo solo · tus plataformas · tu mood</Text>
+            </View>
+            <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.45)" />
           </View>
-          <Feather name="chevron-right" size={20} color={Colors.sub} />
-        </View>
+
+          <Text style={styles.heroTagline}>LA PELI PARA HOY</Text>
+        </LinearGradient>
       </TouchableOpacity>
 
-      {/* Grupos */}
-      <View style={styles.section}>
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Tus grupos</Text>
+      {/* ── Recientes ────────────────────────────────────────────── */}
+      {recentPosters.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Recientes</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.posterRow}
+            contentContainerStyle={{ paddingHorizontal: 24, gap: 10 }}
+          >
+            {recentPosters.map((item, i) => (
+              <View key={i} style={styles.miniPoster}>
+                <Image
+                  source={{ uri: getPosterUrl(item.posterPath) ?? '' }}
+                  style={styles.miniPosterImg}
+                  resizeMode="cover"
+                />
+              </View>
+            ))}
+          </ScrollView>
         </View>
+      )}
+
+      {/* ── Grupos ───────────────────────────────────────────────── */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Tus grupos</Text>
 
         {groups.length === 0 && (
           <Text style={styles.emptyText}>Todavía no tenés grupos. ¡Creá uno!</Text>
@@ -224,7 +278,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Perfil */}
+      {/* ── Perfil ───────────────────────────────────────────────── */}
       {topGenres.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tu perfil</Text>
@@ -241,7 +295,7 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Modal Crear */}
+      {/* ── Modal Crear ──────────────────────────────────────────── */}
       <Modal visible={createModal} transparent animationType="slide" onRequestClose={() => setCreateModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
@@ -282,7 +336,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* Modal Unirse */}
+      {/* ── Modal Unirse ─────────────────────────────────────────── */}
       <Modal visible={joinModal} transparent animationType="slide" onRequestClose={() => setJoinModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
@@ -301,10 +355,7 @@ export default function HomeScreen() {
             >
               <Text style={styles.qrBtnText}>Escanear QR</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.hintTouchable}
-              onPress={() => setJoinCode('SM7VK2')}
-            >
+            <TouchableOpacity style={styles.hintTouchable} onPress={() => setJoinCode('SM7VK2')}>
               <Text style={styles.hintText}>Demo: probá con SM7VK2</Text>
             </TouchableOpacity>
             <View style={styles.modalBtns}>
@@ -323,7 +374,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* Modal plataformas solo */}
+      {/* ── Modal plataformas solo ───────────────────────────────── */}
       <Modal visible={soloPlatformModal} transparent animationType="slide" onRequestClose={() => setSoloPlatformModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
@@ -368,63 +419,99 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg },
-  content: { paddingHorizontal: 24 },
+  content: { paddingHorizontal: 0 },
+
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 4,
-    marginBottom: 4,
+    paddingHorizontal: 24,
+    marginBottom: 18,
   },
   greeting: {
     fontFamily: Typography.fontRegular,
-    fontSize: Typography.body,
+    fontSize: Typography.small,
     color: Colors.sub,
-    marginBottom: 2,
   },
-  headline: {
-    fontFamily: Typography.fontMedium,
-    fontSize: Typography.hero,
-    fontWeight: Typography.medium,
-    color: Colors.text,
-    letterSpacing: -0.5,
-    marginBottom: 20,
+
+  // ── Hero ─────────────────────────────────────────────────────────
+  heroWrap: {
+    marginHorizontal: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 28,
   },
-  section: { marginBottom: 32 },
-  sectionRow: {
-    flexDirection: 'row',
+  heroGrad: {
+    borderRadius: 20,
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 18,
+    minHeight: 148,
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
   },
+  heroVenn: {
+    position: 'absolute',
+    right: -30,
+    top: -30,
+  },
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  heroPlayBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroText: { flex: 1 },
+  heroTitle: {
+    color: '#fff',
+    fontSize: Typography.h2,
+    fontWeight: Typography.medium,
+    letterSpacing: -0.3,
+  },
+  heroSub: {
+    color: 'rgba(255,255,255,0.65)',
+    fontSize: Typography.small,
+    marginTop: 4,
+  },
+  heroTagline: {
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: Typography.tiny,
+    fontWeight: Typography.medium,
+    letterSpacing: 2,
+    marginTop: 18,
+  },
+
+  // ── Recientes ────────────────────────────────────────────────────
+  posterRow: { marginHorizontal: -24 },
+  miniPoster: {
+    width: 82,
+    height: 122,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: Colors.s1,
+  },
+  miniPosterImg: { width: '100%', height: '100%' },
+
+  // ── Secciones ────────────────────────────────────────────────────
+  section: { marginBottom: 28, paddingHorizontal: 24 },
   sectionTitle: {
     fontFamily: Typography.fontMedium,
     color: Colors.faint,
     fontSize: Typography.tiny,
     fontWeight: Typography.medium,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
+    marginBottom: 14,
   },
-  sectionAction: {
-    fontFamily: Typography.fontMedium,
-    color: Colors.accent,
-    fontSize: Typography.small,
-    fontWeight: Typography.medium,
-  },
-  soloCard: {
-    backgroundColor: Colors.accentFaint,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: Colors.accentBorder,
-    padding: 18,
-    marginBottom: 28,
-  },
-  soloCardInner: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  soloCardIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.accentFaint, alignItems: 'center', justifyContent: 'center' },
-  soloCardTitle: { color: Colors.accent, fontSize: Typography.h3, fontWeight: Typography.bold },
-  soloCardSub: { color: Colors.sub, fontSize: Typography.small, marginTop: 2 },
   emptyText: { color: Colors.faint, fontSize: Typography.small, marginBottom: 16 },
-  groupBtns: { flexDirection: 'row', gap: 10 },
+
+  groupBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
   createBtn: {
     flex: 1,
     backgroundColor: Colors.accent,
@@ -432,7 +519,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  createBtnText: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body },
+  createBtnText: { color: '#fff', fontWeight: Typography.medium, fontSize: Typography.body },
   joinBtn: {
     flex: 1,
     backgroundColor: Colors.s1,
@@ -440,9 +527,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.border2,
+    borderColor: Colors.border,
   },
-  joinBtnText: { color: Colors.text, fontWeight: Typography.semibold, fontSize: Typography.body },
+  joinBtnText: { color: Colors.text, fontWeight: Typography.medium, fontSize: Typography.body },
 
   genreTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   genreTag: {
@@ -455,13 +542,11 @@ const styles = StyleSheet.create({
   },
   genreTagAccent: { backgroundColor: Colors.accentFaint, borderColor: Colors.accentBorder },
   genreTagText: { color: Colors.sub, fontSize: Typography.small },
-  genreTagTextAccent: { color: Colors.accent, fontWeight: Typography.semibold },
+  genreTagTextAccent: { color: Colors.accent, fontWeight: Typography.medium },
   ratingCount: { color: Colors.faint, fontSize: Typography.small },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
+
+  // ── Modales ──────────────────────────────────────────────────────
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modal: {
     backgroundColor: Colors.s1,
     borderTopLeftRadius: 20,
@@ -471,19 +556,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  modalTitle: {
-    color: Colors.text,
-    fontSize: Typography.h2,
-    fontWeight: Typography.bold,
-    marginBottom: 20,
-  },
-  modalSubtitle: {
-    color: Colors.sub,
-    fontSize: Typography.small,
-    fontWeight: Typography.semibold,
-    marginBottom: 10,
-    marginTop: 16,
-  },
+  modalTitle: { color: Colors.text, fontSize: Typography.h2, fontWeight: Typography.medium, marginBottom: 20 },
+  modalSubtitle: { color: Colors.sub, fontSize: Typography.small, fontWeight: Typography.medium, marginBottom: 10, marginTop: 16 },
   input: {
     backgroundColor: Colors.s2,
     borderRadius: 10,
@@ -508,32 +582,13 @@ const styles = StyleSheet.create({
   platformChipSelected: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
   platformName: { color: Colors.text, fontSize: Typography.body },
   modalBtns: { flexDirection: 'row', gap: 10 },
-  cancelBtn: {
-    flex: 1,
-    backgroundColor: Colors.s2,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  cancelBtnText: { color: Colors.sub, fontWeight: Typography.semibold },
-  confirmBtn: {
-    flex: 2,
-    backgroundColor: Colors.accent,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  confirmBtnText: { color: Colors.text, fontWeight: Typography.bold },
+  cancelBtn: { flex: 1, backgroundColor: Colors.s2, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  cancelBtnText: { color: Colors.sub, fontWeight: Typography.medium },
+  confirmBtn: { flex: 2, backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  confirmBtnText: { color: '#fff', fontWeight: Typography.medium },
   btnDisabled: { opacity: 0.4 },
   hintTouchable: { marginTop: 4, marginBottom: 4 },
   hintText: { color: Colors.faint, fontSize: Typography.small },
-  qrBtn: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: Colors.accent,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
+  qrBtn: { marginTop: 10, borderWidth: 1, borderColor: Colors.accent, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
   qrBtnText: { color: Colors.accent, fontSize: Typography.body, fontWeight: '500' },
 });
