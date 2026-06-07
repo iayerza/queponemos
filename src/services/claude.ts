@@ -158,6 +158,7 @@ REGLAS:
    - 92-100: solo para coincidencia casi perfecta y evidente
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
 5. No repetir siempre los mismos títulos populares del momento.
+6. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
 
 Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
 {
@@ -165,7 +166,7 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de c
     "tmdbId": 12345,
     "title": "string",
     "year": 2015,
-    "type": "movie",
+    "type": "movie o series",
     "genres": ["Drama"],
     "rating": 8.2,
     "synopsis": "string en español, 2-3 oraciones",
@@ -235,19 +236,37 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
         // Buscar por título primero — más confiable que el tmdbId de Claude
         const results = await searchTitles(rec.title);
         const wanted = normalizeTitle(rec.title);
-        // Priority: exact normalized title + type + year → title + type → type + year → type
+        const altMediaType = mediaType === 'movie' ? 'tv' : 'movie';
+
+        // 1st pass: exact title match with the declared type
         const exactTitleYear = results.find(r => r.type === mediaType && normalizeTitle(r.title) === wanted && Math.abs(r.year - rec.year) <= 1);
         const exactTitle     = results.find(r => r.type === mediaType && normalizeTitle(r.title) === wanted);
-        const byYear         = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1);
-        const byType         = results.find(r => r.type === mediaType);
-        const match = exactTitleYear ?? exactTitle ?? byYear ?? byType;
+        let match = exactTitleYear ?? exactTitle;
+        let resolvedType = rec.type;
+
+        // 2nd pass: if no exact match, try the OPPOSITE type (handles Claude type misclassification)
+        if (!match) {
+          const altExactYear = results.find(r => r.type === altMediaType && normalizeTitle(r.title) === wanted && Math.abs(r.year - rec.year) <= 1);
+          const altExact     = results.find(r => r.type === altMediaType && normalizeTitle(r.title) === wanted);
+          const altMatch     = altExactYear ?? altExact;
+          if (altMatch) {
+            match = altMatch;
+            resolvedType = altMediaType === 'tv' ? 'series' : 'movie';
+          }
+        }
+
+        // 3rd pass: loose fallback — type + year (title not checked)
+        if (!match) {
+          match = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1);
+        }
+
         if (match) {
-          // Fetch full details to get runtime
+          const fetchType = resolvedType === 'series' ? 'tv' : 'movie';
           try {
-            const full = await fetchTitle(match.tmdbId, mediaType);
-            return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath, runtime: full.runtime };
+            const full = await fetchTitle(match.tmdbId, fetchType);
+            return { ...rec, type: resolvedType, tmdbId: match.tmdbId, posterPath: match.posterPath, runtime: full.runtime };
           } catch {
-            return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath };
+            return { ...rec, type: resolvedType, tmdbId: match.tmdbId, posterPath: match.posterPath };
           }
         }
         // Último recurso: ID de Claude (puede ser incorrecto)
