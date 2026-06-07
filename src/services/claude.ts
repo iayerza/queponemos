@@ -5,6 +5,14 @@ import { fetchTitle, searchTitles } from './tmdb';
 
 const VALID_PLATFORMS = new Set(PLATFORMS.map(p => p.id));
 
+const PLATFORM_ALIASES: Record<string, PlatformId> = {
+  'netflix': 'netflix',
+  'disney': 'disney', 'disney+': 'disney', 'disney plus': 'disney',
+  'hbo': 'hbo', 'max': 'hbo', 'hbo max': 'hbo', 'hbomax': 'hbo', 'max (hbo)': 'hbo',
+  'prime': 'prime', 'amazon': 'prime', 'prime video': 'prime', 'amazon prime': 'prime', 'amazon prime video': 'prime',
+  'apple': 'apple', 'apple tv': 'apple', 'apple tv+': 'apple', 'appletv': 'apple', 'apple tv plus': 'apple',
+};
+
 /** Strip accents + punctuation + lowercase for robust TMDB title matching. */
 function normalizeTitle(s: string): string {
   return s
@@ -144,8 +152,12 @@ function buildPrompt(input: MatchingInput): string {
 PERFILES:
 ${userBlocks}
 
-PLATAFORMAS DISPONIBLES (OBLIGATORIO): ${input.platforms.join(', ')}
-REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar disponibles en las plataformas listadas arriba. No recomendés nada fuera de ellas.
+PLATAFORMAS DISPONIBLES — usá exactamente estos IDs en el campo "platform":
+${input.platforms.map(id => {
+  const p = PLATFORMS.find(pl => pl.id === id);
+  return `  "${id}" → ${p?.name ?? id}`;
+}).join('\n')}
+REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar en alguna de las plataformas listadas. El campo "platform" debe ser uno de los IDs entre comillas de arriba.
 
 REGLAS:
 1. VARIEDAD DE ERA: uno anterior a 2010, uno entre 2010-2019, uno de 2020 en adelante.
@@ -209,8 +221,10 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
   const fallbackPlatform = input.platforms[0] ?? 'netflix';
   const allowedPlatforms = new Set(input.platforms);
   const baseRecs: Recommendation[] = (parsed.recommendations ?? []).map(r => {
-    const platform = (r.platform && VALID_PLATFORMS.has(r.platform as PlatformId) && allowedPlatforms.has(r.platform as PlatformId))
-      ? r.platform as PlatformId
+    const raw = String(r.platform ?? '').toLowerCase().trim();
+    const normalized = PLATFORM_ALIASES[raw] ?? raw as PlatformId;
+    const platform = (VALID_PLATFORMS.has(normalized) && allowedPlatforms.has(normalized))
+      ? normalized
       : fallbackPlatform;
     return {
       ...r,
