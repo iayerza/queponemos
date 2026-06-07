@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import Svg, { Circle, Ellipse } from 'react-native-svg';
+import Svg, { Circle, Defs, ClipPath } from 'react-native-svg';
 import { Colors, Typography } from '../constants/colors';
 
 // ─── LogoMark — diagrama de Venn ─────────────────────────────────────────────
-// Representa la intersección de dos perfiles de gusto.
+// Intersección limpia usando clipPath para un corte geométrico preciso.
 export function LogoMark({ size = 28 }: { size?: number }) {
   const box = Math.round(size * 1.7);
   return (
@@ -17,17 +17,23 @@ export function LogoMark({ size = 28 }: { size?: number }) {
       justifyContent: 'center',
     }}>
       <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-        <Circle cx="10" cy="14" r="8" fill="white" fillOpacity="0.2" />
-        <Circle cx="18" cy="14" r="8" fill="white" fillOpacity="0.2" />
-        <Ellipse cx="14" cy="14" rx="4" ry="8" fill="white" fillOpacity="0.5" />
-        <Circle cx="14" cy="14" r="2.5" fill="white" />
+        <Defs>
+          {/* Clip to the right circle — used to paint the intersection */}
+          <ClipPath id="lm-venn">
+            <Circle cx={18} cy={14} r={8.5} />
+          </ClipPath>
+        </Defs>
+        <Circle cx={10} cy={14} r={8} fill="white" fillOpacity={0.28} />
+        <Circle cx={18} cy={14} r={8} fill="white" fillOpacity={0.28} />
+        {/* Intersection: left circle visible only inside right circle */}
+        <Circle cx={10} cy={14} r={8} clipPath="url(#lm-venn)" fill="white" fillOpacity={0.44} />
       </Svg>
     </View>
   );
 }
 
 // ─── LogoWordmark — mark + texto ──────────────────────────────────────────────
-// "que" en blanco + "ponemos" en coral. Siempre minúscula.
+// "que" en text + "ponemos" en coral. Siempre minúscula.
 export function LogoWordmark({ markSize = 24 }: { markSize?: number }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

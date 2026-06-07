@@ -7,104 +7,92 @@ import Svg, { Circle, Ellipse } from 'react-native-svg';
 import { Colors } from '../constants/colors';
 
 interface Props {
-  size?: number;   // tamaño del SVG interno
-  pulse?: boolean; // activar animación (default true)
+  size?: number;
+  pulse?: boolean;
 }
 
-// LogoMark animado: los dos círculos del Venn se expanden y contraen.
-// Usado en MatchingScreen y SplashScreen.
+// AnimatedLogoMark: los dos óvalos del Venn respiran suave y desfasados.
+// Más sutil que la versión anterior — 0.96→1.04 en lugar de 0.90→1.15.
 export default function AnimatedLogoMark({ size = 56, pulse = true }: Props) {
-  const box = Math.round(size * 1.7);
+  const box    = Math.round(size * 1.7);
   const radius = Math.round(size * 0.3);
 
-  const scaleLeft  = useSharedValue(1);
-  const scaleRight = useSharedValue(1);
-  const glow       = useSharedValue(0.8);
+  // Proporción SVG interna equivalente a viewBox 28×28
+  const cx  = size / 2;
+  const cy  = size / 2;
+  const r   = size * 0.2857;   // ≈ 8 para size=28, ≈ 16 para size=56
+  const off = size * 0.1429;   // ≈ 4 para size=28, ≈ 8 para size=56
+
+  const scaleLeft      = useSharedValue(1);
+  const scaleRight     = useSharedValue(1);
+  const intersectAlpha = useSharedValue(0.44);
 
   useEffect(() => {
     if (!pulse) return;
 
-    // Círculo izquierdo late ligeramente desfasado del derecho
     scaleLeft.value = withRepeat(
       withSequence(
-        withTiming(1.15, { duration: 900, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0.90, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1.04, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.96, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
       ), -1, false,
     );
     scaleRight.value = withRepeat(
       withSequence(
-        withTiming(0.90, { duration: 900, easing: Easing.inOut(Easing.sin) }),
-        withTiming(1.15, { duration: 900, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.96, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
+        withTiming(1.04, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
       ), -1, false,
     );
-    glow.value = withRepeat(
+    intersectAlpha.value = withRepeat(
       withSequence(
-        withTiming(1,   { duration: 900 }),
-        withTiming(0.6, { duration: 900 }),
+        withTiming(0.70, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0.35, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
       ), -1, false,
     );
   }, [pulse]);
 
-  const leftStyle  = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleLeft.value }],
-  }));
-  const rightStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleRight.value }],
-  }));
-  const boxStyle = useAnimatedStyle(() => ({
-    opacity: glow.value,
-  }));
+  const leftStyle  = useAnimatedStyle(() => ({ transform: [{ scale: scaleLeft.value }] }));
+  const rightStyle = useAnimatedStyle(() => ({ transform: [{ scale: scaleRight.value }] }));
 
-  // SVG se parte: los círculos izquierdo/derecho se animan,
-  // la intersección (elipse + punto central) queda fija.
-  const cx  = size / 2;
-  const cy  = size / 2;
-  const r   = size * 0.285;  // ~8 para size=28
-  const off = size * 0.143;  // ~4 para size=28
+  // La intersección es una ellipse fija cuya opacidad respira.
+  // Aproximación al lens real: rx≈off, ry≈r*0.86
+  const intersectStyle = useAnimatedStyle(() => ({ opacity: intersectAlpha.value }));
 
   return (
-    <Animated.View style={[{
+    <Animated.View style={{
       width: box, height: box,
       backgroundColor: Colors.accent,
       borderRadius: radius,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
-    }, pulse && boxStyle]}>
-      {/* Svg base — intersección fija */}
-      <Svg
-        width={size} height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        fill="none"
-        style={{ position: 'absolute' }}
-      >
-        <Ellipse
-          cx={cx} cy={cy}
-          rx={size * 0.143} ry={r}
-          fill="white" fillOpacity="0.55"
-        />
-        <Circle cx={cx} cy={cy} r={size * 0.09} fill="white" />
-      </Svg>
-
+    }}>
       {/* Círculo izquierdo animado */}
       <Animated.View style={[{
-        position: 'absolute',
-        width: size, height: size,
+        position: 'absolute', width: size, height: size,
         alignItems: 'center', justifyContent: 'center',
       }, leftStyle]}>
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none">
-          <Circle cx={cx - off} cy={cy} r={r} fill="white" fillOpacity="0.2" />
+          <Circle cx={cx - off} cy={cy} r={r} fill="white" fillOpacity={0.28} />
         </Svg>
       </Animated.View>
 
       {/* Círculo derecho animado (desfasado) */}
       <Animated.View style={[{
-        position: 'absolute',
-        width: size, height: size,
+        position: 'absolute', width: size, height: size,
         alignItems: 'center', justifyContent: 'center',
       }, rightStyle]}>
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none">
-          <Circle cx={cx + off} cy={cy} r={r} fill="white" fillOpacity="0.2" />
+          <Circle cx={cx + off} cy={cy} r={r} fill="white" fillOpacity={0.28} />
+        </Svg>
+      </Animated.View>
+
+      {/* Intersección fija — opacidad animada */}
+      <Animated.View style={[{
+        position: 'absolute', width: size, height: size,
+        alignItems: 'center', justifyContent: 'center',
+      }, intersectStyle]}>
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none">
+          <Ellipse cx={cx} cy={cy} rx={off} ry={r * 0.86} fill="white" />
         </Svg>
       </Animated.View>
     </Animated.View>
