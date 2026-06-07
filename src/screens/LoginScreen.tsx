@@ -7,6 +7,7 @@ import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { Colors, Typography } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import { LogoMark } from '../components/Logo';
 import { useAuthStore } from '../store/useAuthStore';
 import { loginWithEmailUser, getApp, sendPasswordReset, registerUsername, getEmailByUsername } from '../services/firebase';
@@ -47,7 +48,8 @@ function PosterBg() {
 }
 
 export default function LoginScreen() {
-  const insets   = useSafeAreaInsets();
+  const insets     = useSafeAreaInsets();
+  const themeColors = useColors();
   const { setUser } = useAuthStore();
 
   const [email,    setEmail]    = useState('');
@@ -130,7 +132,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: themeColors.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* ── Área visual superior — altura fija ── */}

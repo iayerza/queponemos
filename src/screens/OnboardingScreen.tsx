@@ -8,6 +8,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import { LogoWordmark } from '../components/Logo';
 import TitlePoster from '../components/TitlePoster';
 import RatingButtons from '../components/RatingButtons';
@@ -28,6 +29,7 @@ export default function OnboardingScreen() {
   const nav   = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { user, updateRatings, markOnboardingDone, setAgeRange } = useAuthStore();
+  const themeColors = useColors();
   const ageRange = route.params?.ageRange;
   const { titles, currentIndex, ratings, isLoading, error, rate, canSkip, isFinished } = useOnboarding(ageRange);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -85,7 +87,7 @@ export default function OnboardingScreen() {
   const remaining = MIN_TO_SKIP - currentIndex;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: themeColors.bg }]}>
 
       {/* Header */}
       <View style={styles.header}>

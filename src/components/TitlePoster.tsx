@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   titleText: {
     color: '#ffffff',
-    fontSize: 22,
+    fontSize: Typography.h1,
     fontWeight: Typography.medium,
     marginBottom: 6,
   },

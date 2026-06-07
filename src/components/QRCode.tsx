@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
   label: {
     position: 'absolute',
     color: Colors.accent,
-    fontSize: 10,
+    fontSize: Typography.tiny,
     fontWeight: Typography.medium,
     backgroundColor: Colors.s2,
     paddingHorizontal: 4,
