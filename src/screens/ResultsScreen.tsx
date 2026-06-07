@@ -10,7 +10,7 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import WatchedRatingSheet from '../components/WatchedRatingSheet';
-import { updateTitleStatus, addToPersonalWatchlist, addToPendingRatings, rateTitleAndUpdateProfile } from '../services/firebase';
+import { updateTitleStatus, addToPersonalWatchlist, addToPendingRatings, rateTitleAndUpdateProfile, updateUserHistoryRecommendations } from '../services/firebase';
 import type { Rating } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import type { Recommendation } from '../services/claude';
@@ -47,6 +47,13 @@ export default function ResultsScreen() {
       Animated.timing(anim, { toValue: 0.3, duration: 200, useNativeDriver: true }).start();
     }
     updateTitleAction(0, idx, status);
+    // Persist updated statuses to Firestore so HistoryScreen survives app restarts
+    if (!USE_MOCK && currentMatchId && user) {
+      const updatedRecs = useMatchStore.getState().currentMatch?.recommendations;
+      if (updatedRecs) {
+        updateUserHistoryRecommendations(user.uid, currentMatchId, updatedRecs).catch(() => {});
+      }
+    }
     if (!USE_MOCK && currentMatchId) {
       const rec = currentMatch?.recommendations[idx];
       if (rec) {

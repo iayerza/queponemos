@@ -489,6 +489,14 @@ export async function addMatchToUserHistory(
   await setDoc(doc(db(), 'users', uid, 'history', entry.matchId), toFirestore(entry));
 }
 
+export async function updateUserHistoryRecommendations(
+  uid: string,
+  matchId: string,
+  recommendations: Recommendation[],
+): Promise<void> {
+  await updateDoc(doc(db(), 'users', uid, 'history', matchId), { recommendations });
+}
+
 export async function getUserHistory(uid: string): Promise<HistoryEntry[]> {
   const q = query(
     collection(db(), 'users', uid, 'history'),
