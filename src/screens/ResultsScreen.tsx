@@ -50,7 +50,8 @@ export default function ResultsScreen() {
     if (!USE_MOCK && currentMatchId) {
       const rec = currentMatch?.recommendations[idx];
       if (rec) {
-        if (status === 'watchlist' && isSolo && user) {
+        if (status === 'watchlist' && user) {
+          // Always add to personal watchlist regardless of solo/group mode
           try {
             await addToPersonalWatchlist(user.uid, {
               tmdbId: rec.tmdbId ?? 0,
@@ -65,6 +66,11 @@ export default function ResultsScreen() {
               addedAt: Date.now(),
             });
           } catch { /* silenciar */ }
+          // Also update match doc for group mode
+          if (!isSolo && rec.tmdbId) {
+            try { await updateTitleStatus(currentMatchId, rec.tmdbId, 'watchlist'); }
+            catch { /* silenciar */ }
+          }
         } else if (status === 'chosen' && user && rec.tmdbId) {
           try {
             const groupName = isSolo ? 'Solo' : (currentGroup?.name ?? 'Grupo');

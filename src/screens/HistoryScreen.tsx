@@ -21,10 +21,10 @@ import PlatformLogo from '../components/PlatformLogo';
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  watched:   { label: 'Vista',     color: Colors.accent },
-  watchlist: { label: 'Pendiente', color: Colors.warning },
-  skipped:   { label: 'Pasada',    color: Colors.danger },
-  pending:   { label: 'Pendiente', color: Colors.sub },
+  watched:   { label: 'Vista',       color: Colors.accent },
+  watchlist: { label: 'Para después', color: Colors.warning },
+  skipped:   { label: 'Pasada',      color: Colors.danger },
+  pending:   { label: 'Sin acción',  color: Colors.sub },
 };
 
 type Tab = 'history' | 'watchlist' | 'pending';
@@ -41,6 +41,7 @@ export default function HistoryScreen() {
   const [pendingItems, setPendingItems] = useState<PendingRatingItem[]>([]);
   const [loadingPending, setLoadingPending] = useState(false);
   const [ratingPending, setRatingPending] = useState<PendingRatingItem | null>(null);
+  const [ratingWatchlist, setRatingWatchlist] = useState<PersonalWatchlistItem | null>(null);
 
   const loadWatchlist = useCallback(async () => {
     if (!user || USE_MOCK) return;
@@ -106,6 +107,25 @@ export default function HistoryScreen() {
     ]);
   }
 
+  async function handleRateWatchlist(rating: Rating) {
+    if (!ratingWatchlist || !user) return;
+    const item = ratingWatchlist;
+    setRatingWatchlist(null);
+    setWatchlist(prev => prev.filter(i => i.tmdbId !== item.tmdbId));
+    if (!USE_MOCK && item.tmdbId) {
+      try {
+        await Promise.all([
+          rateTitleAndUpdateProfile(user.uid, item.tmdbId, rating, {
+            id: item.tmdbId, tmdbId: item.tmdbId, title: item.title, year: item.year,
+            type: item.type === 'series' ? 'tv' : 'movie',
+            genres: item.genres, rating: item.rating, posterPath: item.posterPath, synopsis: item.synopsis,
+          }),
+          removeFromPersonalWatchlist(user.uid, item.tmdbId),
+        ]);
+      } catch { /* silenciar */ }
+    }
+  }
+
   return (
     <View style={[styles.root, { backgroundColor: themeColors.bg }]}>
       {/* Tab bar */}
@@ -131,7 +151,7 @@ export default function HistoryScreen() {
             onPress={() => setActiveTab('pending')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>Pendiente</Text>
+            <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>Por puntuar</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -227,15 +247,22 @@ export default function HistoryScreen() {
                     </View>
                     <Text style={styles.watchlistSynopsis} numberOfLines={2}>{item.synopsis}</Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.removeBtn}
-                    onPress={() => handleRemove(item.tmdbId)}
-                    hitSlop={12}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Quitar ${item.title} de Para después`}
-                  >
-                    <Text style={styles.removeText}>✕</Text>
-                  </TouchableOpacity>
+                  <View style={styles.watchlistActions}>
+                    <TouchableOpacity
+                      style={styles.rateBtn}
+                      onPress={() => setRatingWatchlist(item)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.rateBtnText}>La vi</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.removeBtn}
+                      onPress={() => handleRemove(item.tmdbId)}
+                      hitSlop={12}
+                    >
+                      <Text style={styles.removeText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })
@@ -295,6 +322,12 @@ export default function HistoryScreen() {
         title={ratingPending?.rec.title ?? ''}
         onClose={() => setRatingPending(null)}
         onRate={handleRatePending}
+      />
+      <WatchedRatingSheet
+        visible={ratingWatchlist !== null}
+        title={ratingWatchlist?.title ?? ''}
+        onClose={() => setRatingWatchlist(null)}
+        onRate={handleRateWatchlist}
       />
     </View>
   );
@@ -385,7 +418,8 @@ const styles = StyleSheet.create({
   platformRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   platformName: { color: Colors.sub, fontSize: Typography.tiny },
   watchlistSynopsis: { color: Colors.sub, fontSize: Typography.tiny, lineHeight: 16, marginTop: 4 },
-  removeBtn: { padding: 4 },
+  watchlistActions: { alignItems: 'center', gap: 8, justifyContent: 'center' },
+  removeBtn: { padding: 4, alignItems: 'center' },
   removeText: { color: Colors.faint, fontSize: Typography.body },
   rateBtn: {
     backgroundColor: Colors.accent,
