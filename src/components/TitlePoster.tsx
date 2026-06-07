@@ -6,7 +6,7 @@ import { Colors, Typography } from '../constants/colors';
 import type { NormalizedTitle } from '../services/tmdb';
 
 const CARD_W   = Dimensions.get('window').width - 48; // 24px paddingHorizontal × 2
-const POSTER_H = Math.round(CARD_W * 1.5); // full 2:3 ratio, scroll to see buttons
+const POSTER_H = Math.round(CARD_W * 1.0); // ratio reducido para que entren los botones sin scroll
 
 interface Props {
   title: NormalizedTitle;

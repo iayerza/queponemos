@@ -122,7 +122,7 @@ export default function OnboardingScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: canSkip ? 88 + insets.bottom : insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={{ opacity: fadeAnim }}>
@@ -138,13 +138,15 @@ export default function OnboardingScreen() {
             </>
           )}
         </Animated.View>
+      </ScrollView>
 
-        {canSkip && (
+      {canSkip && (
+        <View style={[styles.continueBtnWrap, { paddingBottom: insets.bottom + 8 }]}>
           <TouchableOpacity style={styles.continueBtn} onPress={handleFinish} activeOpacity={0.85}>
             <Text style={styles.continueBtnText}>Continuar →</Text>
           </TouchableOpacity>
-        )}
-      </ScrollView>
+        </View>
+      )}
     </View>
   );
 }
@@ -196,9 +198,13 @@ const styles = StyleSheet.create({
   },
 
   scroll: { paddingHorizontal: 24, paddingTop: 4 },
-  ratingSection: { marginTop: 20, gap: 12 },
+  ratingSection: { marginTop: 16, gap: 10 },
+  continueBtnWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    backgroundColor: Colors.bg,
+  },
   continueBtn: {
-    marginTop: 28,
     backgroundColor: Colors.accent,
     borderRadius: 12,
     paddingVertical: 16,
