@@ -29,7 +29,7 @@ function scoreLabel(score: number): string {
 }
 
 export default function ResultCard({ rec, onAction, onLaVi }: Props) {
-  const locked = !!rec.groupStatus;
+  const locked = rec.groupStatus !== 'pending';
   const [whyOpen, setWhyOpen] = useState(false);
   const [synopsisOpen, setSynopsisOpen] = useState(false);
   const [trailerLoading, setTrailerLoading] = useState(false);
