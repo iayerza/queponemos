@@ -170,7 +170,7 @@ export function useMatching() {
       addToHistory(historyEntry);
 
       if (!USE_MOCK) {
-        await addMatchToUserHistory(user.uid, historyEntry);
+        addMatchToUserHistory(user.uid, historyEntry).catch(() => {});
       }
 
       return matchId;
