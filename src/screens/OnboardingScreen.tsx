@@ -35,6 +35,15 @@ export default function OnboardingScreen() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const fromProfile = route.params?.fromProfile === true;
 
+  // Cuando markOnboardingDone() actualiza el store, RootNavigator re-renderiza
+  // con App en el stack. El useEffect dispara DESPUÉS del re-render, por eso
+  // nav.reset funciona (App ya existe en el navigator).
+  useEffect(() => {
+    if (user?.onboardingDone && !fromProfile) {
+      nav.reset({ index: 0, routes: [{ name: 'App' }] });
+    }
+  }, [user?.onboardingDone]);
+
   function handleFinish() {
     if (!user) return;
     if (ageRange) setAgeRange(ageRange);
