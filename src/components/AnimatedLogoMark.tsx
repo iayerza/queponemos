@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import Animated, {
   useSharedValue, useAnimatedStyle,
-  withRepeat, withSequence, withTiming, Easing,
+  withRepeat, withSequence, withTiming, withDelay, Easing,
 } from 'react-native-reanimated';
 import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,8 +18,8 @@ function circlePath(cx: number, cy: number, r: number): string {
 }
 
 function reelBodyPath(rcx: number, rcy: number, R: number, orbR: number, holeR: number): string {
-  const s     = orbR / 4; // scale relative to base orbit=4
-  const body  = circlePath(rcx, rcy, R);
+  const s    = orbR / 4;
+  const body = circlePath(rcx, rcy, R);
   const holes = HOLE_DX
     .map((dx, i) => circlePath(rcx + dx * s, rcy + HOLE_DY[i] * s, holeR))
     .join(' ');
@@ -37,11 +37,11 @@ export default function AnimatedLogoMark({ size = 56, pulse = true }: Props) {
 
   const cx    = size / 2;
   const cy    = size / 2;
-  const r     = size * (7   / 28);
-  const off   = size * (5   / 28);
-  const hubR  = size * (2.2 / 28);
-  const orbR  = size * (4   / 28);
-  const holeR = size * (1.4 / 28);
+  const r     = size * (8   / 28);   // bigger reels
+  const off   = size * (4.5 / 28);   // tighter offset → more overlap
+  const hubR  = size * (2.5 / 28);
+  const orbR  = size * (4.5 / 28);
+  const holeR = size * (1.6 / 28);
 
   const lx = cx - off;
   const rx = cx + off;
@@ -49,10 +49,14 @@ export default function AnimatedLogoMark({ size = 56, pulse = true }: Props) {
   const scaleLeft      = useSharedValue(1);
   const scaleRight     = useSharedValue(1);
   const intersectAlpha = useSharedValue(0.44);
+  const spinLeft       = useSharedValue(0);
+  const spinRight      = useSharedValue(0);
+  const spinCount      = useRef(0);
 
   useEffect(() => {
     if (!pulse) return;
 
+    // pulse scale out-of-phase
     scaleLeft.value = withRepeat(
       withSequence(
         withTiming(1.04, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
@@ -71,10 +75,24 @@ export default function AnimatedLogoMark({ size = 56, pulse = true }: Props) {
         withTiming(0.35, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
       ), -1, false,
     );
+
+    // occasional spin — every ~5s each reel does a full 360°, right delayed 200ms
+    const interval = setInterval(() => {
+      spinCount.current += 1;
+      const target = spinCount.current * 360;
+      spinLeft.value  = withTiming(target, { duration: 900, easing: Easing.inOut(Easing.cubic) });
+      spinRight.value = withDelay(200, withTiming(target, { duration: 900, easing: Easing.inOut(Easing.cubic) }));
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [pulse]);
 
-  const leftStyle      = useAnimatedStyle(() => ({ transform: [{ scale: scaleLeft.value }] }));
-  const rightStyle     = useAnimatedStyle(() => ({ transform: [{ scale: scaleRight.value }] }));
+  const leftStyle  = useAnimatedStyle(() => ({
+    transform: [{ scale: scaleLeft.value }, { rotate: `${spinLeft.value}deg` }],
+  }));
+  const rightStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scaleRight.value }, { rotate: `${spinRight.value}deg` }],
+  }));
   const intersectStyle = useAnimatedStyle(() => ({ opacity: intersectAlpha.value }));
 
   const reelLayer = (animStyle: ReturnType<typeof useAnimatedStyle>, reelCx: number) => (
@@ -83,16 +101,13 @@ export default function AnimatedLogoMark({ size = 56, pulse = true }: Props) {
       left: (box - size) / 2, top: (box - size) / 2,
     }, animStyle]}>
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none">
-        {/* Reel body with 5 punched holes */}
         <Path
           d={reelBodyPath(reelCx, cy, r, orbR, holeR)}
           fill="white"
           fillOpacity={0.25}
           fillRule="evenodd"
         />
-        {/* Rim */}
         <Circle cx={reelCx} cy={cy} r={r}    stroke="white" strokeWidth={r * 0.05} strokeOpacity={0.30} />
-        {/* Hub */}
         <Circle cx={reelCx} cy={cy} r={hubR} fill="white" fillOpacity={0.65} />
       </Svg>
     </Animated.View>
@@ -110,7 +125,7 @@ export default function AnimatedLogoMark({ size = 56, pulse = true }: Props) {
       {reelLayer(leftStyle, lx)}
       {reelLayer(rightStyle, rx)}
 
-      {/* Intersection — lens shape, opacity pulsing */}
+      {/* Intersection lens, opacity pulsing */}
       <Animated.View style={[{
         position: 'absolute', width: size, height: size,
         left: (box - size) / 2, top: (box - size) / 2,

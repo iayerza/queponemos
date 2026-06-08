@@ -437,16 +437,6 @@ export default function HomeScreen() {
                 {firstName ? `Hola ${firstName},` : 'Hola,'}{'\n'}¿qué ponemos hoy?
               </Text>
               <Text style={styles.heroSub}>Elegí tu mood, IA te recomienda</Text>
-              {(user?.platforms ?? []).length > 0 && (
-                <View style={styles.heroPlatforms}>
-                  {user!.platforms!.slice(0, 4).map(pid => (
-                    <PlatformLogo key={pid} id={pid} size={14} />
-                  ))}
-                  {user!.platforms!.length > 4 && (
-                    <Text style={styles.heroPlatformsMore}>+{user!.platforms!.length - 4}</Text>
-                  )}
-                </View>
-              )}
             </LinearGradient>
           </TouchableOpacity>
         </View>

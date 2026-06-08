@@ -40,22 +40,22 @@ export function LogoMark({ size = 28 }: { size?: number }) {
       <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
         <Defs>
           <ClipPath id="lm-clip-right">
-            <Circle cx={19} cy={14} r={7} />
+            <Circle cx={19.5} cy={14} r={7.5} />
           </ClipPath>
         </Defs>
 
         {/* Left reel: body with 5 punched holes */}
-        <Path d={reelPath(9, 14)} fill="white" fillOpacity={0.25} fillRule="evenodd" />
-        <Circle cx={9} cy={14} r={7}   stroke="white" strokeWidth={0.7} strokeOpacity={0.30} />
-        <Circle cx={9} cy={14} r={2.2} fill="white" fillOpacity={0.65} />
+        <Path d={reelPath(8.5, 14)} fill="white" fillOpacity={0.25} fillRule="evenodd" />
+        <Circle cx={8.5} cy={14} r={7.5} stroke="white" strokeWidth={0.75} strokeOpacity={0.30} />
+        <Circle cx={8.5} cy={14} r={2.5} fill="white" fillOpacity={0.65} />
 
         {/* Right reel: body with 5 punched holes */}
-        <Path d={reelPath(19, 14)} fill="white" fillOpacity={0.25} fillRule="evenodd" />
-        <Circle cx={19} cy={14} r={7}   stroke="white" strokeWidth={0.7} strokeOpacity={0.30} />
-        <Circle cx={19} cy={14} r={2.2} fill="white" fillOpacity={0.65} />
+        <Path d={reelPath(19.5, 14)} fill="white" fillOpacity={0.25} fillRule="evenodd" />
+        <Circle cx={19.5} cy={14} r={7.5} stroke="white" strokeWidth={0.75} strokeOpacity={0.30} />
+        <Circle cx={19.5} cy={14} r={2.5} fill="white" fillOpacity={0.65} />
 
         {/* Intersection highlight (Venn lens) */}
-        <Circle cx={9} cy={14} r={7} clipPath="url(#lm-clip-right)" fill="white" fillOpacity={0.28} />
+        <Circle cx={8.5} cy={14} r={7.5} clipPath="url(#lm-clip-right)" fill="white" fillOpacity={0.28} />
       </Svg>
     </LinearGradient>
   );
