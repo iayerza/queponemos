@@ -31,30 +31,36 @@ import { MOCK_GROUP } from '../utils/mock';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
-type TabId = 'queponemos' | 'grupos' | 'valorar' | 'sesiones';
+type TabId = 'inicio' | 'grupos' | 'valorar' | 'sesiones';
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: 'queponemos', label: 'queponemos' },
-  { id: 'grupos',     label: 'grupos' },
-  { id: 'valorar',    label: 'valorar' },
-  { id: 'sesiones',   label: 'sesiones' },
+  { id: 'inicio',   label: 'inicio' },
+  { id: 'grupos',   label: 'grupos' },
+  { id: 'valorar',  label: 'valorar' },
+  { id: 'sesiones', label: 'sesiones' },
 ];
 
-const POSTER_W = 144;
-const POSTER_H = 216;
+const POSTER_W   = 144;
+const POSTER_H   = 216;
+const LOGO_SIZE  = 36;
+const LOGO_BOX   = Math.round(LOGO_SIZE * 1.7); // 61
+const LOGO_MIN   = 0.65;
+const COLLAPSE_Y = 70;
+const IND_W      = 24; // tab indicator width
 
 interface PosterItem { posterPath: string | null; title: string; platform: PlatformId; matchId?: string }
 
 export default function HomeScreen() {
-  const insets  = useSafeAreaInsets();
-  const nav     = useNavigation<Nav>();
+  const insets       = useSafeAreaInsets();
+  const nav          = useNavigation<Nav>();
   const { user, setPlatforms }                                                        = useAuthStore();
   const { groups, addGroup, setCurrentGroup, pendingInviteCode, setPendingInviteCode } = useGroupStore();
   const { history, setCurrentMatch, setSoloMode }                                    = useMatchStore();
-  const themeColors = useColors();
+  const themeColors  = useColors();
   const firstName    = user?.displayName?.split(' ')[0] ?? '';
   const avatarLetter = firstName.charAt(0).toUpperCase() || '?';
 
+  // ── State ────────────────────────────────────────────────────────────────
   const [createModal,       setCreateModal]       = useState(false);
   const [joinModal,         setJoinModal]         = useState(false);
   const [groupName,         setGroupName]         = useState('');
@@ -66,87 +72,123 @@ export default function HomeScreen() {
   const [soloPlatforms,     setSoloPlatforms]     = useState<PlatformId[]>([]);
   const [watchlist,         setWatchlist]         = useState<PersonalWatchlistItem[]>([]);
   const [pendingCount,      setPendingCount]      = useState(0);
-  const [notifDismissed,    setNotifDismissed]    = useState(false);
 
-  // ── Floating header con fade ──────────────────────────────────────────────
-  const scrollRef          = useRef<ScrollView>(null);
-  const headerOpacity      = useRef(new Animated.Value(1)).current;
-  const lastScrollYRef     = useRef(0);
-  const headerVisRef       = useRef(true);
-  const [headerHeight, setHeaderHeight]               = useState(insets.top + 64);
-  const [activeTab, setActiveTab]                     = useState<TabId>('queponemos');
-  const [headerPointerEvents, setHeaderPointerEvents] = useState<'auto' | 'none'>('auto');
+  // ── Header animation ─────────────────────────────────────────────────────
+  const scrollRef    = useRef<ScrollView>(null);
+  const scrollY      = useRef(new Animated.Value(0)).current;
+  const indicatorTX  = useRef(new Animated.Value(0)).current;
+  const isFirstMount = useRef(true);
+
+  const [activeTab,    setActiveTab]    = useState<TabId>('inicio');
+  const [headerHeight, setHeaderHeight] = useState(insets.top + 120);
+  const [tabRowWidth,  setTabRowWidth]  = useState(375);
 
   const sectionYRef = useRef<Record<TabId, number>>({
-    queponemos: 0, grupos: 0, valorar: 0, sesiones: 0,
+    inicio: 0, grupos: 0, valorar: 0, sesiones: 0,
   });
 
-  const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
-    const y  = e.nativeEvent.contentOffset.y;
-    const dy = y - lastScrollYRef.current;
-    lastScrollYRef.current = Math.max(0, y);
+  // Native-driver interpolations from scrollY
+  const logoScale = useRef(scrollY.interpolate({
+    inputRange: [0, COLLAPSE_Y],
+    outputRange: [1, LOGO_MIN],
+    extrapolate: 'clamp',
+  })).current;
 
-    if (dy > 8 && y > 30 && headerVisRef.current) {
-      headerVisRef.current = false;
-      Animated.timing(headerOpacity, { toValue: 0, duration: 200, useNativeDriver: true })
-        .start(() => setHeaderPointerEvents('none'));
-    } else if (dy < -8 && !headerVisRef.current) {
-      headerVisRef.current = true;
-      setHeaderPointerEvents('auto');
-      Animated.timing(headerOpacity, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+  // Anchor left edge: compensate for center-origin scale
+  const logoTX = useRef(scrollY.interpolate({
+    inputRange: [0, COLLAPSE_Y],
+    outputRange: [0, -(LOGO_BOX * (1 - LOGO_MIN) / 2)],
+    extrapolate: 'clamp',
+  })).current;
+
+  const wordmarkOpacity = useRef(scrollY.interpolate({
+    inputRange: [0, 38],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  })).current;
+
+  const wordmarkTY = useRef(scrollY.interpolate({
+    inputRange: [0, 38],
+    outputRange: [0, -10],
+    extrapolate: 'clamp',
+  })).current;
+
+  // Tab indicator spring — animate on tab change
+  const tabWidth = tabRowWidth / TABS.length;
+
+  useEffect(() => {
+    const idx = TABS.findIndex(t => t.id === activeTab);
+    const targetX = idx * tabWidth + (tabWidth - IND_W) / 2;
+    if (isFirstMount.current) {
+      indicatorTX.setValue(targetX);
+      isFirstMount.current = false;
+    } else {
+      Animated.spring(indicatorTX, {
+        toValue: targetX,
+        useNativeDriver: true,
+        tension: 220,
+        friction: 18,
+        overshootClamping: true,
+      }).start();
     }
+  }, [activeTab, tabWidth]);
 
+  // Active-tab tracking via stable ref — avoids re-creating the Animated.event
+  const scrollCbRef = useRef<(e: any) => void>(() => {});
+  scrollCbRef.current = (e: any) => {
+    const y  = e.nativeEvent.contentOffset.y;
     const sy = sectionYRef.current;
     const th = headerHeight + 40;
-    if (sy.sesiones > 0 && y >= sy.sesiones - th) setActiveTab('sesiones');
-    else if (sy.valorar > 0 && y >= sy.valorar - th) setActiveTab('valorar');
-    else if (sy.grupos > 0 && y >= sy.grupos - th) setActiveTab('grupos');
-    else setActiveTab('queponemos');
-  }, [headerHeight, headerOpacity]);
+    let next: TabId = 'inicio';
+    if (sy.sesiones > 0 && y >= sy.sesiones - th) next = 'sesiones';
+    else if (sy.valorar > 0 && y >= sy.valorar - th) next = 'valorar';
+    else if (sy.grupos > 0 && y >= sy.grupos - th) next = 'grupos';
+    setActiveTab(prev => (prev === next ? prev : next));
+  };
+
+  // Animated.event created once — listener reads from scrollCbRef
+  const onScrollEvent = useRef(
+    Animated.event(
+      [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+      { useNativeDriver: true, listener: (e: any) => scrollCbRef.current(e) }
+    )
+  ).current;
 
   function scrollToSection(id: TabId) {
-    const rawY = id === 'queponemos' ? 0 : Math.max(0, sectionYRef.current[id] - headerHeight);
+    const rawY = id === 'inicio' ? 0 : Math.max(0, sectionYRef.current[id] - headerHeight);
     scrollRef.current?.scrollTo({ y: rawY, animated: true });
     setActiveTab(id);
-    if (!headerVisRef.current) {
-      headerVisRef.current = true;
-      setHeaderPointerEvents('auto');
-      Animated.timing(headerOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-    }
   }
 
+  // ── Data ──────────────────────────────────────────────────────────────────
   const { recentMovies, recentSeries } = useMemo(() => {
-    const recentMovies: PosterItem[] = [];
-    const recentSeries: PosterItem[] = [];
+    const movies: PosterItem[] = [];
+    const series: PosterItem[] = [];
     const seenM = new Set<string>();
     const seenS = new Set<string>();
     for (const entry of history) {
       for (const rec of entry.recommendations ?? []) {
         if (!rec.posterPath) continue;
-        if (rec.type === 'movie' && !seenM.has(rec.posterPath) && recentMovies.length < 10) {
+        if (rec.type === 'movie' && !seenM.has(rec.posterPath) && movies.length < 10) {
           seenM.add(rec.posterPath);
-          recentMovies.push({ posterPath: rec.posterPath, title: rec.title, platform: rec.platform, matchId: entry.matchId });
-        } else if (rec.type === 'series' && !seenS.has(rec.posterPath) && recentSeries.length < 10) {
+          movies.push({ posterPath: rec.posterPath, title: rec.title, platform: rec.platform, matchId: entry.matchId });
+        } else if (rec.type === 'series' && !seenS.has(rec.posterPath) && series.length < 10) {
           seenS.add(rec.posterPath);
-          recentSeries.push({ posterPath: rec.posterPath, title: rec.title, platform: rec.platform, matchId: entry.matchId });
+          series.push({ posterPath: rec.posterPath, title: rec.title, platform: rec.platform, matchId: entry.matchId });
         }
       }
     }
-    return { recentMovies, recentSeries };
+    return { recentMovies: movies, recentSeries: series };
   }, [history]);
 
-  useFocusEffect(
-    useCallback(() => {
-      headerOpacity.setValue(1);
-      headerVisRef.current = true;
-      lastScrollYRef.current = 0;
-      setHeaderPointerEvents('auto');
-      setActiveTab('queponemos');
-      if (!user?.uid || USE_MOCK) return;
-      getPersonalWatchlist(user.uid).then(setWatchlist).catch(() => {});
-      getPendingRatingsForUser(user.uid).then(items => setPendingCount(items.length)).catch(() => {});
-    }, [user?.uid]),
-  );
+  useFocusEffect(useCallback(() => {
+    scrollY.setValue(0);
+    setActiveTab('inicio');
+    isFirstMount.current = true;
+    if (!user?.uid || USE_MOCK) return;
+    getPersonalWatchlist(user.uid).then(setWatchlist).catch(() => {});
+    getPendingRatingsForUser(user.uid).then(items => setPendingCount(items.length)).catch(() => {});
+  }, [user?.uid]));
 
   useEffect(() => {
     if (!pendingInviteCode || !user) return;
@@ -177,6 +219,7 @@ export default function HomeScreen() {
     );
   }, [pendingInviteCode, user]);
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
   function handleGroupPress(groupId: string) {
     const group = groups.find(g => g.id === groupId) ?? MOCK_GROUP;
     setCurrentGroup(group);
@@ -270,20 +313,13 @@ export default function HomeScreen() {
             activeOpacity={item.matchId ? 0.78 : 1}
           >
             {item.posterPath ? (
-              <Image
-                source={{ uri: getPosterUrl(item.posterPath) ?? '' }}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-              />
+              <Image source={{ uri: getPosterUrl(item.posterPath) ?? '' }} style={StyleSheet.absoluteFill} resizeMode="cover" />
             ) : (
               <View style={styles.posterPlaceholder}>
                 <Feather name="film" size={18} color={Colors.faint} />
               </View>
             )}
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.88)']}
-              style={styles.posterFade}
-            />
+            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.88)']} style={styles.posterFade} />
             <Text style={styles.posterTitle} numberOfLines={2}>{item.title}</Text>
           </TouchableOpacity>
         ))}
@@ -293,101 +329,129 @@ export default function HomeScreen() {
 
   const hasHistory = recentMovies.length > 0 || recentSeries.length > 0 || watchlistItems.length > 0;
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <View style={[styles.root, { backgroundColor: themeColors.bg }]}>
 
-      {/* ── Floating header con nav tabs ─────────────────────────── */}
-      <Animated.View
-        style={[styles.headerFloat, { opacity: headerOpacity }]}
+      {/* ═══════════════════ STICKY HEADER ═══════════════════════════════ */}
+      <View
+        style={[styles.headerWrap, { paddingTop: insets.top }]}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
-        pointerEvents={headerPointerEvents}
       >
-        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-          <TouchableOpacity onPress={() => scrollToSection('queponemos')} activeOpacity={0.7}>
-            <LogoMark size={32} />
-          </TouchableOpacity>
-          <View style={styles.navTabs}>
-            {TABS.map(tab => (
-              <TouchableOpacity
-                key={tab.id}
-                onPress={() => scrollToSection(tab.id)}
-                style={styles.navTab}
-                activeOpacity={0.65}
-              >
-                <Text style={[styles.navTabText, activeTab === tab.id && styles.navTabTextActive]}>
-                  {tab.label}
-                </Text>
-                {activeTab === tab.id && <View style={styles.navTabDot} />}
+        {/* ── Brand row ── */}
+        <View style={styles.brandRow}>
+          {/* Logo + wordmark */}
+          <View style={styles.brandLeft}>
+            <Animated.View style={{
+              transform: [{ translateX: logoTX }, { scale: logoScale }],
+            }}>
+              <TouchableOpacity onPress={() => scrollToSection('inicio')} activeOpacity={0.7}>
+                <LogoMark size={LOGO_SIZE} />
               </TouchableOpacity>
-            ))}
+            </Animated.View>
+            <Animated.Text style={[styles.wordmark, {
+              opacity: wordmarkOpacity,
+              transform: [{ translateY: wordmarkTY }],
+            }]}>
+              queponemos
+            </Animated.Text>
+          </View>
+
+          {/* Bell + avatar */}
+          <View style={styles.brandRight}>
+            <TouchableOpacity
+              style={styles.bellWrap}
+              onPress={() => (nav as any).navigate('History')}
+              activeOpacity={0.7}
+              hitSlop={8}
+            >
+              <Feather name="bell" size={22} color={Colors.text} />
+              {pendingCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{pendingCount > 9 ? '9+' : String(pendingCount)}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.avatar}
+              onPress={() => (nav as any).navigate('Profile')}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.avatarText}>{avatarLetter}</Text>
+            </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.headerBorder} />
-      </Animated.View>
 
+        {/* ── Tabs row ── */}
+        <View
+          style={styles.tabsRow}
+          onLayout={(e) => setTabRowWidth(e.nativeEvent.layout.width)}
+        >
+          {TABS.map(tab => (
+            <TouchableOpacity
+              key={tab.id}
+              style={styles.tab}
+              onPress={() => scrollToSection(tab.id)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          {/* Animated underline indicator */}
+          <Animated.View
+            style={[styles.tabIndicator, { transform: [{ translateX: indicatorTX }] }]}
+          />
+        </View>
+
+        <View style={styles.headerBorder} />
+      </View>
+
+      {/* ═══════════════════ SCROLL CONTENT ══════════════════════════════ */}
       <ScrollView
         ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: insets.bottom + 32 }}
         showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
+        onScroll={onScrollEvent}
         scrollEventThrottle={16}
       >
 
-        {/* ── Notificación pendientes ─────────────────────────────── */}
-        {pendingCount > 0 && !notifDismissed && (
-          <View style={styles.notif}>
-            <View style={styles.notifIco}>
-              <Feather name="star" size={14} color={Colors.success} />
-            </View>
-            <TouchableOpacity style={styles.notifBody} onPress={() => (nav as any).navigate('History')} activeOpacity={0.75}>
-              <Text style={styles.notifTitle}>
-                {pendingCount === 1 ? '1 título espera tu valoración' : `${pendingCount} títulos esperan tu valoración`} →
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setNotifDismissed(true)} hitSlop={12} style={styles.notifClose}>
-              <Feather name="x" size={14} color={Colors.faint} />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ── Hero: ¿Qué ven hoy? ────────────────────────────────── */}
-        <View onLayout={(e) => { sectionYRef.current.queponemos = e.nativeEvent.layout.y; }}>
-        <TouchableOpacity onPress={handleSoloPress} activeOpacity={0.88} style={styles.heroWrap}>
-          <LinearGradient
-            colors={['#0D27A0', '#1B50D4', '#2A6AEC']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={styles.heroGrad}
-          >
-            {/* Venn decorativo */}
-            <View style={styles.heroVenn} pointerEvents="none">
-              <Svg width={160} height={160} viewBox="0 0 28 28" fill="none">
-                <Circle cx={10} cy={14} r={8}  fill="white" fillOpacity={0.07} />
-                <Circle cx={18} cy={14} r={8}  fill="white" fillOpacity={0.07} />
-                <Ellipse cx={14} cy={14} rx={4} ry={6.8} fill="white" fillOpacity={0.06} />
-              </Svg>
-            </View>
-
-            <Text style={styles.heroGreeting}>
-              {firstName ? `Hola ${firstName},` : 'Hola,'}{'\n'}¿qué ponemos hoy?
-            </Text>
-            <Text style={styles.heroSub}>Elegí tu mood, IA te recomienda</Text>
-
-            {(user?.platforms ?? []).length > 0 && (
-              <View style={styles.heroPlatforms}>
-                {(user!.platforms!).slice(0, 4).map(pid => (
-                  <PlatformLogo key={pid} id={pid} size={14} />
-                ))}
-                {(user!.platforms!).length > 4 && (
-                  <Text style={styles.heroPlatformsMore}>+{(user!.platforms!).length - 4}</Text>
-                )}
+        {/* ── Hero / inicio ─────────────────────────────────────────── */}
+        <View onLayout={(e) => { sectionYRef.current.inicio = e.nativeEvent.layout.y; }}>
+          <TouchableOpacity onPress={handleSoloPress} activeOpacity={0.88} style={styles.heroWrap}>
+            <LinearGradient
+              colors={['#0D27A0', '#1B50D4', '#2A6AEC']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={styles.heroGrad}
+            >
+              <View style={styles.heroVenn} pointerEvents="none">
+                <Svg width={160} height={160} viewBox="0 0 28 28" fill="none">
+                  <Circle cx={10} cy={14} r={8} fill="white" fillOpacity={0.07} />
+                  <Circle cx={18} cy={14} r={8} fill="white" fillOpacity={0.07} />
+                  <Ellipse cx={14} cy={14} rx={4} ry={6.8} fill="white" fillOpacity={0.06} />
+                </Svg>
               </View>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
+              <Text style={styles.heroGreeting}>
+                {firstName ? `Hola ${firstName},` : 'Hola,'}{'\n'}¿qué ponemos hoy?
+              </Text>
+              <Text style={styles.heroSub}>Elegí tu mood, IA te recomienda</Text>
+              {(user?.platforms ?? []).length > 0 && (
+                <View style={styles.heroPlatforms}>
+                  {user!.platforms!.slice(0, 4).map(pid => (
+                    <PlatformLogo key={pid} id={pid} size={14} />
+                  ))}
+                  {user!.platforms!.length > 4 && (
+                    <Text style={styles.heroPlatformsMore}>+{user!.platforms!.length - 4}</Text>
+                  )}
+                </View>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
-        {/* ── Tus grupos ─────────────────────────────────────────── */}
+        {/* ── Grupos ───────────────────────────────────────────────── */}
         <View
           onLayout={(e) => { sectionYRef.current.grupos = e.nativeEvent.layout.y; }}
           style={styles.section}
@@ -404,11 +468,9 @@ export default function HomeScreen() {
               <Text style={styles.emptyGroupsText}>Invitá a alguien para encontrar la peli perfecta para los dos</Text>
             </View>
           )}
-
           {groups.map(g => (
             <GroupCard key={g.id} group={g} onPress={() => handleGroupPress(g.id)} />
           ))}
-
           <View style={styles.groupBtns}>
             <TouchableOpacity style={[styles.createBtnWrap, styles.createBtn]} onPress={() => setCreateModal(true)} activeOpacity={0.8}>
               <Text style={styles.createBtnText}>+ Crear grupo</Text>
@@ -427,11 +489,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionEyebrow}>Tus gustos</Text>
           <Text style={styles.sectionTitle}>Valorar</Text>
           {pendingCount > 0 ? (
-            <TouchableOpacity
-              style={styles.valorarCard}
-              onPress={() => (nav as any).navigate('History')}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={styles.valorarCard} onPress={() => (nav as any).navigate('History')} activeOpacity={0.8}>
               <Feather name="star" size={16} color={Colors.success} />
               <Text style={styles.valorarCardText}>
                 {pendingCount === 1 ? '1 título espera tu valoración' : `${pendingCount} títulos esperan tu valoración`}
@@ -439,55 +497,50 @@ export default function HomeScreen() {
               <Feather name="chevron-right" size={16} color={Colors.faint} />
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              style={styles.valorarCard}
-              onPress={() => (nav as any).navigate('Profile')}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={styles.valorarCard} onPress={() => (nav as any).navigate('Profile')} activeOpacity={0.8}>
               <Feather name="film" size={16} color={Colors.sub} />
               <Text style={styles.valorarCardText}>Calificá títulos para mejorar las recomendaciones →</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* ── Historial de sesiones ───────────────────────────────── */}
+        {/* ── Sesiones ─────────────────────────────────────────────── */}
         <View onLayout={(e) => { sectionYRef.current.sesiones = e.nativeEvent.layout.y; }}>
-        {hasHistory && (
-          <View style={styles.historySeparator}>
-            <View style={styles.historySeparatorLine} />
-            <Text style={styles.historySeparatorText}>Lo que recomendamos antes</Text>
-            <View style={styles.historySeparatorLine} />
-          </View>
-        )}
-
-        {recentMovies.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionEyebrow}>Sesiones anteriores</Text>
-            <Text style={styles.sectionTitle}>Pelis</Text>
-            {renderPosterRow(recentMovies)}
-          </View>
-        )}
-
-        {recentSeries.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionEyebrow}>Sesiones anteriores</Text>
-            <Text style={styles.sectionTitle}>Series</Text>
-            {renderPosterRow(recentSeries)}
-          </View>
-        )}
-
-        {watchlistItems.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionEyebrow}>Guardadas</Text>
-            <Text style={styles.sectionTitle}>Para después</Text>
-            {renderPosterRow(watchlistItems)}
-          </View>
-        )}
+          {hasHistory && (
+            <View style={styles.historySeparator}>
+              <View style={styles.historySeparatorLine} />
+              <Text style={styles.historySeparatorText}>Lo que recomendamos antes</Text>
+              <View style={styles.historySeparatorLine} />
+            </View>
+          )}
+          {recentMovies.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionEyebrow}>Sesiones anteriores</Text>
+              <Text style={styles.sectionTitle}>Pelis</Text>
+              {renderPosterRow(recentMovies)}
+            </View>
+          )}
+          {recentSeries.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionEyebrow}>Sesiones anteriores</Text>
+              <Text style={styles.sectionTitle}>Series</Text>
+              {renderPosterRow(recentSeries)}
+            </View>
+          )}
+          {watchlistItems.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionEyebrow}>Guardadas</Text>
+              <Text style={styles.sectionTitle}>Para después</Text>
+              {renderPosterRow(watchlistItems)}
+            </View>
+          )}
         </View>
 
       </ScrollView>
 
-      {/* ── Modal Crear grupo ──────────────────────────────────────── */}
+      {/* ═══════════════════ MODALS ══════════════════════════════════════ */}
+
+      {/* Crear grupo */}
       <Modal visible={createModal} transparent animationType="slide" onRequestClose={() => setCreateModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
@@ -501,7 +554,7 @@ export default function HomeScreen() {
               {PLATFORMS.map(p => (
                 <TouchableOpacity
                   key={p.id}
-                  style={[styles.platformChip, selPlatforms.includes(p.id) && styles.platformChipSelected]}
+                  style={[styles.platformChip, selPlatforms.includes(p.id) && styles.platformChipSel]}
                   onPress={() => togglePlatform(p.id)}
                 >
                   <PlatformLogo id={p.id} size={24} />
@@ -524,7 +577,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* ── Modal Unirse ──────────────────────────────────────────── */}
+      {/* Unirse */}
       <Modal visible={joinModal} transparent animationType="slide" onRequestClose={() => setJoinModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
@@ -555,7 +608,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* ── Modal plataformas solo ────────────────────────────────── */}
+      {/* Plataformas solo */}
       <Modal visible={soloPlatformModal} transparent animationType="slide" onRequestClose={() => setSoloPlatformModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modal}>
@@ -565,7 +618,7 @@ export default function HomeScreen() {
               {PLATFORMS.map(p => (
                 <TouchableOpacity
                   key={p.id}
-                  style={[styles.platformChip, soloPlatforms.includes(p.id) && styles.platformChipSelected]}
+                  style={[styles.platformChip, soloPlatforms.includes(p.id) && styles.platformChipSel]}
                   onPress={() => setSoloPlatforms(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])}
                 >
                   <PlatformLogo id={p.id} size={24} />
@@ -593,54 +646,108 @@ export default function HomeScreen() {
   );
 }
 
+// ── Styles ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root:        { flex: 1, backgroundColor: Colors.bg },
-  scrollView:  { flex: 1 },
-  headerFloat: {
+  root:       { flex: 1, backgroundColor: Colors.bg },
+  scrollView: { flex: 1 },
+
+  // ── Sticky header ────────────────────────────────────────────────────────
+  headerWrap: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
     backgroundColor: Colors.bg,
   },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingBottom: 10, gap: 12,
-  },
-  headerBorder: { height: 1, backgroundColor: Colors.border, opacity: 0.6 },
-  navTabs: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2 },
-  navTab:  { flex: 1, alignItems: 'center', paddingVertical: 6, paddingHorizontal: 2, gap: 4 },
-  navTabText: {
-    fontFamily: Typography.fontMedium, fontSize: 11,
-    color: Colors.faint, letterSpacing: 0.1,
-  },
-  navTabTextActive: { color: Colors.text },
-  navTabDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: Colors.accent },
 
-  // Valorar card
-  valorarCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: Colors.s1, borderRadius: 12,
+  // Brand row
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  brandLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  wordmark: {
+    fontFamily: Typography.fontMedium,
+    fontSize: 17,
+    color: Colors.text,
+    letterSpacing: -0.3,
+  },
+  brandRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  // Bell
+  bellWrap: {
+    width: 40, height: 40,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bellBadge: {
+    position: 'absolute', top: 6, right: 5,
+    width: 15, height: 15, borderRadius: 7.5,
+    backgroundColor: Colors.accent,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bellBadgeText: {
+    color: '#fff', fontSize: 8,
+    fontFamily: Typography.fontMedium,
+    fontWeight: Typography.medium,
+  },
+
+  // Avatar
+  avatar: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: Colors.s2,
     borderWidth: 1, borderColor: Colors.border,
-    padding: 14,
+    alignItems: 'center', justifyContent: 'center',
+    marginLeft: 4,
   },
-  valorarCardText: { flex: 1, color: Colors.sub, fontSize: 15, lineHeight: 20 },
+  avatarText: {
+    color: Colors.text, fontSize: 15,
+    fontFamily: Typography.fontMedium,
+    fontWeight: Typography.medium,
+  },
 
-  // Notif bar
-  notif: {
-    marginHorizontal: 24, marginBottom: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(29,158,117,0.12)',
-    borderWidth: 1, borderColor: 'rgba(29,158,117,0.28)',
-    borderRadius: 12, padding: 12,
+  // Tabs row
+  tabsRow: {
+    flexDirection: 'row',
+    position: 'relative',
+    paddingTop: 2,
   },
-  notifIco: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: 'rgba(29,158,117,0.20)',
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
   },
-  notifBody:  { flex: 1 },
-  notifTitle: { color: Colors.success, fontSize: 16, fontWeight: Typography.medium },
-  notifClose: { padding: 4 },
+  tabText: {
+    fontFamily: Typography.fontMedium,
+    fontSize: 13,
+    color: Colors.faint,
+    letterSpacing: -0.1,
+  },
+  tabTextActive: {
+    color: Colors.text,
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: IND_W,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: Colors.accent,
+  },
 
-  // Hero
+  headerBorder: { height: 1, backgroundColor: Colors.border, opacity: 0.5 },
+
+  // ── Hero ────────────────────────────────────────────────────────────────
   heroWrap: { marginHorizontal: 24, marginTop: 8, borderRadius: 20, overflow: 'hidden', marginBottom: 28 },
   heroGrad: {
     borderRadius: 20, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 22,
@@ -648,44 +755,38 @@ const styles = StyleSheet.create({
   },
   heroVenn:  { position: 'absolute', right: -20, top: -20 },
   heroGreeting: {
-    color: '#fff', fontSize: 28, fontWeight: Typography.medium,
-    fontFamily: Typography.fontMedium, letterSpacing: -0.5, lineHeight: 36, marginBottom: 10,
+    color: '#fff', fontSize: 28, fontFamily: Typography.fontMedium,
+    fontWeight: Typography.medium, letterSpacing: -0.5, lineHeight: 36, marginBottom: 10,
   },
-  heroSub:   { color: 'rgba(255,255,255,0.72)', fontSize: 22, fontFamily: Typography.fontRegular, marginBottom: 16 },
-  heroPlatforms: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-  },
-  heroPlatformsMore: {
-    color: 'rgba(255,255,255,0.5)', fontSize: 14,
-    fontWeight: Typography.medium,
-  },
+  heroSub: { color: 'rgba(255,255,255,0.72)', fontSize: 22, fontFamily: Typography.fontRegular, marginBottom: 16 },
+  heroPlatforms: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroPlatformsMore: { color: 'rgba(255,255,255,0.5)', fontSize: 14, fontWeight: Typography.medium },
 
-  // Sections
+  // ── Sections ────────────────────────────────────────────────────────────
   section:       { marginBottom: 28, paddingHorizontal: 24 },
   sectionEyebrow:{
-    color: Colors.sub, fontSize: 16, fontWeight: Typography.medium,
-    letterSpacing: 0.2, marginBottom: 4,
+    color: Colors.sub, fontSize: 16, fontFamily: Typography.fontMedium,
+    fontWeight: Typography.medium, letterSpacing: 0.2, marginBottom: 4,
   },
-  sectionTitle:  { color: Colors.text, fontSize: 22, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.3 },
+  sectionTitle:  {
+    color: Colors.text, fontSize: 22, fontFamily: Typography.fontMedium,
+    fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.3,
+  },
 
-  // Empty groups
   emptyGroups: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     backgroundColor: Colors.s1, borderRadius: 12,
-    borderWidth: 1, borderColor: Colors.border,
-    padding: 16, marginBottom: 14,
+    borderWidth: 1, borderColor: Colors.border, padding: 16, marginBottom: 14,
   },
   emptyGroupsText: { flex: 1, color: Colors.sub, fontSize: 16, lineHeight: 24 },
 
-  // History separator
   historySeparator: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 24, marginBottom: 24,
   },
   historySeparatorLine: { flex: 1, height: 1, backgroundColor: Colors.border },
   historySeparatorText: {
-    color: Colors.sub, fontSize: 16,
-    fontWeight: Typography.medium,
+    color: Colors.sub, fontSize: 16, fontFamily: Typography.fontMedium, fontWeight: Typography.medium,
   },
 
   // Poster rows
@@ -693,17 +794,10 @@ const styles = StyleSheet.create({
   posterRowContent: { paddingHorizontal: 24, gap: 10 },
   posterCard: {
     width: POSTER_W, height: POSTER_H,
-    borderRadius: 12, overflow: 'hidden',
-    backgroundColor: Colors.s1,
+    borderRadius: 12, overflow: 'hidden', backgroundColor: Colors.s1,
   },
-  posterPlaceholder:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  posterFade: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, height: 90,
-  },
-  posterPlatformBadge:  {
-    position: 'absolute', top: 8, right: 8,
-    backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 6, padding: 4,
-  },
+  posterPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  posterFade: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 90 },
   posterTitle: {
     position: 'absolute', bottom: 9, left: 9, right: 9,
     color: '#fff', fontSize: 14, fontFamily: Typography.fontMedium,
@@ -714,25 +808,33 @@ const styles = StyleSheet.create({
   groupBtns:     { flexDirection: 'row', gap: 10, marginTop: 4 },
   createBtnWrap: { flex: 1 },
   createBtn:     { borderRadius: 12, paddingVertical: 16, alignItems: 'center', backgroundColor: '#1B50D4' },
-  createBtnText: { color: '#fff', fontWeight: Typography.medium, fontFamily: Typography.fontMedium, fontSize: 18 },
+  createBtnText: { color: '#fff', fontFamily: Typography.fontMedium, fontWeight: Typography.medium, fontSize: 18 },
   joinBtn:       { flex: 1, backgroundColor: Colors.s1, borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  joinBtnText:   { color: Colors.text, fontWeight: Typography.medium, fontFamily: Typography.fontMedium, fontSize: 18 },
+  joinBtnText:   { color: Colors.text, fontFamily: Typography.fontMedium, fontWeight: Typography.medium, fontSize: 18 },
+
+  // Valorar card
+  valorarCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: Colors.s1, borderRadius: 12,
+    borderWidth: 1, borderColor: Colors.border, padding: 14,
+  },
+  valorarCardText: { flex: 1, color: Colors.sub, fontSize: 15, lineHeight: 20 },
 
   // Modals
   modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modal:         { backgroundColor: Colors.s1, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: Colors.border },
-  modalTitle:    { color: Colors.text, fontSize: 22, fontWeight: Typography.medium, marginBottom: 20 },
-  modalSubtitle: { color: Colors.sub, fontSize: 16, fontWeight: Typography.medium, marginBottom: 10, marginTop: 16 },
+  modalTitle:    { color: Colors.text, fontSize: 22, fontFamily: Typography.fontMedium, fontWeight: Typography.medium, marginBottom: 20 },
+  modalSubtitle: { color: Colors.sub, fontSize: 16, fontFamily: Typography.fontMedium, fontWeight: Typography.medium, marginBottom: 10, marginTop: 16 },
   input:         { backgroundColor: Colors.s2, borderRadius: 10, padding: 14, color: Colors.text, fontSize: 18, borderWidth: 1, borderColor: Colors.border },
   platformGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   platformChip:  { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.s2, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: Colors.border },
-  platformChipSelected: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
+  platformChipSel: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
   platformName:  { color: Colors.text, fontSize: 18 },
   modalBtns:     { flexDirection: 'row', gap: 10 },
   cancelBtn:     { flex: 1, backgroundColor: Colors.s2, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText: { color: Colors.sub, fontWeight: Typography.medium, fontSize: 18 },
+  cancelBtnText: { color: Colors.sub, fontFamily: Typography.fontMedium, fontWeight: Typography.medium, fontSize: 18 },
   confirmBtn:    { flex: 2, backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  confirmBtnText:{ color: '#fff', fontWeight: Typography.medium, fontSize: 18 },
+  confirmBtnText:{ color: '#fff', fontFamily: Typography.fontMedium, fontWeight: Typography.medium, fontSize: 18 },
   btnDisabled:   { opacity: 0.4 },
   hintTouchable: { marginTop: 4, marginBottom: 4 },
   hintText:      { color: Colors.faint, fontSize: 16 },
