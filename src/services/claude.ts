@@ -212,32 +212,74 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de c
 }`;
 }
 
+/** Scan text for top-level JSON objects; return the last one that has a `recommendations` array. */
+function extractLastJsonObject(text: string): string | null {
+  const candidates: string[] = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (text[i] === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        candidates.push(text.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    try {
+      const p = JSON.parse(candidates[i]);
+      if (Array.isArray(p?.recommendations)) return candidates[i];
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
 export async function runMatching(input: MatchingInput): Promise<MatchingOutput> {
   const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY no configurada');
   if (!apiKey.startsWith('sk-ant-')) throw new Error(`API key inválida (debe empezar con sk-ant-). Verificá EXPO_PUBLIC_ANTHROPIC_API_KEY.`);
 
+  // Prefill assistant turn to force pure JSON output (no preamble, no self-correction text)
+  const JSON_PREFIX = '{"recommendations":[';
+
   const data = await callClaudeWithRetry({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
-    messages: [{ role: 'user', content: buildPrompt(input) }],
+    messages: [
+      { role: 'user', content: buildPrompt(input) },
+      { role: 'assistant', content: JSON_PREFIX },
+    ],
   }, apiKey);
-
-  const raw = data.content[0]?.text ?? '{}';
 
   if (data.stop_reason === 'max_tokens') {
     throw new Error('La respuesta se cortó (max_tokens). Volvé a intentar.');
   }
 
-  // Strip markdown code fences if present
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  // Reconstruct the full JSON (prefill + continuation)
+  const raw = JSON_PREFIX + (data.content[0]?.text ?? '');
 
   let parsed: { recommendations: Omit<Recommendation, 'posterPath' | 'groupStatus'>[]; groupInsight: string };
   try {
+    // Strip markdown fences just in case, then parse
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
     parsed = JSON.parse(cleaned);
   } catch {
-    console.error('Claude raw response:', raw);
-    throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
+    // Fallback: Claude still generated extra text — scan for the last valid JSON object
+    const extracted = extractLastJsonObject(raw);
+    if (extracted) {
+      try { parsed = JSON.parse(extracted); }
+      catch {
+        console.error('Claude raw response:', raw);
+        throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
+      }
+    } else {
+      console.error('Claude raw response:', raw);
+      throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
+    }
   }
 
   const fallbackPlatform = input.platforms[0] ?? 'netflix';
