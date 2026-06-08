@@ -32,19 +32,20 @@ import { MOCK_GROUP } from '../utils/mock';
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const POSTER_W = 90;
-const POSTER_H = 135;
+const POSTER_W = 96;
+const POSTER_H = 144;
 
-interface PosterItem { posterPath: string | null; title: string; platform: PlatformId }
+interface PosterItem { posterPath: string | null; title: string; platform: PlatformId; matchId?: string }
 
 export default function HomeScreen() {
   const insets  = useSafeAreaInsets();
   const nav     = useNavigation<Nav>();
   const { user, setPlatforms }                                                        = useAuthStore();
   const { groups, addGroup, setCurrentGroup, pendingInviteCode, setPendingInviteCode } = useGroupStore();
-  const { history }                                                                   = useMatchStore();
+  const { history, setCurrentMatch, setSoloMode }                                    = useMatchStore();
   const themeColors = useColors();
-  const firstName   = user?.displayName?.split(' ')[0] ?? '';
+  const firstName    = user?.displayName?.split(' ')[0] ?? '';
+  const avatarLetter = firstName.charAt(0).toUpperCase() || '?';
 
   const [createModal,       setCreateModal]       = useState(false);
   const [joinModal,         setJoinModal]         = useState(false);
@@ -69,10 +70,10 @@ export default function HomeScreen() {
         if (!rec.posterPath) continue;
         if (rec.type === 'movie' && !seenM.has(rec.posterPath) && recentMovies.length < 10) {
           seenM.add(rec.posterPath);
-          recentMovies.push({ posterPath: rec.posterPath, title: rec.title, platform: rec.platform });
+          recentMovies.push({ posterPath: rec.posterPath, title: rec.title, platform: rec.platform, matchId: entry.matchId });
         } else if (rec.type === 'series' && !seenS.has(rec.posterPath) && recentSeries.length < 10) {
           seenS.add(rec.posterPath);
-          recentSeries.push({ posterPath: rec.posterPath, title: rec.title, platform: rec.platform });
+          recentSeries.push({ posterPath: rec.posterPath, title: rec.title, platform: rec.platform, matchId: entry.matchId });
         }
       }
     }
@@ -180,8 +181,18 @@ export default function HomeScreen() {
   }
 
   const watchlistItems: PosterItem[] = watchlist.map(item => ({
-    posterPath: item.posterPath, title: item.title, platform: item.platform,
+    posterPath: item.posterPath, title: item.title, platform: item.platform, matchId: item.matchId,
   }));
+
+  function handlePosterPress(item: PosterItem) {
+    if (!item.matchId) return;
+    const entry = history.find(e => e.matchId === item.matchId);
+    if (!entry) return;
+    const solo = entry.groupId.startsWith('solo-');
+    setSoloMode(solo);
+    setCurrentMatch({ recommendations: entry.recommendations, groupInsight: '' }, entry.matchId);
+    nav.navigate('Results', { matchId: entry.matchId });
+  }
 
   function renderPosterRow(items: PosterItem[]) {
     return (
@@ -192,7 +203,12 @@ export default function HomeScreen() {
         nestedScrollEnabled
       >
         {items.map((item, i) => (
-          <View key={i} style={styles.posterCard}>
+          <TouchableOpacity
+            key={i}
+            style={styles.posterCard}
+            onPress={() => handlePosterPress(item)}
+            activeOpacity={item.matchId ? 0.78 : 1}
+          >
             {item.posterPath ? (
               <Image
                 source={{ uri: getPosterUrl(item.posterPath) ?? '' }}
@@ -212,7 +228,7 @@ export default function HomeScreen() {
               <PlatformLogo id={item.platform} size={14} />
             </View>
             <Text style={styles.posterTitle} numberOfLines={2}>{item.title}</Text>
-          </View>
+          </TouchableOpacity>
         ))}
       </ScrollView>
     );
@@ -229,8 +245,10 @@ export default function HomeScreen() {
 
         {/* ── Header ─────────────────────────────────────────────── */}
         <View style={styles.header}>
-          <LogoWordmark markSize={20} />
-          {firstName ? <Text style={styles.greeting}>Hola, {firstName}</Text> : null}
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{avatarLetter}</Text>
+          </View>
+          <LogoWordmark markSize={24} />
         </View>
 
         {/* ── Notificación pendientes ─────────────────────────────── */}
@@ -240,8 +258,9 @@ export default function HomeScreen() {
               <Feather name="star" size={14} color={Colors.success} />
             </View>
             <TouchableOpacity style={styles.notifBody} onPress={() => (nav as any).navigate('History')} activeOpacity={0.75}>
-              <Text style={styles.notifTitle}>{pendingCount} títulos esperan tu valoración</Text>
-              <Text style={styles.notifSub}>Calificá lo que viste para mejorar las recomendaciones →</Text>
+              <Text style={styles.notifTitle}>
+                {pendingCount === 1 ? '1 título espera tu valoración' : `${pendingCount} títulos esperan tu valoración`} →
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setNotifDismissed(true)} hitSlop={12} style={styles.notifClose}>
               <Feather name="x" size={14} color={Colors.faint} />
@@ -265,17 +284,11 @@ export default function HomeScreen() {
               </Svg>
             </View>
 
-            <View style={styles.heroTop}>
-              {/* LogoMark como ícono principal — no un play */}
-              <LogoMark size={36} />
-              <View style={styles.heroText}>
-                <Text style={styles.heroTitle}>¿Qué ven hoy?</Text>
-                <Text style={styles.heroSub}>Elegí tu mood · Claude recomienda</Text>
-              </View>
-              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.45)" />
-            </View>
+            <Text style={styles.heroGreeting}>
+              {firstName ? `Hola ${firstName},` : 'Hola,'}{'\n'}¿qué ponemos hoy?
+            </Text>
+            <Text style={styles.heroSub}>Elegí tu mood, IA te recomienda</Text>
 
-            {/* Etiqueta de plataformas configuradas */}
             {(user?.platforms ?? []).length > 0 && (
               <View style={styles.heroPlatforms}>
                 {(user!.platforms!).slice(0, 4).map(pid => (
@@ -291,7 +304,7 @@ export default function HomeScreen() {
 
         {/* ── Tus grupos ─────────────────────────────────────────── */}
         <View style={styles.section}>
-          <Text style={styles.sectionEyebrow}>Con quién ven</Text>
+          <Text style={styles.sectionEyebrow}>¿Con quién ponemos algo?</Text>
           <Text style={styles.sectionTitle}>Tus grupos</Text>
 
           {groups.length === 0 && (
@@ -309,8 +322,14 @@ export default function HomeScreen() {
           ))}
 
           <View style={styles.groupBtns}>
-            <TouchableOpacity style={styles.createBtn} onPress={() => setCreateModal(true)} activeOpacity={0.8}>
-              <Text style={styles.createBtnText}>+ Crear grupo</Text>
+            <TouchableOpacity style={styles.createBtnWrap} onPress={() => setCreateModal(true)} activeOpacity={0.8}>
+              <LinearGradient
+                colors={[Colors.accent, '#E8503A']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={styles.createBtn}
+              >
+                <Text style={styles.createBtnText}>+ Crear grupo</Text>
+              </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity style={styles.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
               <Text style={styles.joinBtnText}>Unirme</Text>
@@ -466,7 +485,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 24, marginBottom: 16,
   },
-  greeting: { fontFamily: Typography.fontRegular, fontSize: Typography.small, color: Colors.sub },
+  avatar: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.s2, borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: {
+    color: Colors.text, fontSize: Typography.body,
+    fontWeight: Typography.medium, fontFamily: Typography.fontMedium,
+  },
 
   // Notif bar
   notif: {
@@ -482,23 +509,23 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   notifBody:  { flex: 1 },
-  notifTitle: { color: Colors.success, fontSize: Typography.small, fontWeight: Typography.medium },
-  notifSub:   { color: Colors.sub, fontSize: Typography.tiny, marginTop: 2 },
+  notifTitle: { color: Colors.success, fontSize: Typography.body, fontWeight: Typography.medium },
   notifClose: { padding: 4 },
 
   // Hero
   heroWrap: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden', marginBottom: 28 },
   heroGrad: {
-    borderRadius: 20, paddingHorizontal: 22, paddingTop: 22, paddingBottom: 20,
-    minHeight: 168, justifyContent: 'space-between',
+    borderRadius: 20, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 22,
+    minHeight: 168, justifyContent: 'flex-end',
   },
   heroVenn:  { position: 'absolute', right: -20, top: -20 },
-  heroTop:   { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  heroText:  { flex: 1 },
-  heroTitle: { color: '#fff', fontSize: 24, fontWeight: Typography.medium, letterSpacing: -0.3 },
-  heroSub:   { color: 'rgba(255,255,255,0.65)', fontSize: Typography.small, marginTop: 4 },
+  heroGreeting: {
+    color: '#fff', fontSize: 26, fontWeight: Typography.medium,
+    fontFamily: Typography.fontMedium, letterSpacing: -0.5, lineHeight: 32, marginBottom: 8,
+  },
+  heroSub:   { color: 'rgba(255,255,255,0.72)', fontSize: 18, fontFamily: Typography.fontRegular, marginBottom: 14 },
   heroPlatforms: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
   },
   heroPlatformsMore: {
     color: 'rgba(255,255,255,0.5)', fontSize: Typography.tiny,
@@ -508,10 +535,10 @@ const styles = StyleSheet.create({
   // Sections
   section:       { marginBottom: 28, paddingHorizontal: 24 },
   sectionEyebrow:{
-    color: Colors.faint, fontSize: Typography.tiny, fontWeight: Typography.medium,
-    textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 4,
+    color: Colors.sub, fontSize: Typography.small, fontWeight: Typography.medium,
+    letterSpacing: 0.2, marginBottom: 4,
   },
-  sectionTitle:  { color: Colors.text, fontSize: 20, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.2 },
+  sectionTitle:  { color: Colors.text, fontSize: 24, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.3 },
 
   // Empty groups
   emptyGroups: {
@@ -529,8 +556,8 @@ const styles = StyleSheet.create({
   },
   historySeparatorLine: { flex: 1, height: 1, backgroundColor: Colors.border },
   historySeparatorText: {
-    color: Colors.faint, fontSize: Typography.tiny,
-    fontWeight: Typography.medium, textTransform: 'uppercase', letterSpacing: 1,
+    color: Colors.sub, fontSize: Typography.small,
+    fontWeight: Typography.medium,
   },
 
   // Poster rows
@@ -556,11 +583,12 @@ const styles = StyleSheet.create({
   },
 
   // Groups
-  groupBtns:    { flexDirection: 'row', gap: 10, marginTop: 4 },
-  createBtn:    { flex: 1, backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  createBtnText:{ color: '#fff', fontWeight: Typography.medium, fontSize: Typography.body },
-  joinBtn:      { flex: 1, backgroundColor: Colors.s1, borderRadius: 10, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  joinBtnText:  { color: Colors.text, fontWeight: Typography.medium, fontSize: Typography.body },
+  groupBtns:     { flexDirection: 'row', gap: 10, marginTop: 4 },
+  createBtnWrap: { flex: 1, borderRadius: 12, overflow: 'hidden' },
+  createBtn:     { borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
+  createBtnText: { color: '#fff', fontWeight: Typography.medium, fontFamily: Typography.fontMedium, fontSize: Typography.body },
+  joinBtn:       { flex: 1, backgroundColor: Colors.s1, borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  joinBtnText:   { color: Colors.text, fontWeight: Typography.medium, fontFamily: Typography.fontMedium, fontSize: Typography.body },
 
   // Modals
   modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
