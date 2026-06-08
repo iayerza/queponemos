@@ -4,7 +4,6 @@ import { discoverByGenre, type NormalizedTitle } from '../services/tmdb';
 import { useAuthStore } from '../store/useAuthStore';
 import type { Rating } from '../services/firebase';
 import type { AgeRange } from '../navigation/types';
-import { CATALOG_IDF } from '../utils/tasteProfile';
 
 export interface OnboardingState {
   titles: NormalizedTitle[];
@@ -23,7 +22,7 @@ export interface OnboardingState {
 
 interface Probe { genreId: number; type: 'movie' | 'tv'; label: string }
 
-// Genres we always exclude from the explore bucket (too niche / not streaming-mainstream)
+// Genres excluded from explore bucket unless explicitly chosen by the user
 const NICHE_GENRES = new Set([
   'Animación', 'Documental', 'Docuserie', 'Infantil',
   'Noticias', 'Reality', 'Telenovela', 'Talk', 'Familia',
@@ -105,12 +104,13 @@ const ALL_PROBES: Record<AgeRange | 'default', Probe[]> = {
   ],
 };
 
-// Age-aware minimum year — shows content from the user's formative cinema years.
+// Age-aware minimum year: adult (36-50) gets MIN_YEAR=1996 so The Matrix, Gladiator,
+// Dark Knight, etc. appear. senior gets 1981 for Spielberg-era classics.
 const MIN_YEAR: Record<AgeRange | 'default', number> = {
   young:   new Date().getFullYear() - 10,
   mid:     new Date().getFullYear() - 18,
-  adult:   new Date().getFullYear() - 30,  // ~1996: Matrix, Gladiator, Dark Knight, etc.
-  senior:  new Date().getFullYear() - 45,  // ~1981: Raiders, Die Hard, etc.
+  adult:   new Date().getFullYear() - 30,
+  senior:  new Date().getFullYear() - 45,
   default: new Date().getFullYear() - 15,
 };
 
@@ -121,23 +121,21 @@ const RATING_WEIGHTS: Record<Rating, number> = {
 };
 
 // Build the active probe list from genre selection.
-// Only fetches from genres the user selected + up to 2 "explore" probes.
-// Niche genres (Animation, Documentary, etc.) are excluded from explore unless explicitly chosen.
+// Only fetches genres the user chose + up to 2 explore probes.
+// Niche genres are excluded from explore unless explicitly selected.
 function buildActiveProbes(all: Probe[], selectedGenres: string[]): Probe[] {
   const selected = new Set(selectedGenres);
-
-  // A probe matches if its base label (without " TV" suffix) was selected
   const baseLabel = (p: Probe) => p.label.replace(' TV', '');
   const isSelected = (p: Probe) => selected.has(baseLabel(p));
 
   const primary = all.filter(isSelected);
 
   if (primary.length === 0) {
-    // User skipped genre step — use a curated mainstream default (no niche)
+    // Skipped genre step — use 8 mainstream probes, no niche
     return all.filter(p => !NICHE_GENRES.has(baseLabel(p))).slice(0, 8);
   }
 
-  // Add up to 2 explore probes from unselected, non-niche genres (variety)
+  // Add up to 2 explore probes from unselected, non-niche genres
   const explore = all
     .filter(p => !isSelected(p) && !NICHE_GENRES.has(baseLabel(p)))
     .slice(0, 2);
@@ -145,7 +143,7 @@ function buildActiveProbes(all: Probe[], selectedGenres: string[]): Probe[] {
   return [...primary, ...explore];
 }
 
-// Genre seeds act as a soft baseline so the profile has signal even with 0 title ratings.
+// Genre seeds give the profile an initial signal even before any title ratings.
 function computeLocalProfile(
   ratings: Record<number, Rating>,
   pool: NormalizedTitle[],
@@ -153,17 +151,14 @@ function computeLocalProfile(
 ): Record<string, number> {
   const raw: Record<string, number> = {};
 
-  for (const g of seeds) {
-    const idf = CATALOG_IDF[g] ?? 1.0;
-    raw[g] = (raw[g] ?? 0) + 0.8 * idf;
-  }
+  for (const g of seeds) raw[g] = (raw[g] ?? 0) + 0.8;
+
   for (const [idStr, r] of Object.entries(ratings)) {
     const title = pool.find(t => t.tmdbId === Number(idStr) || t.id === Number(idStr));
     if (!title) continue;
     const w = RATING_WEIGHTS[r];
     for (const genre of title.genres) {
-      const idf = CATALOG_IDF[genre] ?? 1.0;
-      raw[genre] = (raw[genre] ?? 0) + w * idf;
+      raw[genre] = (raw[genre] ?? 0) + w;
     }
   }
 
@@ -173,49 +168,31 @@ function computeLocalProfile(
   );
 }
 
-function scoreForPool(t: NormalizedTitle, profile: Record<string, number>): number {
+function scoreTitle(t: NormalizedTitle, profile: Record<string, number>): number {
   return t.genres.reduce((s, g) => s + (profile[g] ?? 0), 0);
 }
 
-function sortAdaptive(
-  remaining: NormalizedTitle[],
-  profile: Record<string, number>,
-): NormalizedTitle[] {
-  const scored = remaining.map(t => ({ t, score: scoreForPool(t, profile) }));
+function sortAdaptive(remaining: NormalizedTitle[], profile: Record<string, number>): NormalizedTitle[] {
+  const scored = remaining.map(t => ({ t, score: scoreTitle(t, profile) }));
   const cut = Math.ceil(scored.length * 0.65);
   const sorted = [...scored].sort((a, b) => b.score - a.score);
   const exploit = sorted.slice(0, cut).map(s => s.t);
-  const explore = sorted.slice(cut).map(s => s.t).sort(() => Math.random() - 0.5);
+  const explore  = sorted.slice(cut).map(s => s.t).sort(() => Math.random() - 0.5);
   const result: NormalizedTitle[] = [];
   let e = 0, x = 0;
   while (result.length < remaining.length) {
     if (e < exploit.length) result.push(exploit[e++]);
     if (result.length < remaining.length && e < exploit.length) result.push(exploit[e++]);
-    if (result.length < remaining.length && x < explore.length) result.push(explore[x++]);
+    if (result.length < remaining.length && x < explore.length)  result.push(explore[x++]);
   }
   return result;
 }
 
-function buildMockPool(selectedGenres: string[]): { seed: NormalizedTitle[]; rest: NormalizedTitle[] } {
-  const valid = MOCK_TITLES.filter(t => {
-    if (!t.year || !t.posterPath) return false;
-    if (selectedGenres.length === 0) return !NICHE_GENRES.has(t.genres[0] ?? '');
-    // Include titles from selected genres + some explore
-    return t.genres.some(g => selectedGenres.includes(g)) || Math.random() < 0.3;
-  });
-  const seenGenres = new Set<string>();
-  const seed: NormalizedTitle[] = [];
-  const rest: NormalizedTitle[] = [];
-  for (const t of valid) {
-    const primary = t.genres[0];
-    if (primary && !seenGenres.has(`${primary}-${t.type}`)) {
-      seenGenres.add(`${primary}-${t.type}`);
-      seed.push(t);
-    } else {
-      rest.push(t);
-    }
-  }
-  return { seed, rest };
+function buildMockPool(selectedGenres: string[]): NormalizedTitle[] {
+  const valid = MOCK_TITLES.filter(t => t.year > 0 && t.posterPath) as NormalizedTitle[];
+  if (selectedGenres.length === 0) return valid.filter(t => !NICHE_GENRES.has(t.genres[0] ?? ''));
+  const selected = new Set(selectedGenres);
+  return valid.filter(t => t.genres.some(g => selected.has(g)) || Math.random() < 0.25);
 }
 
 export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): OnboardingState {
@@ -223,25 +200,25 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
   const [queue, setQueue]        = useState<NormalizedTitle[]>([]);
   const [currentIndex, setIndex] = useState(0);
   const [ratings, setRatings]    = useState<Record<number, Rating>>({});
-  // isLoading starts true only when skipGenreStep=true (fetch starts on mount)
+  // isLoading starts true only when skipGenreStep (fetch begins on mount)
   const [isLoading, setLoading]  = useState(skipGenreStep);
   const [error, setError]        = useState<string | null>(null);
   const [genreStepDone, setGenreStepDone] = useState(skipGenreStep);
   const { user }                 = useAuthStore();
-  const ratingsRef               = useRef(ratings);
-  ratingsRef.current             = ratings;
-  const poolRef                  = useRef(pool);
-  poolRef.current                = pool;
-  const genreSeedsRef            = useRef<string[]>([]);
-  // Active probes computed when genres are confirmed
-  const activeProbesRef          = useRef<Probe[]>(
+
+  const ratingsRef    = useRef(ratings);
+  ratingsRef.current  = ratings;
+  const poolRef       = useRef(pool);
+  poolRef.current     = pool;
+  const genreSeedsRef = useRef<string[]>([]);
+  const activeProbesRef = useRef<Probe[]>(
     skipGenreStep ? buildActiveProbes(ALL_PROBES[ageRange ?? 'default'], []) : []
   );
-  const expandedProbes           = useRef(new Set<string>());
+  const expandedProbes = useRef(new Set<string>());
 
   const minYear = MIN_YEAR[ageRange ?? 'default'];
 
-  // Fetch titles — triggered once genre step is done (or on mount if skipGenreStep)
+  // Fetch titles — deferred until genre step is confirmed (or on mount if skipGenreStep)
   useEffect(() => {
     if (!genreStepDone) return;
 
@@ -254,14 +231,16 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
     const activeProbes = activeProbesRef.current;
 
     if (!hasTmdbKey) {
-      if (!cancelled) {
-        const { seed, rest } = buildMockPool(genreSeedsRef.current);
-        const ordered = [...seed, ...rest];
-        setPool(ordered);
-        const profile = computeLocalProfile({}, ordered, genreSeedsRef.current);
-        setQueue(genreSeedsRef.current.length > 0 ? sortAdaptive(ordered, profile) : ordered);
-        setLoading(false);
+      const mockPool = buildMockPool(genreSeedsRef.current);
+      const seeds = genreSeedsRef.current;
+      setPool(mockPool);
+      if (seeds.length > 0) {
+        const profile = computeLocalProfile({}, mockPool, seeds);
+        setQueue(sortAdaptive(mockPool, profile));
+      } else {
+        setQueue(mockPool);
       }
+      setLoading(false);
       return () => { cancelled = true; };
     }
 
@@ -277,21 +256,15 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
       results.forEach(r => {
         if (r.status === 'rejected' || r.value.length === 0) return;
         const [first, ...others] = r.value;
-        if (!seenIds.has(first.tmdbId)) {
-          seenIds.add(first.tmdbId);
-          seedTitles.push(first);
-        }
+        if (!seenIds.has(first.tmdbId)) { seenIds.add(first.tmdbId); seedTitles.push(first); }
         others.forEach(t => {
-          if (!seenIds.has(t.tmdbId)) {
-            seenIds.add(t.tmdbId);
-            restTitles.push(t);
-          }
+          if (!seenIds.has(t.tmdbId)) { seenIds.add(t.tmdbId); restTitles.push(t); }
         });
       });
 
       const ordered = [...seedTitles, ...restTitles];
       setPool(ordered);
-      // Sort by genre seeds from the start
+
       const seeds = genreSeedsRef.current;
       if (seeds.length > 0) {
         const profile = computeLocalProfile({}, ordered, seeds);
@@ -300,33 +273,27 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
         setQueue(ordered);
       }
       setLoading(false);
-    }).catch(() => {
-      if (!cancelled) setLoading(false);
-    });
+    }).catch(() => { if (!cancelled) setLoading(false); });
 
     if (user?.ratings) setRatings(user.ratings as Record<number, Rating>);
 
     return () => { cancelled = true; };
   }, [genreStepDone, ageRange]);
 
-  // Expand pool for highly-rated genres (fetch page 2 from those probes)
   async function expandPoolForRatedGenres(
     newRatings: Record<number, Rating>,
     currentPool: NormalizedTitle[],
   ) {
     if (!hasTmdbKey) return;
     const profile = computeLocalProfile(newRatings, currentPool, genreSeedsRef.current);
-    const topGenres = new Set(
-      Object.entries(profile).filter(([, s]) => s > 0.6).map(([g]) => g)
-    );
+    const topGenres = new Set(Object.entries(profile).filter(([, s]) => s > 0.6).map(([g]) => g));
     if (topGenres.size === 0) return;
 
     const activeProbes = activeProbesRef.current;
     const probesToExpand = activeProbes.filter(p => {
       const key = `${p.type}-${p.genreId}`;
       if (expandedProbes.current.has(key)) return false;
-      const base = p.label.replace(' TV', '');
-      return topGenres.has(base);
+      return topGenres.has(p.label.replace(' TV', ''));
     });
 
     if (probesToExpand.length === 0) return;
@@ -340,36 +307,24 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
     const newTitles: NormalizedTitle[] = [];
     results.forEach(r => {
       if (r.status === 'rejected') return;
-      r.value.forEach(t => {
-        if (!seenIds.has(t.tmdbId)) {
-          seenIds.add(t.tmdbId);
-          newTitles.push(t);
-        }
-      });
+      r.value.forEach(t => { if (!seenIds.has(t.tmdbId)) { seenIds.add(t.tmdbId); newTitles.push(t); } });
     });
 
     if (newTitles.length === 0) return;
 
-    setPool(prev => {
-      const updated = [...prev, ...newTitles];
-      poolRef.current = updated;
-      return updated;
-    });
+    setPool(prev => { const u = [...prev, ...newTitles]; poolRef.current = u; return u; });
     setQueue(prev => {
-      const shownCount = currentIndex + 1;
-      const shown = prev.slice(0, shownCount);
-      const remaining = prev.slice(shownCount);
+      const shown = prev.slice(0, currentIndex + 1);
+      const remaining = prev.slice(currentIndex + 1);
       const p = computeLocalProfile(newRatings, [...prev, ...newTitles], genreSeedsRef.current);
       return [...shown, ...sortAdaptive([...remaining, ...newTitles], p)];
     });
   }
 
-  // Called when the user confirms their genre preferences.
-  // Computes the filtered probe list and triggers the title fetch.
   const confirmGenres = useCallback((genres: string[]) => {
     genreSeedsRef.current = genres;
     activeProbesRef.current = buildActiveProbes(ALL_PROBES[ageRange ?? 'default'], genres);
-    setGenreStepDone(true); // triggers the fetch useEffect
+    setGenreStepDone(true);
   }, [ageRange]);
 
   const rate = useCallback((rating: Rating) => {
@@ -382,11 +337,9 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
 
     const nextIndex = currentIndex + 1;
     const SEED_SIZE = activeProbesRef.current.length;
-    const REORDER_EVERY = 4;
-
     const shouldReorder =
       nextIndex === SEED_SIZE ||
-      (nextIndex > SEED_SIZE && (nextIndex - SEED_SIZE) % REORDER_EVERY === 0);
+      (nextIndex > SEED_SIZE && (nextIndex - SEED_SIZE) % 4 === 0);
 
     if (shouldReorder && nextIndex < queue.length) {
       const shown = queue.slice(0, nextIndex);
