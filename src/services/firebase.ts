@@ -27,6 +27,7 @@ import {
   serverTimestamp,
   arrayUnion,
   arrayRemove,
+  writeBatch,
   runTransaction,
 } from 'firebase/firestore';
 import type { NormalizedTitle } from './tmdb';
@@ -52,6 +53,7 @@ export interface PersonalWatchlistItem {
   synopsis: string;
   rating: number;
   addedAt: number;
+  matchId?: string;
 }
 
 export interface UserProfile {
@@ -63,6 +65,7 @@ export interface UserProfile {
   tasteProfile: TasteProfile;
   onboardingDone: boolean;
   platforms: PlatformId[];
+  ageRange?: 'young' | 'mid' | 'adult' | 'senior';
 }
 
 export interface GroupDoc {
@@ -232,9 +235,13 @@ export async function rateTitleAndUpdateProfile(
   return newProfile;
 }
 
-export async function completeOnboarding(uid: string): Promise<void> {
+export async function completeOnboarding(
+  uid: string,
+  ageRange?: UserProfile['ageRange'],
+): Promise<void> {
   await updateDoc(doc(db(), 'users', uid), {
     onboardingDone: true,
+    ...(ageRange ? { ageRange } : {}),
     updatedAt: serverTimestamp(),
   });
 }
@@ -357,22 +364,36 @@ export async function getMatchById(matchId: string): Promise<MatchDoc | null> {
   return { id: snap.id, ...snap.data() } as MatchDoc;
 }
 
-/** Listen via onSnapshot until the leader writes a matchId (max 45s). */
-export function pollForMatchId(groupId: string): Promise<string | null> {
+/** Listen via onSnapshot until the leader writes a matchId (max 45s).
+ *  Pass an AbortSignal to cancel early (e.g. when the user navigates back).
+ *
+ *  Edge case: if the leader finishes before the follower even starts polling
+ *  (staleMatchId is already set), we resolve immediately with that matchId.
+ *  After startGroupSession the matchId is always null, so a non-null staleMatchId
+ *  means the leader was extremely fast — the new match is already there. */
+export function pollForMatchId(groupId: string, signal?: AbortSignal): Promise<string | null> {
   return new Promise(async resolve => {
     const initial = await getDoc(doc(db(), 'groups', groupId));
     const staleMatchId = initial.data()?.currentSession?.matchId as string | undefined;
 
-    const timeout = setTimeout(() => { unsub(); resolve(null); }, 45_000);
+    // Leader finished before we called pollForMatchId — no need to wait
+    if (staleMatchId) {
+      resolve(staleMatchId);
+      return;
+    }
+
+    const cleanup = () => { clearTimeout(timeout); unsub(); };
+    const timeout = setTimeout(() => { cleanup(); resolve(null); }, 45_000);
 
     const unsub = onSnapshot(doc(db(), 'groups', groupId), snap => {
       const matchId = snap.data()?.currentSession?.matchId as string | undefined;
-      if (matchId && matchId !== staleMatchId) {
-        clearTimeout(timeout);
-        unsub();
+      if (matchId) {
+        cleanup();
         resolve(matchId);
       }
     });
+
+    signal?.addEventListener('abort', () => { cleanup(); resolve(null); });
   });
 }
 
@@ -393,6 +414,11 @@ export function onGroupChange(
 
 // ─── Matches ────────────────────────────────────────────────────────────────
 
+// Strips undefined values so Firestore doesn't reject the document.
+function toFirestore<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data));
+}
+
 export async function saveMatch(
   groupId: string,
   members: string[],
@@ -403,12 +429,38 @@ export async function saveMatch(
   const ref = await addDoc(collection(db(), 'matches'), {
     groupId,
     members,
-    recommendations: recs,
+    recommendations: toFirestore(recs),
     moods,
     groupInsight: groupInsight ?? '',
     createdAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+// Atomic: saves match doc + writes matchId to group in a single batch.
+// Followers polling currentSession.matchId will see it immediately after.
+export async function saveMatchAndBroadcast(
+  groupId: string,
+  members: string[],
+  recs: Recommendation[],
+  moods: Record<string, MoodId>,
+  groupInsight?: string,
+): Promise<string> {
+  const matchRef = doc(collection(db(), 'matches'));
+  const batch = writeBatch(db());
+  batch.set(matchRef, {
+    groupId,
+    members,
+    recommendations: toFirestore(recs),
+    moods,
+    groupInsight: groupInsight ?? '',
+    createdAt: serverTimestamp(),
+  });
+  batch.update(doc(db(), 'groups', groupId), {
+    'currentSession.matchId': matchRef.id,
+  });
+  await batch.commit();
+  return matchRef.id;
 }
 
 export async function getGroupMatches(groupId: string): Promise<MatchDoc[]> {
@@ -446,7 +498,15 @@ export async function addMatchToUserHistory(
   uid: string,
   entry: HistoryEntry,
 ): Promise<void> {
-  await setDoc(doc(db(), 'users', uid, 'history', entry.matchId), entry);
+  await setDoc(doc(db(), 'users', uid, 'history', entry.matchId), toFirestore(entry));
+}
+
+export async function updateUserHistoryRecommendations(
+  uid: string,
+  matchId: string,
+  recommendations: Recommendation[],
+): Promise<void> {
+  await updateDoc(doc(db(), 'users', uid, 'history', matchId), { recommendations });
 }
 
 export async function getUserHistory(uid: string): Promise<HistoryEntry[]> {

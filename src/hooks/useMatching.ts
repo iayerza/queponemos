@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { PLATFORMS } from '../constants/platforms';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
-  saveMatch, setSessionMatchId, pollForMatchId, getMatchById,
+  saveMatchAndBroadcast, pollForMatchId, getMatchById,
   getUserProfile, addMatchToUserHistory, getGroupById, incrementGroupTurn,
 } from '../services/firebase';
 import { useAuthStore }  from '../store/useAuthStore';
@@ -14,10 +15,22 @@ const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
 export function useMatching() {
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const { user }                           = useAuthStore();
-  const { currentGroup }                   = useGroupStore();
-  const { moods, setCurrentMatch, isSolo } = useMatchStore();
+  const { user }                                      = useAuthStore();
+  const { currentGroup }                              = useGroupStore();
+  const { moods, setCurrentMatch, isSolo, history }   = useMatchStore();
+
+  // Cancel any in-progress poll when the component unmounts.
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+
+  // Build tmdbId → "Title (year)" map from local history for better Claude prompts.
+  const titleMap: Record<number, string> = {};
+  for (const entry of history) {
+    for (const rec of entry.recommendations) {
+      if (rec.tmdbId) titleMap[rec.tmdbId] = `${rec.title} (${rec.year})`;
+    }
+  }
 
   // Dynamic leader: whoever called startGroupSession sets leaderUid.
   // Fallback to createdBy for sessions started before this field existed.
@@ -29,6 +42,10 @@ export function useMatching() {
     if (!isSolo && !currentGroup) return null;
     setError(null);
 
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    const { signal } = abortRef.current;
+
     try {
       // ── Follower path: wait for leader to produce a matchId ────────────────
       if (!isLeader && !USE_MOCK && currentGroup) {
@@ -38,7 +55,7 @@ export function useMatching() {
         if (user.uid === freshLeaderUid) {
           // We are actually the leader now — fall through to leader path
         } else {
-          const matchId = await pollForMatchId(currentGroup.id);
+          const matchId = await pollForMatchId(currentGroup.id, signal);
           if (!matchId) throw new Error('El tiempo de espera agotó. Intentá de nuevo.');
 
           const match = await getMatchById(matchId);
@@ -67,9 +84,10 @@ export function useMatching() {
       }
 
       // ── Leader / Solo path: call Claude, save, broadcast matchId ──────────
+      const allPlatformIds = PLATFORMS.map(p => p.id);
       const platforms = isSolo
-        ? (user.platforms ?? ['netflix'])
-        : (currentGroup?.platforms ?? ['netflix']);
+        ? (user.platforms?.length ? user.platforms : allPlatformIds)
+        : (currentGroup?.platforms?.length ? currentGroup.platforms : ['netflix']);
 
       const members = isSolo
         ? [user.uid]
@@ -116,6 +134,7 @@ export function useMatching() {
           users:     memberProfiles,
           moods:     moods as Record<string, MoodId>,
           platforms,
+          titleMap:  Object.keys(titleMap).length > 0 ? titleMap : undefined,
         });
       }
 
@@ -125,15 +144,14 @@ export function useMatching() {
         if (isSolo) {
           matchId = `solo-${Date.now()}`;
         } else if (currentGroup) {
-          matchId = await saveMatch(
+          matchId = await saveMatchAndBroadcast(
             currentGroup.id,
             members,
             output.recommendations,
             moods as Record<string, MoodId>,
             output.groupInsight,
           );
-          await setSessionMatchId(currentGroup.id, matchId);
-          // El líder cerró un match: ahora sí avanza el turno rotativo.
+          // Advance the rotating leader turn after the match is committed.
           incrementGroupTurn(currentGroup.id).catch(() => {});
         }
       }
@@ -154,12 +172,13 @@ export function useMatching() {
       addToHistory(historyEntry);
 
       if (!USE_MOCK) {
-        await addMatchToUserHistory(user.uid, historyEntry);
+        addMatchToUserHistory(user.uid, historyEntry).catch(() => {});
       }
 
       return matchId;
 
     } catch (e) {
+      console.error('[useMatching] runMatch error:', e);
       setError(String(e));
       return null;
     }

@@ -109,6 +109,7 @@ export interface MatchingInput {
   users: UserProfile[];
   moods: Record<string, MoodId>;
   platforms: PlatformId[];
+  titleMap?: Record<number, string>; // tmdbId → "Título (año)" para usar en el prompt
 }
 
 export interface MatchingOutput {
@@ -125,16 +126,31 @@ const MOOD_LABELS: Record<MoodId, string> = {
   scared:  'Asustarse — terror o suspenso',
 };
 
+const AGE_RANGE_LABELS: Record<string, string> = {
+  young:  'menos de 25 años',
+  mid:    '25 a 35 años',
+  adult:  '36 a 50 años',
+  senior: 'más de 50 años',
+};
+
+function titleLabel(id: number, titleMap?: Record<number, string>): string {
+  return titleMap?.[id] ?? `tmdbId:${id}`;
+}
+
 function buildPrompt(input: MatchingInput): string {
   const userBlocks = input.users.map(u => {
-    const loved = Object.entries(u.ratings ?? {})
+    const entries = Object.entries(u.ratings ?? {});
+    const loved = entries
       .filter(([, r]) => r === 'loved' || r === 'liked')
-      .map(([id]) => `ID:${id}`)
+      .map(([id]) => titleLabel(Number(id), input.titleMap))
       .join(', ') || 'ninguno aún';
-    const disliked = Object.entries(u.ratings ?? {})
+    const disliked = entries
       .filter(([, r]) => r === 'seen_disliked')
-      .map(([id]) => `ID:${id}`)
+      .map(([id]) => titleLabel(Number(id), input.titleMap))
       .join(', ') || 'ninguno';
+    const alreadySeen = entries
+      .filter(([, r]) => r === 'loved' || r === 'liked' || r === 'seen_disliked')
+      .map(([id]) => titleLabel(Number(id), input.titleMap));
     const mood = MOOD_LABELS[input.moods[u.uid] ?? 'chill'];
     const genres = Object.entries(u.tasteProfile?.genres ?? {})
       .filter(([, s]) => s > 0.5)
@@ -144,7 +160,11 @@ function buildPrompt(input: MatchingInput): string {
     const intensityLabel = intensity < 0.35 ? 'liviano (prefiere ritmo tranquilo)' : intensity > 0.65 ? 'intenso (le gusta la tensión y el drama)' : 'equilibrado';
     const formatPref = u.tasteProfile?.seriesVsMovies ?? 0.5;
     const formatLabel = formatPref < 0.35 ? 'prefiere películas' : formatPref > 0.65 ? 'prefiere series' : 'indistinto';
-    return `- ${u.displayName}: géneros favoritos [${genres}], intensidad preferida: ${intensityLabel}, formato: ${formatLabel}, le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
+    const age = u.ageRange ? ` (${AGE_RANGE_LABELS[u.ageRange]})` : '';
+    const seenNote = alreadySeen.length > 0
+      ? `\n  ya visto (NO recomendar): ${alreadySeen.join(', ')}`
+      : '';
+    return `- ${u.displayName}${age}: géneros favoritos [${genres}], intensidad preferida: ${intensityLabel}, formato: ${formatLabel}, le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}${seenNote}`;
   }).join('\n');
 
   return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.
@@ -157,22 +177,24 @@ ${input.platforms.map(id => {
   const p = PLATFORMS.find(pl => pl.id === id);
   return `  "${id}" → ${p?.name ?? id}`;
 }).join('\n')}
-REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar en alguna de las plataformas listadas. El campo "platform" debe ser uno de los IDs entre comillas de arriba.
+REGLA 0 — CRÍTICA (plataformas): El campo "platform" debe reflejar dónde está disponible el título REALMENTE en Argentina/Latinoamérica. Usá solo los IDs de arriba. Ejemplos: Game of Thrones, Succession, The Wire, The Sopranos, House of the Dragon → "hbo". No fuerces un título a una plataforma equivocada para distribuir. Si un título no está en ninguna plataforma listada, no lo recomiendes.
 
 REGLAS:
-1. VARIEDAD DE ERA: uno anterior a 2010, uno entre 2010-2019, uno de 2020 en adelante.
-2. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos.
-3. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
-4. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
+1. NUNCA recomendés títulos marcados como "ya visto" en los perfiles.
+2. VARIEDAD DE ERA: intentá cubrir distintas décadas (no es obligatorio uno por era si no hay buenos candidatos).
+3. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos.
+4. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
+5. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
    - 60-70: buena opción, aunque no es un match perfecto
    - 71-82: muy buena opción, varios puntos de coincidencia
    - 83-91: match excelente, coincidencia clara en gustos y mood
    - 92-100: solo para coincidencia casi perfecta y evidente
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
-5. No repetir siempre los mismos títulos populares del momento.
-6. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
+6. No repetir siempre los mismos títulos populares del momento.
+7. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
+8. Considerá la edad de los usuarios al elegir referencias culturales y títulos.
 
-Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
+IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE el objeto JSON, comenzando exactamente con { y terminando exactamente con }. Sin texto antes, sin texto después, sin markdown, sin bloques de código, sin explicaciones, sin auto-correcciones. Si cometés un error en el JSON, igual respondé solo con el JSON corregido, sin comentarios.
 {
   "recommendations": [{
     "tmdbId": 12345,
@@ -190,6 +212,52 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de c
 }`;
 }
 
+/**
+ * Fix common Claude JSON errors:
+ *   - stray single quotes outside string values (e.g. `1429,'`)
+ *   - trailing commas before } or ]
+ */
+function repairJson(text: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (const ch of text) {
+    if (escaped)          { out += ch; escaped = false; }
+    else if (ch === '\\' && inString) { out += ch; escaped = true; }
+    else if (ch === '"')  { inString = !inString; out += ch; }
+    else if (ch === "'" && !inString) { /* drop stray apostrophe */ }
+    else                  { out += ch; }
+  }
+  // Remove trailing commas before closing brackets
+  return out.replace(/,(\s*[}\]])/g, '$1');
+}
+
+/** Scan text for top-level JSON objects; return the last one that has a `recommendations` array. */
+function extractLastJsonObject(text: string): string | null {
+  const candidates: string[] = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (text[i] === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        candidates.push(text.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    try {
+      const p = JSON.parse(candidates[i]);
+      if (Array.isArray(p?.recommendations)) return candidates[i];
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
 export async function runMatching(input: MatchingInput): Promise<MatchingOutput> {
   const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY no configurada');
@@ -201,19 +269,28 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     messages: [{ role: 'user', content: buildPrompt(input) }],
   }, apiKey);
 
-  const raw = data.content[0]?.text ?? '{}';
-
   if (data.stop_reason === 'max_tokens') {
     throw new Error('La respuesta se cortó (max_tokens). Volvé a intentar.');
   }
 
-  // Strip markdown code fences if present
+  const raw = data.content[0]?.text ?? '{}';
+
+  type ParsedResponse = { recommendations: Omit<Recommendation, 'posterPath' | 'groupStatus'>[]; groupInsight: string };
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
 
-  let parsed: { recommendations: Omit<Recommendation, 'posterPath' | 'groupStatus'>[]; groupInsight: string };
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
+  const attempts: Array<() => ParsedResponse> = [
+    () => JSON.parse(cleaned),
+    () => JSON.parse(repairJson(cleaned)),
+    () => { const x = extractLastJsonObject(cleaned); if (!x) throw new Error(); return JSON.parse(x); },
+    () => { const x = extractLastJsonObject(repairJson(cleaned)); if (!x) throw new Error(); return JSON.parse(x); },
+  ];
+
+  let parsed: ParsedResponse | null = null;
+  for (const attempt of attempts) {
+    try { parsed = attempt(); break; }
+    catch { /* try next */ }
+  }
+  if (!parsed) {
     console.error('Claude raw response:', raw);
     throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
   }
@@ -230,7 +307,7 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
       ...r,
       title: String(r.title ?? '').trim() || 'Título',
       year: Math.round(toNumber(r.year, 0)),
-      type: r.type === 'series' ? 'series' : 'movie',
+      type: (r.type === 'series' ? 'series' : 'movie') as 'movie' | 'series',
       genres: Array.isArray(r.genres) ? r.genres : [],
       synopsis: String(r.synopsis ?? ''),
       rating: clamp(toNumber(r.rating, 0), 0, 10),
@@ -240,38 +317,41 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
       groupStatus: 'pending' as const,
       platform,
     };
-  });
+  }).filter(r => r.title !== 'Título' || r.year > 0);
 
-  // Enriquecer con pósters de TMDB: buscar por título (confiable) y usar tmdbId de Claude solo como desempate
+  if (baseRecs.length === 0) {
+    throw new Error('Claude no devolvió recomendaciones válidas. Intentá de nuevo.');
+  }
+
+  // Enriquecer con pósters de TMDB: buscar por título y validar antes de usar tmdbId de Claude
   const recommendations = await Promise.all(
     baseRecs.map(async rec => {
       try {
         const mediaType = rec.type === 'series' ? 'tv' : 'movie';
-        // Buscar por título primero — más confiable que el tmdbId de Claude
         const results = await searchTitles(rec.title);
         const wanted = normalizeTitle(rec.title);
         const altMediaType = mediaType === 'movie' ? 'tv' : 'movie';
 
-        // 1st pass: exact title match with the declared type
-        const exactTitleYear = results.find(r => r.type === mediaType && normalizeTitle(r.title) === wanted && Math.abs(r.year - rec.year) <= 1);
-        const exactTitle     = results.find(r => r.type === mediaType && normalizeTitle(r.title) === wanted);
-        let match = exactTitleYear ?? exactTitle;
+        function titleMatches(r: { title: string; originalTitle: string }): boolean {
+          return normalizeTitle(r.title) === wanted || normalizeTitle(r.originalTitle) === wanted;
+        }
+
+        // 1st pass: title match (localized or original) + type + year
+        const pass1 = results.find(r => r.type === mediaType && titleMatches(r) && Math.abs(r.year - rec.year) <= 1);
+        // 2nd pass: title match + type (any year)
+        const pass2 = results.find(r => r.type === mediaType && titleMatches(r));
+        let match = pass1 ?? pass2;
         let resolvedType = rec.type;
 
-        // 2nd pass: if no exact match, try the OPPOSITE type (handles Claude type misclassification)
+        // 3rd pass: try opposite type (handles Claude misclassifications)
         if (!match) {
-          const altExactYear = results.find(r => r.type === altMediaType && normalizeTitle(r.title) === wanted && Math.abs(r.year - rec.year) <= 1);
-          const altExact     = results.find(r => r.type === altMediaType && normalizeTitle(r.title) === wanted);
-          const altMatch     = altExactYear ?? altExact;
+          const altYear = results.find(r => r.type === altMediaType && titleMatches(r) && Math.abs(r.year - rec.year) <= 1);
+          const altAny  = results.find(r => r.type === altMediaType && titleMatches(r));
+          const altMatch = altYear ?? altAny;
           if (altMatch) {
             match = altMatch;
             resolvedType = altMediaType === 'tv' ? 'series' : 'movie';
           }
-        }
-
-        // 3rd pass: loose fallback — type + year (title not checked)
-        if (!match) {
-          match = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1);
         }
 
         if (match) {
@@ -283,10 +363,14 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
             return { ...rec, type: resolvedType, tmdbId: match.tmdbId, posterPath: match.posterPath };
           }
         }
-        // Último recurso: ID de Claude (puede ser incorrecto)
+
+        // Fallback: ID de Claude — verificar que el año coincida para evitar póster incorrecto
         if (rec.tmdbId) {
           const tmdbData = await fetchTitle(rec.tmdbId, mediaType);
-          return { ...rec, posterPath: tmdbData.posterPath, runtime: tmdbData.runtime };
+          if (Math.abs(tmdbData.year - rec.year) <= 2) {
+            return { ...rec, posterPath: tmdbData.posterPath, runtime: tmdbData.runtime };
+          }
+          // Año no coincide → tmdbId de Claude es incorrecto, omitir póster
         }
       } catch { /* ignore */ }
       return rec;

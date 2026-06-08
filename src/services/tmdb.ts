@@ -23,6 +23,7 @@ export interface NormalizedTitle {
   tmdbId: number;
   type: 'movie' | 'tv';
   title: string;
+  originalTitle: string;
   year: number;
   genres: string[];
   rating: number;
@@ -62,6 +63,9 @@ export async function fetchTitle(
   const title = type === 'movie'
     ? (data.title as string)
     : (data.name as string);
+  const originalTitle = type === 'movie'
+    ? (data.original_title as string ?? title)
+    : (data.original_name as string ?? title);
   const dateStr = type === 'movie'
     ? (data.release_date as string)
     : (data.first_air_date as string);
@@ -76,6 +80,7 @@ export async function fetchTitle(
     tmdbId,
     type,
     title,
+    originalTitle,
     year,
     genres: genreIds.map(id => GENRE_MAP[id] ?? 'Otro'),
     rating: parseFloat(((data.vote_average as number) ?? 0).toFixed(1)),
@@ -143,6 +148,9 @@ export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
     .map(r => {
       const type = r.media_type as 'movie' | 'tv';
       const title = type === 'movie' ? (r.title as string) : (r.name as string);
+      const originalTitle = type === 'movie'
+        ? (r.original_title as string ?? title)
+        : (r.original_name as string ?? title);
       const dateStr = type === 'movie'
         ? (r.release_date as string)
         : (r.first_air_date as string);
@@ -151,6 +159,7 @@ export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
         tmdbId: r.id as number,
         type,
         title,
+        originalTitle,
         year: dateStr ? parseInt(dateStr.slice(0, 4), 10) : 0,
         genres: ((r.genre_ids as number[]) ?? []).map(id => GENRE_MAP[id] ?? 'Otro'),
         rating: parseFloat(((r.vote_average as number) ?? 0).toFixed(1)),

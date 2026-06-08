@@ -6,7 +6,7 @@ import { Colors, Typography } from '../constants/colors';
 import type { NormalizedTitle } from '../services/tmdb';
 
 const CARD_W   = Dimensions.get('window').width - 48; // 24px paddingHorizontal × 2
-const POSTER_H = Math.round(CARD_W * 1.5); // full 2:3 ratio, scroll to see buttons
+const POSTER_H = Math.round(CARD_W * 1.5); // 2:3 ratio estándar de póster
 
 interface Props {
   title: NormalizedTitle;
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   titleText: {
     color: '#ffffff',
-    fontSize: 22,
+    fontSize: Typography.h1,
     fontWeight: Typography.medium,
     marginBottom: 6,
   },

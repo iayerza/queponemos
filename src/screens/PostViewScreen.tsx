@@ -10,6 +10,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import { getPosterUrl } from '../services/tmdb';
 import { useMatchStore } from '../store/useMatchStore';
 import { useAuthStore } from '../store/useAuthStore';
@@ -24,9 +25,10 @@ type Route = RouteProp<RootStackParamList, 'PostView'>;
 const STARS = [1, 2, 3, 4, 5];
 
 export default function PostViewScreen() {
-  const insets = useSafeAreaInsets();
-  const nav    = useNavigation<Nav>();
-  const route  = useRoute<Route>();
+  const insets      = useSafeAreaInsets();
+  const nav         = useNavigation<Nav>();
+  const route       = useRoute<Route>();
+  const themeColors = useColors();
   const { title, year, posterPath, matchId, titleIdx, tmdbId, type } = route.params;
 
   const { updateTitleAction } = useMatchStore();
@@ -57,7 +59,7 @@ export default function PostViewScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: Colors.bg }}
+      style={{ flex: 1, backgroundColor: themeColors.bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView

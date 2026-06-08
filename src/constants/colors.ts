@@ -11,42 +11,42 @@ export interface ColorPalette {
   isDark: boolean;
 }
 
-// Dark — cinematográfico, cool-neutral (HBO Max / Apple TV+ inspired)
+// Dark — azul-negro profundo, acento azul eléctrico
 export const darkColors: ColorPalette = {
-  bg:  '#09090E',
-  s1:  '#13131A',
-  s2:  '#1B1B24',
-  s3:  '#0F0F14',
-  border:  '#23232E',
-  border2: '#381C22',
-  accent:       '#C8302A',
-  accentFaint:  'rgba(200,48,42,0.14)',
-  accentBorder: 'rgba(200,48,42,0.38)',
-  coral: '#E8503A',
-  text:  '#EDEDF4',
-  sub:   '#7A7A92',
-  faint: '#48485C',
+  bg:  '#0C0C16',
+  s1:  '#161622',
+  s2:  '#1E1E2E',
+  s3:  '#0A0A12',
+  border:  '#2A2A40',
+  border2: '#1A2448',
+  accent:       '#1B50D4',
+  accentFaint:  'rgba(27,80,212,0.18)',
+  accentBorder: 'rgba(27,80,212,0.44)',
+  coral: '#60A5FA',
+  text:  '#EEEEF8',
+  sub:   '#6C6C90',
+  faint: '#424260',
   success: '#1D9E75',
   warning: '#BA7517',
   danger:  '#C8302A',
-  dangerFaint: 'rgba(200,48,42,0.14)',
-  redBg:     '#130A0D',
-  redSubtle: 'rgba(200,48,42,0.10)',
+  dangerFaint: 'rgba(200,48,42,0.16)',
+  redBg:     '#0E1428',
+  redSubtle: 'rgba(37,99,235,0.12)',
   isDark: true,
 };
 
-// Light — limpio, alto contraste (iOS system grays)
+// Light — limpio, alto contraste (iOS system grays), acento azul
 export const lightColors: ColorPalette = {
   bg:  '#F2F2F7',
   s1:  '#FFFFFF',
   s2:  '#E5E5EA',
   s3:  '#EAEAEF',
   border:  '#C7C7CC',
-  border2: '#F7D0D4',
-  accent:       '#C8302A',
-  accentFaint:  'rgba(200,48,42,0.09)',
-  accentBorder: 'rgba(200,48,42,0.32)',
-  coral: '#E8503A',
+  border2: '#C8D8FA',
+  accent:       '#1B50D4',
+  accentFaint:  'rgba(27,80,212,0.11)',
+  accentBorder: 'rgba(27,80,212,0.36)',
+  coral: '#3B82F6',
   text:  '#1C1C1E',
   sub:   '#48484A',
   faint: '#8E8E93',
@@ -54,8 +54,8 @@ export const lightColors: ColorPalette = {
   warning: '#BA7517',
   danger:  '#C8302A',
   dangerFaint: 'rgba(200,48,42,0.09)',
-  redBg:     '#FFF0F1',
-  redSubtle: 'rgba(200,48,42,0.07)',
+  redBg:     '#EEF3FF',
+  redSubtle: 'rgba(37,99,235,0.08)',
   isDark: false,
 };
 

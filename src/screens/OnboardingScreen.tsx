@@ -8,6 +8,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import { LogoWordmark } from '../components/Logo';
 import TitlePoster from '../components/TitlePoster';
 import RatingButtons from '../components/RatingButtons';
@@ -27,20 +28,30 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const nav   = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { user, updateRatings, markOnboardingDone } = useAuthStore();
+  const { user, updateRatings, markOnboardingDone, setAgeRange } = useAuthStore();
+  const themeColors = useColors();
   const ageRange = route.params?.ageRange;
   const { titles, currentIndex, ratings, isLoading, error, rate, canSkip, isFinished } = useOnboarding(ageRange);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const fromProfile = route.params?.fromProfile === true;
 
+  // Cuando markOnboardingDone() actualiza el store, RootNavigator re-renderiza
+  // con App en el stack. El useEffect dispara DESPUÉS del re-render, por eso
+  // nav.reset funciona (App ya existe en el navigator).
+  useEffect(() => {
+    if (user?.onboardingDone && !fromProfile) {
+      nav.reset({ index: 0, routes: [{ name: 'App' }] });
+    }
+  }, [user?.onboardingDone]);
+
   function handleFinish() {
     if (!user) return;
+    if (ageRange) setAgeRange(ageRange);
+    if (!USE_MOCK) completeOnboarding(user.uid, ageRange).catch(() => {});
     if (fromProfile) {
-      if (!USE_MOCK) completeOnboarding(user.uid).catch(() => {});
-      nav.goBack();
+      nav.navigate('App');
     } else {
-      markOnboardingDone(); // RootNavigator handles the transition
-      if (!USE_MOCK) completeOnboarding(user.uid).catch(() => {});
+      markOnboardingDone();
     }
   }
 
@@ -84,7 +95,7 @@ export default function OnboardingScreen() {
   const remaining = MIN_TO_SKIP - currentIndex;
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View style={[styles.root, { paddingTop: insets.top, backgroundColor: themeColors.bg }]}>
 
       {/* Header */}
       <View style={styles.header}>
@@ -111,7 +122,7 @@ export default function OnboardingScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: canSkip ? 88 + insets.bottom : insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={{ opacity: fadeAnim }}>
@@ -127,13 +138,15 @@ export default function OnboardingScreen() {
             </>
           )}
         </Animated.View>
+      </ScrollView>
 
-        {canSkip && (
+      {canSkip && (
+        <View style={[styles.continueBtnWrap, { paddingBottom: insets.bottom + 8 }]}>
           <TouchableOpacity style={styles.continueBtn} onPress={handleFinish} activeOpacity={0.85}>
             <Text style={styles.continueBtnText}>Continuar →</Text>
           </TouchableOpacity>
-        )}
-      </ScrollView>
+        </View>
+      )}
     </View>
   );
 }
@@ -185,9 +198,13 @@ const styles = StyleSheet.create({
   },
 
   scroll: { paddingHorizontal: 24, paddingTop: 4 },
-  ratingSection: { marginTop: 20, gap: 12 },
+  ratingSection: { marginTop: 16, gap: 10 },
+  continueBtnWrap: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    backgroundColor: Colors.bg,
+  },
   continueBtn: {
-    marginTop: 28,
     backgroundColor: Colors.accent,
     borderRadius: 12,
     paddingVertical: 16,

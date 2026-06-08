@@ -36,9 +36,10 @@ export default function RootNavigator() {
   useEffect(() => {
     function handleNotificationResponse(response: ExpoNotifications.NotificationResponse) {
       const data = response.notification.request.content.data as Record<string, unknown>;
-      if (data?.type === 'mood_selected' && typeof data.groupId === 'string') {
+      const groupId = typeof data.groupId === 'string' ? data.groupId : null;
+      if (groupId && (data?.type === 'mood_selected' || data?.type === 'vote_request')) {
         if (navigationRef.isReady()) {
-          navigationRef.navigate('Mood', { groupId: data.groupId });
+          navigationRef.navigate('Mood', { groupId });
         }
       }
     }
@@ -81,6 +82,11 @@ export default function RootNavigator() {
 
     setLoading(true);
     const unsub = onAuthChange(async u => {
+      if (!u) {
+        // Limpiar stores al cerrar sesión para que no queden datos del usuario anterior
+        useGroupStore.getState().reset();
+        useMatchStore.getState().reset();
+      }
       setUser(u);
       if (u) {
         try {
