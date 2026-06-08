@@ -319,14 +319,8 @@ export default function HomeScreen() {
           ))}
 
           <View style={styles.groupBtns}>
-            <TouchableOpacity style={styles.createBtnWrap} onPress={() => setCreateModal(true)} activeOpacity={0.8}>
-              <LinearGradient
-                colors={['#0D27A0', '#2A6AEC']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={styles.createBtn}
-              >
-                <Text style={styles.createBtnText}>+ Crear grupo</Text>
-              </LinearGradient>
+            <TouchableOpacity style={[styles.createBtnWrap, styles.createBtn]} onPress={() => setCreateModal(true)} activeOpacity={0.8}>
+              <Text style={styles.createBtnText}>+ Crear grupo</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.joinBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
               <Text style={styles.joinBtnText}>Unirme</Text>
@@ -535,7 +529,7 @@ const styles = StyleSheet.create({
     color: Colors.sub, fontSize: 16, fontWeight: Typography.medium,
     letterSpacing: 0.2, marginBottom: 4,
   },
-  sectionTitle:  { color: Colors.text, fontSize: 26, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.3 },
+  sectionTitle:  { color: Colors.text, fontSize: 22, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.3 },
 
   // Empty groups
   emptyGroups: {
@@ -575,14 +569,14 @@ const styles = StyleSheet.create({
   },
   posterTitle: {
     position: 'absolute', bottom: 9, left: 9, right: 9,
-    color: '#fff', fontSize: 13, fontFamily: Typography.fontMedium,
-    fontWeight: Typography.medium, lineHeight: 17,
+    color: '#fff', fontSize: 14, fontFamily: Typography.fontMedium,
+    fontWeight: Typography.medium, lineHeight: 18,
   },
 
   // Groups
   groupBtns:     { flexDirection: 'row', gap: 10, marginTop: 4 },
-  createBtnWrap: { flex: 1, borderRadius: 12, overflow: 'hidden' },
-  createBtn:     { borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
+  createBtnWrap: { flex: 1 },
+  createBtn:     { borderRadius: 12, paddingVertical: 16, alignItems: 'center', backgroundColor: '#1B50D4' },
   createBtnText: { color: '#fff', fontWeight: Typography.medium, fontFamily: Typography.fontMedium, fontSize: 18 },
   joinBtn:       { flex: 1, backgroundColor: Colors.s1, borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
   joinBtnText:   { color: Colors.text, fontWeight: Typography.medium, fontFamily: Typography.fontMedium, fontSize: 18 },
