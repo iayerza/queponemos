@@ -224,9 +224,6 @@ export default function HomeScreen() {
               colors={['transparent', 'rgba(0,0,0,0.88)']}
               style={styles.posterFade}
             />
-            <View style={styles.posterPlatformBadge}>
-              <PlatformLogo id={item.platform} size={14} />
-            </View>
             <Text style={styles.posterTitle} numberOfLines={2}>{item.title}</Text>
           </TouchableOpacity>
         ))}
@@ -509,7 +506,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   notifBody:  { flex: 1 },
-  notifTitle: { color: Colors.success, fontSize: 18, fontWeight: Typography.medium },
+  notifTitle: { color: Colors.success, fontSize: 16, fontWeight: Typography.medium },
   notifClose: { padding: 4 },
 
   // Hero
@@ -520,8 +517,8 @@ const styles = StyleSheet.create({
   },
   heroVenn:  { position: 'absolute', right: -20, top: -20 },
   heroGreeting: {
-    color: '#fff', fontSize: 30, fontWeight: Typography.medium,
-    fontFamily: Typography.fontMedium, letterSpacing: -0.5, lineHeight: 38, marginBottom: 10,
+    color: '#fff', fontSize: 28, fontWeight: Typography.medium,
+    fontFamily: Typography.fontMedium, letterSpacing: -0.5, lineHeight: 36, marginBottom: 10,
   },
   heroSub:   { color: 'rgba(255,255,255,0.72)', fontSize: 22, fontFamily: Typography.fontRegular, marginBottom: 16 },
   heroPlatforms: {
@@ -538,7 +535,7 @@ const styles = StyleSheet.create({
     color: Colors.sub, fontSize: 16, fontWeight: Typography.medium,
     letterSpacing: 0.2, marginBottom: 4,
   },
-  sectionTitle:  { color: Colors.text, fontSize: 28, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.3 },
+  sectionTitle:  { color: Colors.text, fontSize: 26, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.3 },
 
   // Empty groups
   emptyGroups: {
