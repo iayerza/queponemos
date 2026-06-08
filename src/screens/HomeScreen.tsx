@@ -74,7 +74,7 @@ export default function HomeScreen() {
   const [pendingCount,      setPendingCount]      = useState(0);
 
   // ── Header animation ─────────────────────────────────────────────────────
-  const scrollRef    = useRef<Animated.ScrollView>(null);
+  const scrollRef    = useRef<ScrollView>(null);
   const scrollY      = useRef(new Animated.Value(0)).current;
   const indicatorTX  = useRef(new Animated.Value(0)).current;
   const isFirstMount = useRef(true);

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { SEED_BY_AGE, ONBOARDING_BY_AGE, ONBOARDING_IDS } from '../constants/titles';
 import { MOCK_TITLES } from '../constants/mockTitles';
-import { fetchTitle, type NormalizedTitle } from '../services/tmdb';
+import { discoverByGenre, type NormalizedTitle } from '../services/tmdb';
 import { useAuthStore } from '../store/useAuthStore';
 import type { Rating } from '../services/firebase';
 import type { AgeRange } from '../navigation/types';
@@ -18,8 +17,89 @@ export interface OnboardingState {
   isFinished: boolean;
 }
 
-const SEED_SIZE = 10;
-const REORDER_EVERY = 5;
+// ─── Genre probes por rango de edad ──────────────────────────────────────────
+// Cada probe define qué género explorar (TMDB genre ID + tipo).
+// El onboarding empieza mostrando el #1 de cada probe, luego adapta.
+
+interface Probe { genreId: number; type: 'movie' | 'tv'; label: string }
+
+const PROBES: Record<AgeRange | 'default', Probe[]> = {
+  young: [
+    { genreId: 35,    type: 'movie', label: 'Comedia'         },
+    { genreId: 10749, type: 'movie', label: 'Romance'         },
+    { genreId: 28,    type: 'movie', label: 'Acción'          },
+    { genreId: 27,    type: 'movie', label: 'Terror'          },
+    { genreId: 878,   type: 'movie', label: 'Ciencia Ficción' },
+    { genreId: 16,    type: 'movie', label: 'Animación'       },
+    { genreId: 14,    type: 'movie', label: 'Fantasía'        },
+    { genreId: 53,    type: 'movie', label: 'Thriller'        },
+    { genreId: 35,    type: 'tv',    label: 'Comedia TV'      },
+    { genreId: 10765, type: 'tv',    label: 'Sci-Fi TV'       },
+    { genreId: 18,    type: 'tv',    label: 'Drama TV'        },
+    { genreId: 10759, type: 'tv',    label: 'Acción TV'       },
+  ],
+  mid: [
+    { genreId: 35,    type: 'movie', label: 'Comedia'         },
+    { genreId: 10749, type: 'movie', label: 'Romance'         },
+    { genreId: 28,    type: 'movie', label: 'Acción'          },
+    { genreId: 27,    type: 'movie', label: 'Terror'          },
+    { genreId: 878,   type: 'movie', label: 'Ciencia Ficción' },
+    { genreId: 16,    type: 'movie', label: 'Animación'       },
+    { genreId: 80,    type: 'movie', label: 'Crimen'          },
+    { genreId: 99,    type: 'movie', label: 'Documental'      },
+    { genreId: 53,    type: 'movie', label: 'Thriller'        },
+    { genreId: 35,    type: 'tv',    label: 'Comedia TV'      },
+    { genreId: 80,    type: 'tv',    label: 'Crimen TV'       },
+    { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
+  ],
+  adult: [
+    { genreId: 35,    type: 'movie', label: 'Comedia'         },
+    { genreId: 10749, type: 'movie', label: 'Romance'         },
+    { genreId: 28,    type: 'movie', label: 'Acción'          },
+    { genreId: 27,    type: 'movie', label: 'Terror'          },
+    { genreId: 878,   type: 'movie', label: 'Ciencia Ficción' },
+    { genreId: 80,    type: 'movie', label: 'Crimen'          },
+    { genreId: 99,    type: 'movie', label: 'Documental'      },
+    { genreId: 18,    type: 'movie', label: 'Drama'           },
+    { genreId: 36,    type: 'movie', label: 'Historia'        },
+    { genreId: 53,    type: 'movie', label: 'Thriller'        },
+    { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
+    { genreId: 18,    type: 'tv',    label: 'Drama TV'        },
+  ],
+  senior: [
+    { genreId: 35,    type: 'movie', label: 'Comedia'         },
+    { genreId: 10749, type: 'movie', label: 'Romance'         },
+    { genreId: 18,    type: 'movie', label: 'Drama'           },
+    { genreId: 36,    type: 'movie', label: 'Historia'        },
+    { genreId: 99,    type: 'movie', label: 'Documental'      },
+    { genreId: 53,    type: 'movie', label: 'Thriller'        },
+    { genreId: 80,    type: 'movie', label: 'Crimen'          },
+    { genreId: 10751, type: 'movie', label: 'Familia'         },
+    { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
+    { genreId: 18,    type: 'tv',    label: 'Drama TV'        },
+    { genreId: 35,    type: 'tv',    label: 'Comedia TV'      },
+    { genreId: 80,    type: 'tv',    label: 'Crimen TV'       },
+  ],
+  default: [
+    { genreId: 35,    type: 'movie', label: 'Comedia'         },
+    { genreId: 10749, type: 'movie', label: 'Romance'         },
+    { genreId: 28,    type: 'movie', label: 'Acción'          },
+    { genreId: 27,    type: 'movie', label: 'Terror'          },
+    { genreId: 878,   type: 'movie', label: 'Ciencia Ficción' },
+    { genreId: 16,    type: 'movie', label: 'Animación'       },
+    { genreId: 80,    type: 'movie', label: 'Crimen'          },
+    { genreId: 99,    type: 'movie', label: 'Documental'      },
+    { genreId: 53,    type: 'movie', label: 'Thriller'        },
+    { genreId: 18,    type: 'movie', label: 'Drama'           },
+    { genreId: 35,    type: 'tv',    label: 'Comedia TV'      },
+    { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
+  ],
+};
+
+const MIN_YEAR: Record<AgeRange | 'default', number> = {
+  young: 2012, mid: 2005, adult: 1995, senior: 1975, default: 2005,
+};
+
 const hasTmdbKey = Boolean(process.env.EXPO_PUBLIC_TMDB_API_KEY);
 
 const RATING_WEIGHTS: Record<Rating, number> = {
@@ -46,62 +126,76 @@ function computeLocalProfile(
   );
 }
 
-function selectAdaptive(
-  pool: NormalizedTitle[],
-  shownIds: Set<number>,
+function scoreForPool(t: NormalizedTitle, profile: Record<string, number>): number {
+  return t.genres.reduce((s, g) => s + (profile[g] ?? 0), 0);
+}
+
+function sortAdaptive(
+  remaining: NormalizedTitle[],
   profile: Record<string, number>,
-  count: number,
 ): NormalizedTitle[] {
-  const candidates = pool.filter(t => !shownIds.has(t.tmdbId));
-  if (candidates.length === 0) return [];
-
-  const scored = candidates
-    .map(t => ({ t, score: t.genres.reduce((s, g) => s + (profile[g] ?? 0), 0) }))
-    .sort((a, b) => b.score - a.score);
-
+  const scored = remaining.map(t => ({ t, score: scoreForPool(t, profile) }));
   const cut = Math.ceil(scored.length * 0.65);
-  const exploit = scored.slice(0, cut).map(s => s.t);
-  const explore = scored.slice(cut).map(s => s.t).sort(() => Math.random() - 0.5);
-
+  const sorted = [...scored].sort((a, b) => b.score - a.score);
+  const exploit = sorted.slice(0, cut).map(s => s.t);
+  const explore = sorted.slice(cut).map(s => s.t).sort(() => Math.random() - 0.5);
   const result: NormalizedTitle[] = [];
   let e = 0, x = 0;
-  while (result.length < count) {
+  while (result.length < remaining.length) {
     if (e < exploit.length) result.push(exploit[e++]);
-    if (result.length < count && e < exploit.length) result.push(exploit[e++]);
-    if (result.length < count && x < explore.length) result.push(explore[x++]);
+    if (result.length < remaining.length && e < exploit.length) result.push(exploit[e++]);
+    if (result.length < remaining.length && x < explore.length) result.push(explore[x++]);
   }
-  return result.slice(0, count);
+  return result;
+}
+
+// Fallback for mock mode: group MOCK_TITLES by primary genre, one per genre first
+function buildMockPool(): { seed: NormalizedTitle[]; rest: NormalizedTitle[] } {
+  const valid = MOCK_TITLES.filter(t => t.year > 0 && t.posterPath);
+  const seenGenres = new Set<string>();
+  const seed: NormalizedTitle[] = [];
+  const rest: NormalizedTitle[] = [];
+  for (const t of valid) {
+    const primary = t.genres[0];
+    if (primary && !seenGenres.has(`${primary}-${t.type}`)) {
+      seenGenres.add(`${primary}-${t.type}`);
+      seed.push(t);
+    } else {
+      rest.push(t);
+    }
+  }
+  return { seed, rest };
 }
 
 export function useOnboarding(ageRange?: AgeRange): OnboardingState {
-  const [pool, setPool]           = useState<NormalizedTitle[]>([]);
-  const [queue, setQueue]         = useState<NormalizedTitle[]>([]);
-  const [currentIndex, setIndex]  = useState(0);
-  const [ratings, setRatings]     = useState<Record<number, Rating>>({});
-  const [isLoading, setLoading]   = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const { user }                  = useAuthStore();
-  const ratingsRef                = useRef(ratings);
-  ratingsRef.current              = ratings;
+  const [pool, setPool]          = useState<NormalizedTitle[]>([]);
+  const [queue, setQueue]        = useState<NormalizedTitle[]>([]);
+  const [currentIndex, setIndex] = useState(0);
+  const [ratings, setRatings]    = useState<Record<number, Rating>>({});
+  const [isLoading, setLoading]  = useState(true);
+  const [error, setError]        = useState<string | null>(null);
+  const { user }                 = useAuthStore();
+  const ratingsRef               = useRef(ratings);
+  ratingsRef.current             = ratings;
+  const poolRef                  = useRef(pool);
+  poolRef.current                = pool;
+  // Track which probes have been expanded to avoid duplicate fetches
+  const expandedProbes           = useRef(new Set<string>());
 
-  const poolIds = ageRange ? ONBOARDING_BY_AGE[ageRange] : ONBOARDING_IDS;
-  const seedIds = ageRange ? SEED_BY_AGE[ageRange] : SEED_BY_AGE.mid;
+  const probeList  = PROBES[ageRange ?? 'default'];
+  const minYear    = MIN_YEAR[ageRange ?? 'default'];
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setIndex(0);
     setRatings({});
+    expandedProbes.current.clear();
 
     if (!hasTmdbKey) {
       if (!cancelled) {
-        const mockPool = MOCK_TITLES.filter(t => t.year > 0 && t.posterPath);
-        const seedTmdbIds = new Set(seedIds.map(s => s.tmdbId));
-        const seedTitles = seedIds
-          .map(s => mockPool.find(t => t.tmdbId === s.tmdbId))
-          .filter(Boolean) as NormalizedTitle[];
-        const restTitles = mockPool.filter(t => !seedTmdbIds.has(t.tmdbId));
-        const ordered = [...seedTitles, ...restTitles];
+        const { seed, rest } = buildMockPool();
+        const ordered = [...seed, ...rest];
         setPool(ordered);
         setQueue(ordered);
         setLoading(false);
@@ -109,29 +203,32 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
       return () => { cancelled = true; };
     }
 
-    const MOCK_MAP = new Map(MOCK_TITLES.map(t => [t.tmdbId, t]));
-
+    // Fetch top 3 titles per probe in parallel
     Promise.allSettled(
-      poolIds.map(({ tmdbId, type }) => fetchTitle(tmdbId, type))
+      probeList.map(p => discoverByGenre(p.type, p.genreId, minYear))
     ).then(results => {
       if (cancelled) return;
 
-      const loaded = results.map((r, i) => {
-        const mock = MOCK_MAP.get(poolIds[i].tmdbId) ?? MOCK_TITLES[i];
-        if (r.status === 'rejected') return mock;
-        const title = r.value;
-        if (!title.year) return mock;
-        if (!title.posterPath && mock?.posterPath) return { ...title, posterPath: mock.posterPath };
-        return title;
-      }).filter(Boolean) as NormalizedTitle[];
+      const seenIds = new Set<number>();
+      const seedTitles: NormalizedTitle[] = [];
+      const restTitles: NormalizedTitle[] = [];
 
-      const seedTmdbIds = new Set(seedIds.map(s => s.tmdbId));
-      const seedTitles = seedIds
-        .map(s => loaded.find(t => t.tmdbId === s.tmdbId))
-        .filter(Boolean) as NormalizedTitle[];
-      const restTitles = loaded.filter(t => !seedTmdbIds.has(t.tmdbId));
+      results.forEach((r, i) => {
+        if (r.status === 'rejected' || r.value.length === 0) return;
+        const [first, ...others] = r.value;
+        if (!seenIds.has(first.tmdbId)) {
+          seenIds.add(first.tmdbId);
+          seedTitles.push(first);
+        }
+        others.forEach(t => {
+          if (!seenIds.has(t.tmdbId)) {
+            seenIds.add(t.tmdbId);
+            restTitles.push(t);
+          }
+        });
+      });
+
       const ordered = [...seedTitles, ...restTitles];
-
       setPool(ordered);
       setQueue(ordered);
       setLoading(false);
@@ -142,6 +239,61 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
     return () => { cancelled = true; };
   }, [ageRange]);
 
+  // Expand pool for highly-rated genres (fetch page 2 from those probes)
+  async function expandPoolForRatedGenres(
+    newRatings: Record<number, Rating>,
+    currentPool: NormalizedTitle[],
+  ) {
+    if (!hasTmdbKey) return;
+    const profile = computeLocalProfile(newRatings, currentPool);
+    const topGenres = new Set(
+      Object.entries(profile).filter(([, s]) => s > 0.6).map(([g]) => g)
+    );
+    if (topGenres.size === 0) return;
+
+    const probesToExpand = probeList.filter(p => {
+      const key = `${p.type}-${p.genreId}`;
+      if (expandedProbes.current.has(key)) return false;
+      // Check if this probe's label genre overlaps with top genres
+      const probeGenreLabel = p.label.replace(' TV', '');
+      return topGenres.has(probeGenreLabel);
+    });
+
+    if (probesToExpand.length === 0) return;
+    probesToExpand.forEach(p => expandedProbes.current.add(`${p.type}-${p.genreId}`));
+
+    const results = await Promise.allSettled(
+      probesToExpand.map(p => discoverByGenre(p.type, p.genreId, minYear, 2))
+    );
+
+    const seenIds = new Set(currentPool.map(t => t.tmdbId));
+    const newTitles: NormalizedTitle[] = [];
+    results.forEach(r => {
+      if (r.status === 'rejected') return;
+      r.value.forEach(t => {
+        if (!seenIds.has(t.tmdbId)) {
+          seenIds.add(t.tmdbId);
+          newTitles.push(t);
+        }
+      });
+    });
+
+    if (newTitles.length === 0) return;
+
+    setPool(prev => {
+      const updated = [...prev, ...newTitles];
+      poolRef.current = updated;
+      return updated;
+    });
+    setQueue(prev => {
+      const shownCount = currentIndex + 1;
+      const shown = prev.slice(0, shownCount);
+      const remaining = prev.slice(shownCount);
+      const p = computeLocalProfile(newRatings, [...prev, ...newTitles]);
+      return [...shown, ...sortAdaptive([...remaining, ...newTitles], p)];
+    });
+  }
+
   const rate = useCallback((rating: Rating) => {
     const currentRatings = ratingsRef.current;
     const title = queue[currentIndex];
@@ -151,21 +303,24 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
     setRatings(newRatings);
 
     const nextIndex = currentIndex + 1;
+    const SEED_SIZE = probeList.length;
+    const REORDER_EVERY = 5;
 
-    // Reorder remaining queue after seed phase and every REORDER_EVERY ratings after
     const shouldReorder =
       nextIndex === SEED_SIZE ||
       (nextIndex > SEED_SIZE && (nextIndex - SEED_SIZE) % REORDER_EVERY === 0);
 
     if (shouldReorder && nextIndex < queue.length) {
-      const shown = new Set(queue.slice(0, nextIndex).map(t => t.tmdbId));
-      const profile = computeLocalProfile(newRatings, pool);
-      const adaptive = selectAdaptive(pool, shown, profile, queue.length - nextIndex);
-      setQueue(prev => [...prev.slice(0, nextIndex), ...adaptive]);
+      const shown = queue.slice(0, nextIndex);
+      const remaining = queue.slice(nextIndex);
+      const profile = computeLocalProfile(newRatings, poolRef.current);
+      setQueue([...shown, ...sortAdaptive(remaining, profile)]);
+      // Async: expand pool with more titles from top genres
+      expandPoolForRatedGenres(newRatings, poolRef.current);
     }
 
     setTimeout(() => setIndex(nextIndex), 300);
-  }, [queue, currentIndex, pool]);
+  }, [queue, currentIndex, probeList.length, minYear]);
 
   return {
     titles: queue,

@@ -138,6 +138,42 @@ export async function fetchTrailerKey(tmdbId: number, type: 'movie' | 'tv'): Pro
   return pick?.key ?? null;
 }
 
+function parseDiscoverResult(r: Record<string, unknown>, type: 'movie' | 'tv'): NormalizedTitle {
+  const title = type === 'movie' ? (r.title as string) : (r.name as string);
+  const originalTitle = type === 'movie'
+    ? (r.original_title as string ?? title)
+    : (r.original_name as string ?? title);
+  const dateStr = type === 'movie'
+    ? (r.release_date as string)
+    : (r.first_air_date as string);
+  return {
+    id: r.id as number,
+    tmdbId: r.id as number,
+    type,
+    title,
+    originalTitle,
+    year: dateStr ? parseInt(dateStr.slice(0, 4), 10) : 0,
+    genres: ((r.genre_ids as number[]) ?? []).map(id => GENRE_MAP[id] ?? 'Otro'),
+    rating: parseFloat(((r.vote_average as number) ?? 0).toFixed(1)),
+    posterPath: (r.poster_path as string | null) ?? null,
+    synopsis: (r.overview as string) ?? '',
+  };
+}
+
+export async function discoverByGenre(
+  type: 'movie' | 'tv',
+  genreId: number,
+  minYear: number,
+  page = 1,
+): Promise<NormalizedTitle[]> {
+  const dateField = type === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
+  const minVotes  = type === 'movie' ? 200 : 50;
+  const path = `/discover/${type}?with_genres=${genreId}&sort_by=popularity.desc`
+    + `&vote_count.gte=${minVotes}&${dateField}=${minYear}-01-01&page=${page}`;
+  const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
+  return (data.results ?? []).slice(0, 5).map(r => parseDiscoverResult(r, type));
+}
+
 export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
   const data = await tmdbGet(`/search/multi?query=${encodeURIComponent(query)}`) as {
     results: Record<string, unknown>[];
