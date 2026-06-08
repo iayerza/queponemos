@@ -212,6 +212,26 @@ IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE el objeto JSON, comenzando exactam
 }`;
 }
 
+/**
+ * Fix common Claude JSON errors:
+ *   - stray single quotes outside string values (e.g. `1429,'`)
+ *   - trailing commas before } or ]
+ */
+function repairJson(text: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (const ch of text) {
+    if (escaped)          { out += ch; escaped = false; }
+    else if (ch === '\\' && inString) { out += ch; escaped = true; }
+    else if (ch === '"')  { inString = !inString; out += ch; }
+    else if (ch === "'" && !inString) { /* drop stray apostrophe */ }
+    else                  { out += ch; }
+  }
+  // Remove trailing commas before closing brackets
+  return out.replace(/,(\s*[}\]])/g, '$1');
+}
+
 /** Scan text for top-level JSON objects; return the last one that has a `recommendations` array. */
 function extractLastJsonObject(text: string): string | null {
   const candidates: string[] = [];
@@ -255,23 +275,24 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
 
   const raw = data.content[0]?.text ?? '{}';
 
-  let parsed: { recommendations: Omit<Recommendation, 'posterPath' | 'groupStatus'>[]; groupInsight: string };
-  try {
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-    parsed = JSON.parse(cleaned);
-  } catch {
-    // Claude occasionally outputs extra text before/after the JSON — extract the last valid object
-    const extracted = extractLastJsonObject(raw);
-    if (extracted) {
-      try { parsed = JSON.parse(extracted); }
-      catch {
-        console.error('Claude raw response:', raw);
-        throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
-      }
-    } else {
-      console.error('Claude raw response:', raw);
-      throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
-    }
+  type ParsedResponse = { recommendations: Omit<Recommendation, 'posterPath' | 'groupStatus'>[]; groupInsight: string };
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+
+  const attempts: Array<() => ParsedResponse> = [
+    () => JSON.parse(cleaned),
+    () => JSON.parse(repairJson(cleaned)),
+    () => { const x = extractLastJsonObject(cleaned); if (!x) throw new Error(); return JSON.parse(x); },
+    () => { const x = extractLastJsonObject(repairJson(cleaned)); if (!x) throw new Error(); return JSON.parse(x); },
+  ];
+
+  let parsed: ParsedResponse | null = null;
+  for (const attempt of attempts) {
+    try { parsed = attempt(); break; }
+    catch { /* try next */ }
+  }
+  if (!parsed) {
+    console.error('Claude raw response:', raw);
+    throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
   }
 
   const fallbackPlatform = input.platforms[0] ?? 'netflix';
