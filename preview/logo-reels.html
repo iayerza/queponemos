@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>queponemos — logo reels preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0D0D0F;
+  --s1: #1C1C20;
+  --s2: #252528;
+  --border: #2A2A2E;
+  --accent: #C8302A;
+  --coral: #E8503A;
+  --text: #FFFFFF;
+  --sub: #888888;
+  --faint: #555555;
+  --font: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  background: #08080a;
+  font-family: var(--font);
+  color: var(--text);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 52px;
+  padding: 52px 32px;
+}
+
+/* ─── LEFT: SHOWCASE ─── */
+.showcase {
+  flex: 1;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.4px;
+  color: var(--text);
+  line-height: 1.3;
+}
+.page-subtitle {
+  font-size: 13px;
+  color: var(--sub);
+  margin-top: 4px;
+  letter-spacing: -0.1px;
+}
+
+.section-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 12px;
+}
+
+/* Size samples row */
+.sizes-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 24px;
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+}
+
+.size-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.size-tag {
+  font-size: 9px;
+  color: var(--faint);
+  font-family: var(--font);
+  letter-spacing: 0.3px;
+}
+.size-tag.active {
+  color: var(--coral);
+}
+
+/* Header preview */
+.header-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0 20px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.header-wordmark {
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+.header-wordmark em {
+  color: var(--coral);
+  font-style: normal;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.avatar-circle {
+  width: 34px; height: 34px;
+  border-radius: 17px;
+  background: var(--s2);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: var(--sub);
+}
+
+/* Backgrounds row */
+.bg-row {
+  display: flex;
+  gap: 12px;
+}
+.bg-swatch {
+  flex: 1;
+  border-radius: 12px;
+  padding: 24px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.bg-swatch .wm {
+  font-size: 15px; font-weight: 500;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+/* ─── RIGHT: SPLASH DEMO ─── */
+.splash-container {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.splash-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.phone {
+  width: 300px;
+  height: 540px;
+  background: var(--bg);
+  border-radius: 40px;
+  border: 1.5px solid var(--border);
+  overflow: hidden;
+  position: relative;
+  box-shadow:
+    0 0 0 1px #000,
+    0 28px 72px rgba(0,0,0,0.85),
+    inset 0 0 0 1px rgba(255,255,255,0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* notch */
+.phone::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%; transform: translateX(-50%);
+  width: 100px; height: 26px;
+  background: #000;
+  border-radius: 0 0 18px 18px;
+  z-index: 10;
+}
+
+.splash-screen {
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+/* Stacked reel layers */
+.logo-wrapper {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin-bottom: 36px;
+}
+
+.reel-layer {
+  position: absolute;
+  top: 0; left: 0;
+  width: 140px; height: 140px;
+  opacity: 0;
+}
+
+.splash-wordmark {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  opacity: 0;
+}
+.splash-wordmark em {
+  font-style: normal;
+  color: var(--coral);
+}
+
+.splash-tagline {
+  font-size: 12px;
+  color: var(--sub);
+  margin-top: 7px;
+  letter-spacing: -0.1px;
+  opacity: 0;
+}
+
+/* ─── KEYFRAMES ─── */
+@keyframes spinDownCW {
+  from { transform: rotate(720deg); }
+  to   { transform: rotate(0deg); }
+}
+@keyframes spinDownCCW {
+  from { transform: rotate(-720deg); }
+  to   { transform: rotate(0deg); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes wordIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 140px SVG → scale = 140/28 = 5
+   Left reel center:  8.5×5=42.5px, 14×5=70px
+   Right reel center: 19.5×5=97.5px, 14×5=70px  */
+
+.animating .reel-layer.left {
+  transform-origin: 42.5px 70px;
+  animation:
+    spinDownCW  2.2s cubic-bezier(0.05, 0, 0.06, 1) both,
+    fadeIn      0.45s ease both;
+}
+.animating .reel-layer.right {
+  transform-origin: 97.5px 70px;
+  animation:
+    spinDownCCW 2.2s cubic-bezier(0.05, 0, 0.06, 1) 0.12s both,
+    fadeIn      0.45s ease 0.12s both;
+}
+.animating .reel-layer.venn {
+  animation: fadeIn 0.5s ease 2.35s both;
+}
+.animating .splash-wordmark {
+  animation: wordIn 0.55s ease 2.55s both;
+}
+.animating .splash-tagline {
+  animation: fadeIn 0.45s ease 2.85s both;
+}
+
+/* ─── REPLAY BTN ─── */
+.replay-btn {
+  background: var(--s2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--sub);
+  font-family: var(--font);
+  cursor: pointer;
+  letter-spacing: -0.1px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  margin-top: 4px;
+}
+.replay-btn:hover {
+  background: rgba(200,48,42,0.12);
+  border-color: rgba(200,48,42,0.35);
+  color: var(--text);
+}
+
+/* ─── NOTES ─── */
+.note-box {
+  background: rgba(200,48,42,0.08);
+  border: 1px solid rgba(200,48,42,0.2);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--sub);
+  line-height: 1.55;
+}
+.note-box b { color: var(--text); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- ─── LEFT: SHOWCASE ─── -->
+<div class="showcase">
+
+  <div>
+    <div class="page-title">Logo mark — solo reels, sin marco</div>
+    <div class="page-subtitle">Diagrama de Venn con dos carretes de película, sobre cualquier fondo</div>
+  </div>
+
+  <!-- SIZES -->
+  <div>
+    <div class="section-label">escalas</div>
+    <div class="sizes-card" id="sizesCard"></div>
+  </div>
+
+  <!-- HEADER -->
+  <div>
+    <div class="section-label">en el header</div>
+    <div class="header-card">
+      <div class="header-brand">
+        <div id="headerLogo"></div>
+        <div class="header-wordmark">que<em>ponemos</em></div>
+      </div>
+      <div class="header-right">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.7">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        <div class="avatar-circle">I</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BG VERSATILITY -->
+  <div>
+    <div class="section-label">sobre diferentes fondos</div>
+    <div class="bg-row">
+      <div class="bg-swatch" style="background:#0D0D0F; border:1px solid #2A2A2E;" id="swatchDark">
+        <div class="wm">que<span style="color:#E8503A">ponemos</span></div>
+      </div>
+      <div class="bg-swatch" style="background:linear-gradient(135deg,#0F2EA8,#2660EA);" id="swatchBlue">
+        <div class="wm" style="color:white">que<span style="opacity:0.75">ponemos</span></div>
+      </div>
+      <div class="bg-swatch" style="background:#F5F5F7;" id="swatchLight">
+        <div class="wm" style="color:#111114">que<span style="color:#E8503A">ponemos</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTE -->
+  <div class="note-box">
+    <b>Nota de implementación:</b> el LogoMark nuevo es solo el SVG, sin View contenedor ni gradiente. Se adapta a cualquier fondo del header o splash. Para el header se ve sobre <code style="color:#888;font-size:11px">#0D0D0F</code>, para el splash sobre negro puro.
+  </div>
+
+</div>
+
+<!-- ─── RIGHT: SPLASH DEMO ─── -->
+<div class="splash-container">
+  <div class="splash-label">splash — animación de entrada</div>
+  <div class="phone">
+    <div class="splash-screen animating" id="splashScreen">
+      <div class="logo-wrapper" id="logoWrapper">
+        <div class="reel-layer left" id="reelLeft"></div>
+        <div class="reel-layer right" id="reelRight"></div>
+        <div class="reel-layer venn" id="vennLens"></div>
+      </div>
+      <div class="splash-wordmark">que<em>ponemos</em></div>
+      <div class="splash-tagline">La peli para hoy.</div>
+    </div>
+  </div>
+  <button class="replay-btn" onclick="replay()">↻ &nbsp;repetir animación</button>
+</div>
+
+<script>
+// ─── SVG PATHS ───────────────────────────────────────────────────────────────
+// ViewBox 0 0 28 28. Reels: left cx=8.5 cy=14 r=7.5, right cx=19.5 cy=14 r=7.5
+// Holes at orbit=4 (5 holes, 72° apart from top), holeR=1.5
+
+function cp(cx, cy, r) {
+  return `M ${cx} ${cy} m ${-r} 0 a ${r} ${r} 0 1 0 ${2*r} 0 a ${r} ${r} 0 1 0 ${-2*r} 0 Z`;
+}
+
+const HOLES = [[0,-4],[3.804,-1.236],[2.351,3.236],[-2.351,3.236],[-3.804,-1.236]];
+
+function reelPath(cx, cy, r = 7.5, holeR = 1.5) {
+  const body = cp(cx, cy, r);
+  const holes = HOLES.map(([dx,dy]) => cp(cx+dx, cy+dy, holeR)).join(' ');
+  return body + ' ' + holes;
+}
+
+const LP = reelPath(8.5,  14);
+const RP = reelPath(19.5, 14);
+
+// ─── MAKE LOGO SVG ───────────────────────────────────────────────────────────
+// combined (both reels + venn, for static display)
+function logoSVG(size, uid, opacity = 0.22, hubOp = 0.85, rimOp = 0.4, vennOp = 0.32) {
+  return `
+<svg width="${size}" height="${size}" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="cr-${uid}"><circle cx="19.5" cy="14" r="7.5"/></clipPath>
+  </defs>
+  <path d="${LP}" fill="white" fill-opacity="${opacity}" fill-rule="evenodd"/>
+  <circle cx="8.5"  cy="14" r="7.5" stroke="white" stroke-width="0.5" stroke-opacity="${rimOp}" fill="none"/>
+  <circle cx="8.5"  cy="14" r="2.5" fill="white" fill-opacity="${hubOp}"/>
+  <path d="${RP}" fill="white" fill-opacity="${opacity}" fill-rule="evenodd"/>
+  <circle cx="19.5" cy="14" r="7.5" stroke="white" stroke-width="0.5" stroke-opacity="${rimOp}" fill="none"/>
+  <circle cx="19.5" cy="14" r="2.5" fill="white" fill-opacity="${hubOp}"/>
+  <circle cx="8.5"  cy="14" r="7.5" clip-path="url(#cr-${uid})" fill="white" fill-opacity="${vennOp}"/>
+</svg>`;
+}
+
+// left reel only
+function leftReelSVG(size) {
+  return `
+<svg width="${size}" height="${size}" viewBox="0 0 28 28" fill="none">
+  <path d="${LP}" fill="white" fill-opacity="0.22" fill-rule="evenodd"/>
+  <circle cx="8.5" cy="14" r="7.5" stroke="white" stroke-width="0.5" stroke-opacity="0.45" fill="none"/>
+  <circle cx="8.5" cy="14" r="2.5" fill="white" fill-opacity="0.85"/>
+</svg>`;
+}
+
+// right reel only
+function rightReelSVG(size) {
+  return `
+<svg width="${size}" height="${size}" viewBox="0 0 28 28" fill="none">
+  <path d="${RP}" fill="white" fill-opacity="0.22" fill-rule="evenodd"/>
+  <circle cx="19.5" cy="14" r="7.5" stroke="white" stroke-width="0.5" stroke-opacity="0.45" fill="none"/>
+  <circle cx="19.5" cy="14" r="2.5" fill="white" fill-opacity="0.85"/>
+</svg>`;
+}
+
+// venn lens only
+function vennSVG(size) {
+  return `
+<svg width="${size}" height="${size}" viewBox="0 0 28 28" fill="none">
+  <defs><clipPath id="cr-venn-${size}"><circle cx="19.5" cy="14" r="7.5"/></clipPath></defs>
+  <circle cx="8.5" cy="14" r="7.5" clip-path="url(#cr-venn-${size})" fill="white" fill-opacity="0.42"/>
+</svg>`;
+}
+
+// ─── INJECT SIZES ────────────────────────────────────────────────────────────
+const SIZES = [
+  { px: 14, label: '14',   active: false },
+  { px: 20, label: '20',   active: false },
+  { px: 28, label: '28',   active: false },
+  { px: 36, label: '36 ← header', active: true  },
+  { px: 56, label: '56',   active: false },
+  { px: 80, label: '80',   active: false },
+];
+
+const sizesCard = document.getElementById('sizesCard');
+SIZES.forEach(({ px, label, active }, i) => {
+  const div = document.createElement('div');
+  div.className = 'size-item';
+  div.innerHTML = logoSVG(px, `s${i}`) +
+    `<div class="size-tag${active ? ' active' : ''}">${label}</div>`;
+  sizesCard.appendChild(div);
+});
+
+// ─── INJECT HEADER LOGO ──────────────────────────────────────────────────────
+document.getElementById('headerLogo').innerHTML = logoSVG(36, 'hdr');
+
+// ─── INJECT BG SWATCHES ──────────────────────────────────────────────────────
+document.getElementById('swatchDark').insertAdjacentHTML('afterbegin', logoSVG(40, 'sd', 0.22, 0.85, 0.4, 0.3));
+document.getElementById('swatchBlue').insertAdjacentHTML('afterbegin', logoSVG(40, 'sb', 0.25, 0.85, 0.35, 0.28));
+document.getElementById('swatchLight').insertAdjacentHTML('afterbegin',
+  `<svg width="40" height="40" viewBox="0 0 28 28" fill="none">
+    <defs><clipPath id="cr-sl"><circle cx="19.5" cy="14" r="7.5"/></clipPath></defs>
+    <path d="${LP}" fill="#0F2EA8" fill-opacity="0.18" fill-rule="evenodd"/>
+    <circle cx="8.5" cy="14" r="7.5" stroke="#0F2EA8" stroke-width="0.5" stroke-opacity="0.4" fill="none"/>
+    <circle cx="8.5" cy="14" r="2.5" fill="#0F2EA8" fill-opacity="0.7"/>
+    <path d="${RP}" fill="#0F2EA8" fill-opacity="0.18" fill-rule="evenodd"/>
+    <circle cx="19.5" cy="14" r="7.5" stroke="#0F2EA8" stroke-width="0.5" stroke-opacity="0.4" fill="none"/>
+    <circle cx="19.5" cy="14" r="2.5" fill="#0F2EA8" fill-opacity="0.7"/>
+    <circle cx="8.5" cy="14" r="7.5" clip-path="url(#cr-sl)" fill="#0F2EA8" fill-opacity="0.28"/>
+  </svg>`
+);
+
+// ─── INJECT SPLASH LAYERS ────────────────────────────────────────────────────
+// 140px → scale = 5 → left center (42.5, 70), right center (97.5, 70)
+document.getElementById('reelLeft').innerHTML  = leftReelSVG(140);
+document.getElementById('reelRight').innerHTML = rightReelSVG(140);
+document.getElementById('vennLens').innerHTML  = vennSVG(140);
+
+// ─── REPLAY ──────────────────────────────────────────────────────────────────
+function replay() {
+  const screen = document.getElementById('splashScreen');
+  screen.classList.remove('animating');
+  void screen.offsetWidth; // force reflow to restart animations
+  screen.classList.add('animating');
+}
+</script>
+
+</body>
+</html>
