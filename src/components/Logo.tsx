@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import Svg, { Circle, Defs, ClipPath, Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography } from '../constants/colors';
 
-const LOGO_BG = '#C8302A';
+const GRAD_START = '#0F2EA8';
+const GRAD_END   = '#2660EA';
 
 function circlePath(cx: number, cy: number, r: number): string {
   return `M ${cx} ${cy} m ${-r} 0 a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0 Z`;
@@ -29,7 +31,12 @@ export function LogoMark({ size = 28 }: { size?: number }) {
   const box    = Math.round(size * 1.7);
   const radius = Math.round(size * 0.3);
   return (
-    <View style={{ width: box, height: box, borderRadius: radius, backgroundColor: LOGO_BG, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+    <LinearGradient
+      colors={[GRAD_START, GRAD_END]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ width: box, height: box, borderRadius: radius, alignItems: 'center', justifyContent: 'center' }}
+    >
       <Svg width={size} height={size} viewBox="0 0 28 28" fill="none">
         <Defs>
           <ClipPath id="lm-clip-right">
@@ -50,7 +57,7 @@ export function LogoMark({ size = 28 }: { size?: number }) {
         {/* Intersection highlight (Venn lens) */}
         <Circle cx={9} cy={14} r={7} clipPath="url(#lm-clip-right)" fill="white" fillOpacity={0.28} />
       </Svg>
-    </View>
+    </LinearGradient>
   );
 }
 
