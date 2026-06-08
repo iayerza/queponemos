@@ -23,89 +23,94 @@ export interface OnboardingState {
 
 interface Probe { genreId: number; type: 'movie' | 'tv'; label: string }
 
-const PROBES: Record<AgeRange | 'default', Probe[]> = {
+// Genres we always exclude from the explore bucket (too niche / not streaming-mainstream)
+const NICHE_GENRES = new Set([
+  'Animación', 'Documental', 'Docuserie', 'Infantil',
+  'Noticias', 'Reality', 'Telenovela', 'Talk', 'Familia',
+]);
+
+const ALL_PROBES: Record<AgeRange | 'default', Probe[]> = {
   young: [
+    { genreId: 28,    type: 'movie', label: 'Acción'          },
     { genreId: 35,    type: 'movie', label: 'Comedia'         },
     { genreId: 10749, type: 'movie', label: 'Romance'         },
-    { genreId: 28,    type: 'movie', label: 'Acción'          },
     { genreId: 27,    type: 'movie', label: 'Terror'          },
     { genreId: 878,   type: 'movie', label: 'Ciencia Ficción' },
-    { genreId: 16,    type: 'movie', label: 'Animación'       },
     { genreId: 14,    type: 'movie', label: 'Fantasía'        },
     { genreId: 53,    type: 'movie', label: 'Thriller'        },
+    { genreId: 16,    type: 'movie', label: 'Animación'       },
     { genreId: 35,    type: 'tv',    label: 'Comedia TV'      },
     { genreId: 10765, type: 'tv',    label: 'Sci-Fi TV'       },
     { genreId: 18,    type: 'tv',    label: 'Drama TV'        },
     { genreId: 10759, type: 'tv',    label: 'Acción TV'       },
   ],
   mid: [
+    { genreId: 28,    type: 'movie', label: 'Acción'          },
     { genreId: 35,    type: 'movie', label: 'Comedia'         },
     { genreId: 10749, type: 'movie', label: 'Romance'         },
-    { genreId: 28,    type: 'movie', label: 'Acción'          },
     { genreId: 27,    type: 'movie', label: 'Terror'          },
     { genreId: 878,   type: 'movie', label: 'Ciencia Ficción' },
-    { genreId: 16,    type: 'movie', label: 'Animación'       },
     { genreId: 80,    type: 'movie', label: 'Crimen'          },
-    { genreId: 99,    type: 'movie', label: 'Documental'      },
     { genreId: 53,    type: 'movie', label: 'Thriller'        },
+    { genreId: 99,    type: 'movie', label: 'Documental'      },
+    { genreId: 16,    type: 'movie', label: 'Animación'       },
     { genreId: 35,    type: 'tv',    label: 'Comedia TV'      },
     { genreId: 80,    type: 'tv',    label: 'Crimen TV'       },
     { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
   ],
   adult: [
+    { genreId: 28,    type: 'movie', label: 'Acción'          },
+    { genreId: 53,    type: 'movie', label: 'Thriller'        },
+    { genreId: 80,    type: 'movie', label: 'Crimen'          },
+    { genreId: 18,    type: 'movie', label: 'Drama'           },
     { genreId: 35,    type: 'movie', label: 'Comedia'         },
     { genreId: 10749, type: 'movie', label: 'Romance'         },
-    { genreId: 28,    type: 'movie', label: 'Acción'          },
-    { genreId: 27,    type: 'movie', label: 'Terror'          },
     { genreId: 878,   type: 'movie', label: 'Ciencia Ficción' },
-    { genreId: 80,    type: 'movie', label: 'Crimen'          },
-    { genreId: 99,    type: 'movie', label: 'Documental'      },
-    { genreId: 18,    type: 'movie', label: 'Drama'           },
+    { genreId: 27,    type: 'movie', label: 'Terror'          },
     { genreId: 36,    type: 'movie', label: 'Historia'        },
-    { genreId: 53,    type: 'movie', label: 'Thriller'        },
     { genreId: 12,    type: 'movie', label: 'Aventura'        },
-    { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
+    { genreId: 99,    type: 'movie', label: 'Documental'      },
+    { genreId: 16,    type: 'movie', label: 'Animación'       },
     { genreId: 18,    type: 'tv',    label: 'Drama TV'        },
     { genreId: 80,    type: 'tv',    label: 'Crimen TV'       },
+    { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
   ],
   senior: [
+    { genreId: 18,    type: 'movie', label: 'Drama'           },
     { genreId: 35,    type: 'movie', label: 'Comedia'         },
     { genreId: 10749, type: 'movie', label: 'Romance'         },
-    { genreId: 18,    type: 'movie', label: 'Drama'           },
     { genreId: 36,    type: 'movie', label: 'Historia'        },
-    { genreId: 99,    type: 'movie', label: 'Documental'      },
     { genreId: 53,    type: 'movie', label: 'Thriller'        },
     { genreId: 80,    type: 'movie', label: 'Crimen'          },
-    { genreId: 10751, type: 'movie', label: 'Familia'         },
     { genreId: 12,    type: 'movie', label: 'Aventura'        },
-    { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
+    { genreId: 99,    type: 'movie', label: 'Documental'      },
     { genreId: 18,    type: 'tv',    label: 'Drama TV'        },
     { genreId: 35,    type: 'tv',    label: 'Comedia TV'      },
     { genreId: 80,    type: 'tv',    label: 'Crimen TV'       },
+    { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
   ],
   default: [
+    { genreId: 28,    type: 'movie', label: 'Acción'          },
     { genreId: 35,    type: 'movie', label: 'Comedia'         },
     { genreId: 10749, type: 'movie', label: 'Romance'         },
-    { genreId: 28,    type: 'movie', label: 'Acción'          },
+    { genreId: 53,    type: 'movie', label: 'Thriller'        },
+    { genreId: 80,    type: 'movie', label: 'Crimen'          },
     { genreId: 27,    type: 'movie', label: 'Terror'          },
     { genreId: 878,   type: 'movie', label: 'Ciencia Ficción' },
-    { genreId: 16,    type: 'movie', label: 'Animación'       },
-    { genreId: 80,    type: 'movie', label: 'Crimen'          },
-    { genreId: 99,    type: 'movie', label: 'Documental'      },
-    { genreId: 53,    type: 'movie', label: 'Thriller'        },
     { genreId: 18,    type: 'movie', label: 'Drama'           },
+    { genreId: 99,    type: 'movie', label: 'Documental'      },
+    { genreId: 16,    type: 'movie', label: 'Animación'       },
     { genreId: 35,    type: 'tv',    label: 'Comedia TV'      },
     { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
   ],
 };
 
 // Age-aware minimum year — shows content from the user's formative cinema years.
-// A 43-year-old (adult) will see The Matrix, Gladiator, The Dark Knight, etc.
 const MIN_YEAR: Record<AgeRange | 'default', number> = {
-  young:   new Date().getFullYear() - 10,  // under ~25: mostly recent titles
-  mid:     new Date().getFullYear() - 18,  // 25–35: last 18 years
-  adult:   new Date().getFullYear() - 30,  // 36–50: back to ~1996
-  senior:  new Date().getFullYear() - 45,  // 50+: back to ~1981
+  young:   new Date().getFullYear() - 10,
+  mid:     new Date().getFullYear() - 18,
+  adult:   new Date().getFullYear() - 30,  // ~1996: Matrix, Gladiator, Dark Knight, etc.
+  senior:  new Date().getFullYear() - 45,  // ~1981: Raiders, Die Hard, etc.
   default: new Date().getFullYear() - 15,
 };
 
@@ -115,8 +120,32 @@ const RATING_WEIGHTS: Record<Rating, number> = {
   loved: 2.0, liked: 1.0, seen_disliked: -0.8, not_seen: 0,
 };
 
-// seeds: genre names the user pre-selected in the genre step.
-// They act as a soft baseline (weight 0.8) that title ratings accumulate on top of.
+// Build the active probe list from genre selection.
+// Only fetches from genres the user selected + up to 2 "explore" probes.
+// Niche genres (Animation, Documentary, etc.) are excluded from explore unless explicitly chosen.
+function buildActiveProbes(all: Probe[], selectedGenres: string[]): Probe[] {
+  const selected = new Set(selectedGenres);
+
+  // A probe matches if its base label (without " TV" suffix) was selected
+  const baseLabel = (p: Probe) => p.label.replace(' TV', '');
+  const isSelected = (p: Probe) => selected.has(baseLabel(p));
+
+  const primary = all.filter(isSelected);
+
+  if (primary.length === 0) {
+    // User skipped genre step — use a curated mainstream default (no niche)
+    return all.filter(p => !NICHE_GENRES.has(baseLabel(p))).slice(0, 8);
+  }
+
+  // Add up to 2 explore probes from unselected, non-niche genres (variety)
+  const explore = all
+    .filter(p => !isSelected(p) && !NICHE_GENRES.has(baseLabel(p)))
+    .slice(0, 2);
+
+  return [...primary, ...explore];
+}
+
+// Genre seeds act as a soft baseline so the profile has signal even with 0 title ratings.
 function computeLocalProfile(
   ratings: Record<number, Rating>,
   pool: NormalizedTitle[],
@@ -128,7 +157,6 @@ function computeLocalProfile(
     const idf = CATALOG_IDF[g] ?? 1.0;
     raw[g] = (raw[g] ?? 0) + 0.8 * idf;
   }
-
   for (const [idStr, r] of Object.entries(ratings)) {
     const title = pool.find(t => t.tmdbId === Number(idStr) || t.id === Number(idStr));
     if (!title) continue;
@@ -168,8 +196,13 @@ function sortAdaptive(
   return result;
 }
 
-function buildMockPool(): { seed: NormalizedTitle[]; rest: NormalizedTitle[] } {
-  const valid = MOCK_TITLES.filter(t => t.year > 0 && t.posterPath);
+function buildMockPool(selectedGenres: string[]): { seed: NormalizedTitle[]; rest: NormalizedTitle[] } {
+  const valid = MOCK_TITLES.filter(t => {
+    if (!t.year || !t.posterPath) return false;
+    if (selectedGenres.length === 0) return !NICHE_GENRES.has(t.genres[0] ?? '');
+    // Include titles from selected genres + some explore
+    return t.genres.some(g => selectedGenres.includes(g)) || Math.random() < 0.3;
+  });
   const seenGenres = new Set<string>();
   const seed: NormalizedTitle[] = [];
   const rest: NormalizedTitle[] = [];
@@ -190,7 +223,8 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
   const [queue, setQueue]        = useState<NormalizedTitle[]>([]);
   const [currentIndex, setIndex] = useState(0);
   const [ratings, setRatings]    = useState<Record<number, Rating>>({});
-  const [isLoading, setLoading]  = useState(true);
+  // isLoading starts true only when skipGenreStep=true (fetch starts on mount)
+  const [isLoading, setLoading]  = useState(skipGenreStep);
   const [error, setError]        = useState<string | null>(null);
   const [genreStepDone, setGenreStepDone] = useState(skipGenreStep);
   const { user }                 = useAuthStore();
@@ -199,37 +233,40 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
   const poolRef                  = useRef(pool);
   poolRef.current                = pool;
   const genreSeedsRef            = useRef<string[]>([]);
+  // Active probes computed when genres are confirmed
+  const activeProbesRef          = useRef<Probe[]>(
+    skipGenreStep ? buildActiveProbes(ALL_PROBES[ageRange ?? 'default'], []) : []
+  );
   const expandedProbes           = useRef(new Set<string>());
 
-  const probeList = PROBES[ageRange ?? 'default'];
-  const minYear   = MIN_YEAR[ageRange ?? 'default'];
+  const minYear = MIN_YEAR[ageRange ?? 'default'];
 
+  // Fetch titles — triggered once genre step is done (or on mount if skipGenreStep)
   useEffect(() => {
+    if (!genreStepDone) return;
+
     let cancelled = false;
     setLoading(true);
     setIndex(0);
     setRatings({});
     expandedProbes.current.clear();
 
+    const activeProbes = activeProbesRef.current;
+
     if (!hasTmdbKey) {
       if (!cancelled) {
-        const { seed, rest } = buildMockPool();
+        const { seed, rest } = buildMockPool(genreSeedsRef.current);
         const ordered = [...seed, ...rest];
         setPool(ordered);
-        const seeds = genreSeedsRef.current;
-        if (seeds.length > 0) {
-          const profile = computeLocalProfile({}, ordered, seeds);
-          setQueue(sortAdaptive(ordered, profile));
-        } else {
-          setQueue(ordered);
-        }
+        const profile = computeLocalProfile({}, ordered, genreSeedsRef.current);
+        setQueue(genreSeedsRef.current.length > 0 ? sortAdaptive(ordered, profile) : ordered);
         setLoading(false);
       }
       return () => { cancelled = true; };
     }
 
     Promise.allSettled(
-      probeList.map(p => discoverByGenre(p.type, p.genreId, minYear))
+      activeProbes.map(p => discoverByGenre(p.type, p.genreId, minYear))
     ).then(results => {
       if (cancelled) return;
 
@@ -254,7 +291,7 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
 
       const ordered = [...seedTitles, ...restTitles];
       setPool(ordered);
-      // If genres were already confirmed (rare: user confirmed very quickly), sort now
+      // Sort by genre seeds from the start
       const seeds = genreSeedsRef.current;
       if (seeds.length > 0) {
         const profile = computeLocalProfile({}, ordered, seeds);
@@ -263,12 +300,14 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
         setQueue(ordered);
       }
       setLoading(false);
+    }).catch(() => {
+      if (!cancelled) setLoading(false);
     });
 
     if (user?.ratings) setRatings(user.ratings as Record<number, Rating>);
 
     return () => { cancelled = true; };
-  }, [ageRange]);
+  }, [genreStepDone, ageRange]);
 
   // Expand pool for highly-rated genres (fetch page 2 from those probes)
   async function expandPoolForRatedGenres(
@@ -282,11 +321,12 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
     );
     if (topGenres.size === 0) return;
 
-    const probesToExpand = probeList.filter(p => {
+    const activeProbes = activeProbesRef.current;
+    const probesToExpand = activeProbes.filter(p => {
       const key = `${p.type}-${p.genreId}`;
       if (expandedProbes.current.has(key)) return false;
-      const probeGenreLabel = p.label.replace(' TV', '');
-      return topGenres.has(probeGenreLabel);
+      const base = p.label.replace(' TV', '');
+      return topGenres.has(base);
     });
 
     if (probesToExpand.length === 0) return;
@@ -324,16 +364,13 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
     });
   }
 
-  // Sorts the pool by genre preferences immediately when the user confirms them.
+  // Called when the user confirms their genre preferences.
+  // Computes the filtered probe list and triggers the title fetch.
   const confirmGenres = useCallback((genres: string[]) => {
     genreSeedsRef.current = genres;
-    setGenreStepDone(true);
-    if (poolRef.current.length > 0) {
-      const profile = computeLocalProfile({}, poolRef.current, genres);
-      setQueue(sortAdaptive(poolRef.current, profile));
-    }
-    // If the pool hasn't loaded yet, the load effect handles sorting when it arrives.
-  }, []);
+    activeProbesRef.current = buildActiveProbes(ALL_PROBES[ageRange ?? 'default'], genres);
+    setGenreStepDone(true); // triggers the fetch useEffect
+  }, [ageRange]);
 
   const rate = useCallback((rating: Rating) => {
     const currentRatings = ratingsRef.current;
@@ -344,8 +381,8 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
     setRatings(newRatings);
 
     const nextIndex = currentIndex + 1;
-    const SEED_SIZE = probeList.length;
-    const REORDER_EVERY = 5;
+    const SEED_SIZE = activeProbesRef.current.length;
+    const REORDER_EVERY = 4;
 
     const shouldReorder =
       nextIndex === SEED_SIZE ||
@@ -360,7 +397,7 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
     }
 
     setTimeout(() => setIndex(nextIndex), 300);
-  }, [queue, currentIndex, probeList.length, minYear]);
+  }, [queue, currentIndex, minYear]);
 
   return {
     titles: queue,
@@ -369,7 +406,7 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
     isLoading,
     error,
     rate,
-    canSkip: currentIndex >= 12,
+    canSkip: currentIndex >= 8,
     isFinished: queue.length > 0 && currentIndex >= queue.length,
     genreStepDone,
     confirmGenres,

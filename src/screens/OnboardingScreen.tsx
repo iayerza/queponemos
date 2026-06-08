@@ -18,8 +18,8 @@ import { completeOnboarding, rateTitleAndUpdateProfile, saveInitialGenrePreferen
 import type { RootStackParamList } from '../navigation/types';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
-const MIN_TO_SKIP = 12;
-const TOTAL = 30;
+const MIN_TO_SKIP = 8;
+const TOTAL = 20;
 
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'Onboarding'>;

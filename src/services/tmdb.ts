@@ -160,6 +160,12 @@ function parseDiscoverResult(r: Record<string, unknown>, type: 'movie' | 'tv'): 
   };
 }
 
+function isoDateDaysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
 export async function discoverByGenre(
   type: 'movie' | 'tv',
   genreId: number,
@@ -168,10 +174,12 @@ export async function discoverByGenre(
 ): Promise<NormalizedTitle[]> {
   const dateField = type === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
   const minVotes  = type === 'movie' ? 200 : 50;
-  const path = `/discover/${type}?with_genres=${genreId}&sort_by=popularity.desc`
+  let path = `/discover/${type}?with_genres=${genreId}&sort_by=popularity.desc`
     + `&vote_count.gte=${minVotes}&${dateField}=${minYear}-01-01&page=${page}`;
+  // For movies: exclude releases from the last 90 days (still in theaters / not yet on streaming)
+  if (type === 'movie') path += `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
   const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
-  return (data.results ?? []).slice(0, 5).map(r => parseDiscoverResult(r, type));
+  return (data.results ?? []).slice(0, 4).map(r => parseDiscoverResult(r, type));
 }
 
 export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
