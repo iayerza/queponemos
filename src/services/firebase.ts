@@ -35,7 +35,7 @@ import type { TasteProfile } from '../utils/tasteProfile';
 import type { PlatformId } from '../constants/platforms';
 import type { Recommendation, MoodId } from './claude';
 import { generateInviteCode } from '../utils/inviteCode';
-import { recalculateTasteProfile } from '../utils/tasteProfile';
+import { recalculateTasteProfile, rebuildProfileFromCatalog } from '../utils/tasteProfile';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -223,9 +223,14 @@ export async function rateTitleAndUpdateProfile(
   const profile = await getUserProfile(uid);
   if (!profile) throw new Error('Usuario no encontrado');
 
-  const newRatings = { ...profile.ratings, [titleId]: rating };
-  const allTitles  = [titleMeta];
-  const newProfile = recalculateTasteProfile(newRatings, allTitles, profile.tasteProfile);
+  // One-time migration: rebuild raw scores from catalog for users without genreRawScores
+  let prevProfile = profile.tasteProfile;
+  if (!prevProfile.genreRawScores) {
+    prevProfile = rebuildProfileFromCatalog(profile.ratings, prevProfile);
+  }
+
+  // Incremental update: pass only the delta (new rating + its metadata)
+  const newProfile = recalculateTasteProfile({ [titleId]: rating }, [titleMeta], prevProfile);
 
   await updateDoc(doc(db(), 'users', uid), {
     [`ratings.${titleId}`]: rating,
