@@ -74,7 +74,7 @@ export default function HomeScreen() {
   const [pendingCount,      setPendingCount]      = useState(0);
 
   // ── Header animation ─────────────────────────────────────────────────────
-  const scrollRef    = useRef<ScrollView>(null);
+  const scrollRef    = useRef<Animated.ScrollView>(null);
   const scrollY      = useRef(new Animated.Value(0)).current;
   const indicatorTX  = useRef(new Animated.Value(0)).current;
   const isFirstMount = useRef(true);
@@ -409,7 +409,7 @@ export default function HomeScreen() {
       </View>
 
       {/* ═══════════════════ SCROLL CONTENT ══════════════════════════════ */}
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: insets.bottom + 32 }}
@@ -536,7 +536,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* ═══════════════════ MODALS ══════════════════════════════════════ */}
 
