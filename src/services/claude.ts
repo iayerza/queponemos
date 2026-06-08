@@ -194,7 +194,7 @@ REGLAS:
 7. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
 8. Considerá la edad de los usuarios al elegir referencias culturales y títulos.
 
-Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
+IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE el objeto JSON, comenzando exactamente con { y terminando exactamente con }. Sin texto antes, sin texto después, sin markdown, sin bloques de código, sin explicaciones, sin auto-correcciones. Si cometés un error en el JSON, igual respondé solo con el JSON corregido, sin comentarios.
 {
   "recommendations": [{
     "tmdbId": 12345,
@@ -243,32 +243,24 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
   if (!apiKey) throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY no configurada');
   if (!apiKey.startsWith('sk-ant-')) throw new Error(`API key inválida (debe empezar con sk-ant-). Verificá EXPO_PUBLIC_ANTHROPIC_API_KEY.`);
 
-  // Prefill assistant turn to force pure JSON output (no preamble, no self-correction text)
-  const JSON_PREFIX = '{"recommendations":[';
-
   const data = await callClaudeWithRetry({
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
-    messages: [
-      { role: 'user', content: buildPrompt(input) },
-      { role: 'assistant', content: JSON_PREFIX },
-    ],
+    messages: [{ role: 'user', content: buildPrompt(input) }],
   }, apiKey);
 
   if (data.stop_reason === 'max_tokens') {
     throw new Error('La respuesta se cortó (max_tokens). Volvé a intentar.');
   }
 
-  // Reconstruct the full JSON (prefill + continuation)
-  const raw = JSON_PREFIX + (data.content[0]?.text ?? '');
+  const raw = data.content[0]?.text ?? '{}';
 
   let parsed: { recommendations: Omit<Recommendation, 'posterPath' | 'groupStatus'>[]; groupInsight: string };
   try {
-    // Strip markdown fences just in case, then parse
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
     parsed = JSON.parse(cleaned);
   } catch {
-    // Fallback: Claude still generated extra text — scan for the last valid JSON object
+    // Claude occasionally outputs extra text before/after the JSON — extract the last valid object
     const extracted = extractLastJsonObject(raw);
     if (extracted) {
       try { parsed = JSON.parse(extracted); }
