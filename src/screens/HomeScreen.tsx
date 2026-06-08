@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  TextInput, Modal, Alert, Image, Animated, Easing,
+  TextInput, Modal, Alert, Image, Animated,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,7 +11,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography } from '../constants/colors';
 import { useColors } from '../context/ThemeContext';
-import { LogoMark, LogoWordmark } from '../components/Logo';
+import { LogoMark } from '../components/Logo';
 import GroupCard from '../components/GroupCard';
 import PlatformLogo from '../components/PlatformLogo';
 import { useAuthStore } from '../store/useAuthStore';
@@ -30,7 +30,15 @@ import type { PlatformId } from '../constants/platforms';
 import { MOCK_GROUP } from '../utils/mock';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Nav   = NativeStackNavigationProp<RootStackParamList>;
+type TabId = 'queponemos' | 'grupos' | 'valorar' | 'sesiones';
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'queponemos', label: 'queponemos' },
+  { id: 'grupos',     label: 'grupos' },
+  { id: 'valorar',    label: 'valorar' },
+  { id: 'sesiones',   label: 'sesiones' },
+];
 
 const POSTER_W = 144;
 const POSTER_H = 216;
@@ -60,35 +68,52 @@ export default function HomeScreen() {
   const [pendingCount,      setPendingCount]      = useState(0);
   const [notifDismissed,    setNotifDismissed]    = useState(false);
 
-  // ── Animated sliding header ──────────────────────────────────────────────
-  const headerTranslateY = useRef(new Animated.Value(0)).current;
-  const lastScrollYRef   = useRef(0);
-  const headerVisRef     = useRef(true);
-  const [headerHeight, setHeaderHeight] = useState(insets.top + 68);
+  // ── Floating header con fade ──────────────────────────────────────────────
+  const scrollRef          = useRef<ScrollView>(null);
+  const headerOpacity      = useRef(new Animated.Value(1)).current;
+  const lastScrollYRef     = useRef(0);
+  const headerVisRef       = useRef(true);
+  const [headerHeight, setHeaderHeight]               = useState(insets.top + 64);
+  const [activeTab, setActiveTab]                     = useState<TabId>('queponemos');
+  const [headerPointerEvents, setHeaderPointerEvents] = useState<'auto' | 'none'>('auto');
+
+  const sectionYRef = useRef<Record<TabId, number>>({
+    queponemos: 0, grupos: 0, valorar: 0, sesiones: 0,
+  });
 
   const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
     const y  = e.nativeEvent.contentOffset.y;
     const dy = y - lastScrollYRef.current;
     lastScrollYRef.current = Math.max(0, y);
 
-    if (dy > 6 && y > headerHeight && headerVisRef.current) {
+    if (dy > 8 && y > 30 && headerVisRef.current) {
       headerVisRef.current = false;
-      Animated.timing(headerTranslateY, {
-        toValue: -headerHeight,
-        duration: 220,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
-    } else if (dy < -6 && !headerVisRef.current) {
+      Animated.timing(headerOpacity, { toValue: 0, duration: 200, useNativeDriver: true })
+        .start(() => setHeaderPointerEvents('none'));
+    } else if (dy < -8 && !headerVisRef.current) {
       headerVisRef.current = true;
-      Animated.timing(headerTranslateY, {
-        toValue: 0,
-        duration: 240,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }).start();
+      setHeaderPointerEvents('auto');
+      Animated.timing(headerOpacity, { toValue: 1, duration: 250, useNativeDriver: true }).start();
     }
-  }, [headerHeight, headerTranslateY]);
+
+    const sy = sectionYRef.current;
+    const th = headerHeight + 40;
+    if (sy.sesiones > 0 && y >= sy.sesiones - th) setActiveTab('sesiones');
+    else if (sy.valorar > 0 && y >= sy.valorar - th) setActiveTab('valorar');
+    else if (sy.grupos > 0 && y >= sy.grupos - th) setActiveTab('grupos');
+    else setActiveTab('queponemos');
+  }, [headerHeight, headerOpacity]);
+
+  function scrollToSection(id: TabId) {
+    const rawY = id === 'queponemos' ? 0 : Math.max(0, sectionYRef.current[id] - headerHeight);
+    scrollRef.current?.scrollTo({ y: rawY, animated: true });
+    setActiveTab(id);
+    if (!headerVisRef.current) {
+      headerVisRef.current = true;
+      setHeaderPointerEvents('auto');
+      Animated.timing(headerOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    }
+  }
 
   const { recentMovies, recentSeries } = useMemo(() => {
     const recentMovies: PosterItem[] = [];
@@ -112,10 +137,11 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Reset header to visible when screen comes into focus
-      headerTranslateY.setValue(0);
+      headerOpacity.setValue(1);
       headerVisRef.current = true;
       lastScrollYRef.current = 0;
+      setHeaderPointerEvents('auto');
+      setActiveTab('queponemos');
       if (!user?.uid || USE_MOCK) return;
       getPersonalWatchlist(user.uid).then(setWatchlist).catch(() => {});
       getPendingRatingsForUser(user.uid).then(items => setPendingCount(items.length)).catch(() => {});
@@ -270,20 +296,37 @@ export default function HomeScreen() {
   return (
     <View style={[styles.root, { backgroundColor: themeColors.bg }]}>
 
-      {/* ── Floating header — slides up on scroll down, down on scroll up ── */}
+      {/* ── Floating header con nav tabs ─────────────────────────── */}
       <Animated.View
-        style={[styles.headerFloat, { transform: [{ translateY: headerTranslateY }] }]}
+        style={[styles.headerFloat, { opacity: headerOpacity }]}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+        pointerEvents={headerPointerEvents}
       >
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <LogoWordmark markSize={24} />
-          <TouchableOpacity style={styles.avatar} onPress={() => (nav as any).navigate('Profile')} activeOpacity={0.75}>
-            <Text style={styles.avatarText}>{avatarLetter}</Text>
+        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+          <TouchableOpacity onPress={() => scrollToSection('queponemos')} activeOpacity={0.7}>
+            <LogoMark size={32} />
           </TouchableOpacity>
+          <View style={styles.navTabs}>
+            {TABS.map(tab => (
+              <TouchableOpacity
+                key={tab.id}
+                onPress={() => scrollToSection(tab.id)}
+                style={styles.navTab}
+                activeOpacity={0.65}
+              >
+                <Text style={[styles.navTabText, activeTab === tab.id && styles.navTabTextActive]}>
+                  {tab.label}
+                </Text>
+                {activeTab === tab.id && <View style={styles.navTabDot} />}
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
+        <View style={styles.headerBorder} />
       </Animated.View>
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: insets.bottom + 32 }}
         showsVerticalScrollIndicator={false}
@@ -309,6 +352,7 @@ export default function HomeScreen() {
         )}
 
         {/* ── Hero: ¿Qué ven hoy? ────────────────────────────────── */}
+        <View onLayout={(e) => { sectionYRef.current.queponemos = e.nativeEvent.layout.y; }}>
         <TouchableOpacity onPress={handleSoloPress} activeOpacity={0.88} style={styles.heroWrap}>
           <LinearGradient
             colors={['#0D27A0', '#1B50D4', '#2A6AEC']}
@@ -341,9 +385,13 @@ export default function HomeScreen() {
             )}
           </LinearGradient>
         </TouchableOpacity>
+        </View>
 
         {/* ── Tus grupos ─────────────────────────────────────────── */}
-        <View style={styles.section}>
+        <View
+          onLayout={(e) => { sectionYRef.current.grupos = e.nativeEvent.layout.y; }}
+          style={styles.section}
+        >
           <Text style={styles.sectionEyebrow}>¿Con quién ponemos algo?</Text>
           <Text style={styles.sectionTitle}>Tus grupos</Text>
 
@@ -371,7 +419,39 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* ── Valorar ──────────────────────────────────────────────── */}
+        <View
+          onLayout={(e) => { sectionYRef.current.valorar = e.nativeEvent.layout.y; }}
+          style={styles.section}
+        >
+          <Text style={styles.sectionEyebrow}>Tus gustos</Text>
+          <Text style={styles.sectionTitle}>Valorar</Text>
+          {pendingCount > 0 ? (
+            <TouchableOpacity
+              style={styles.valorarCard}
+              onPress={() => (nav as any).navigate('History')}
+              activeOpacity={0.8}
+            >
+              <Feather name="star" size={16} color={Colors.success} />
+              <Text style={styles.valorarCardText}>
+                {pendingCount === 1 ? '1 título espera tu valoración' : `${pendingCount} títulos esperan tu valoración`}
+              </Text>
+              <Feather name="chevron-right" size={16} color={Colors.faint} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.valorarCard}
+              onPress={() => (nav as any).navigate('Profile')}
+              activeOpacity={0.8}
+            >
+              <Feather name="film" size={16} color={Colors.sub} />
+              <Text style={styles.valorarCardText}>Calificá títulos para mejorar las recomendaciones →</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* ── Historial de sesiones ───────────────────────────────── */}
+        <View onLayout={(e) => { sectionYRef.current.sesiones = e.nativeEvent.layout.y; }}>
         {hasHistory && (
           <View style={styles.historySeparator}>
             <View style={styles.historySeparatorLine} />
@@ -403,6 +483,7 @@ export default function HomeScreen() {
             {renderPosterRow(watchlistItems)}
           </View>
         )}
+        </View>
 
       </ScrollView>
 
@@ -520,18 +601,27 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bg,
   },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 24, paddingBottom: 16,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 20, paddingBottom: 10, gap: 12,
   },
-  avatar: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.s2, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
+  headerBorder: { height: 1, backgroundColor: Colors.border, opacity: 0.6 },
+  navTabs: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2 },
+  navTab:  { flex: 1, alignItems: 'center', paddingVertical: 6, paddingHorizontal: 2, gap: 4 },
+  navTabText: {
+    fontFamily: Typography.fontMedium, fontSize: 11,
+    color: Colors.faint, letterSpacing: 0.1,
   },
-  avatarText: {
-    color: Colors.text, fontSize: 18,
-    fontWeight: Typography.medium, fontFamily: Typography.fontMedium,
+  navTabTextActive: { color: Colors.text },
+  navTabDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: Colors.accent },
+
+  // Valorar card
+  valorarCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: Colors.s1, borderRadius: 12,
+    borderWidth: 1, borderColor: Colors.border,
+    padding: 14,
   },
+  valorarCardText: { flex: 1, color: Colors.sub, fontSize: 15, lineHeight: 20 },
 
   // Notif bar
   notif: {
@@ -551,7 +641,7 @@ const styles = StyleSheet.create({
   notifClose: { padding: 4 },
 
   // Hero
-  heroWrap: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden', marginBottom: 28 },
+  heroWrap: { marginHorizontal: 24, marginTop: 8, borderRadius: 20, overflow: 'hidden', marginBottom: 28 },
   heroGrad: {
     borderRadius: 20, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 22,
     minHeight: 168, justifyContent: 'flex-end',
