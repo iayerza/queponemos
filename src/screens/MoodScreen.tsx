@@ -377,7 +377,7 @@ export default function MoodScreen() {
               onPress={() => handleSelect(m.id)}
               activeOpacity={0.8}
             >
-              <Feather name={m.icon} size={28} color={Colors.sub} style={styles.moodIcon} />
+              <Feather name={m.icon} size={32} color={Colors.sub} style={styles.moodIcon} />
               <Text style={styles.moodLabel}>{m.label}</Text>
               <Text style={styles.moodDesc}>{m.desc}</Text>
             </TouchableOpacity>
@@ -394,24 +394,25 @@ const styles = StyleSheet.create({
   scroll:   { paddingHorizontal: 24, paddingBottom: 40 },
   title: {
     color: Colors.text,
-    fontSize: Typography.hero,
-    fontWeight: Typography.black,
-    lineHeight: 40,
-    marginBottom: 10,
+    fontSize: 32,
+    fontWeight: Typography.medium,
+    lineHeight: 42,
+    marginBottom: 12,
     marginTop: 4,
+    letterSpacing: -0.5,
   },
   sub: { color: Colors.sub, fontSize: Typography.body, marginBottom: 28, lineHeight: 22 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 28 },
   moodBtn: {
     width: '47%',
     backgroundColor: Colors.s1,
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 14,
+    padding: 22,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  moodIcon: { marginBottom: 8 },
-  moodLabel: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body, marginBottom: 4 },
+  moodIcon: { marginBottom: 10 },
+  moodLabel: { color: Colors.text, fontWeight: Typography.medium, fontSize: 16, marginBottom: 5 },
   moodDesc:  { color: Colors.sub, fontSize: Typography.tiny, lineHeight: 16 },
   waitTitle: {
     color: Colors.text,

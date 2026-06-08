@@ -32,8 +32,8 @@ import { MOCK_GROUP } from '../utils/mock';
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const POSTER_W = 80;
-const POSTER_H = 120;
+const POSTER_W = 90;
+const POSTER_H = 135;
 
 interface PosterItem { posterPath: string | null; title: string; platform: PlatformId }
 
@@ -204,9 +204,14 @@ export default function HomeScreen() {
                 <Feather name="film" size={18} color={Colors.faint} />
               </View>
             )}
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.88)']}
+              style={styles.posterFade}
+            />
             <View style={styles.posterPlatformBadge}>
-              <PlatformLogo id={item.platform} size={18} />
+              <PlatformLogo id={item.platform} size={14} />
             </View>
+            <Text style={styles.posterTitle} numberOfLines={2}>{item.title}</Text>
           </View>
         ))}
       </ScrollView>
@@ -484,13 +489,13 @@ const styles = StyleSheet.create({
   // Hero
   heroWrap: { marginHorizontal: 24, borderRadius: 20, overflow: 'hidden', marginBottom: 28 },
   heroGrad: {
-    borderRadius: 20, paddingHorizontal: 22, paddingTop: 22, paddingBottom: 18,
-    minHeight: 130, justifyContent: 'space-between',
+    borderRadius: 20, paddingHorizontal: 22, paddingTop: 22, paddingBottom: 20,
+    minHeight: 168, justifyContent: 'space-between',
   },
   heroVenn:  { position: 'absolute', right: -20, top: -20 },
   heroTop:   { flexDirection: 'row', alignItems: 'center', gap: 14 },
   heroText:  { flex: 1 },
-  heroTitle: { color: '#fff', fontSize: Typography.h2, fontWeight: Typography.medium, letterSpacing: -0.3 },
+  heroTitle: { color: '#fff', fontSize: 24, fontWeight: Typography.medium, letterSpacing: -0.3 },
   heroSub:   { color: 'rgba(255,255,255,0.65)', fontSize: Typography.small, marginTop: 4 },
   heroPlatforms: {
     flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14,
@@ -504,9 +509,9 @@ const styles = StyleSheet.create({
   section:       { marginBottom: 28, paddingHorizontal: 24 },
   sectionEyebrow:{
     color: Colors.faint, fontSize: Typography.tiny, fontWeight: Typography.medium,
-    textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 2,
+    textTransform: 'uppercase', letterSpacing: 1.4, marginBottom: 4,
   },
-  sectionTitle:  { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium, marginBottom: 14 },
+  sectionTitle:  { color: Colors.text, fontSize: 20, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.2 },
 
   // Empty groups
   emptyGroups: {
@@ -533,13 +538,21 @@ const styles = StyleSheet.create({
   posterRowContent: { paddingHorizontal: 24, gap: 10 },
   posterCard: {
     width: POSTER_W, height: POSTER_H,
-    borderRadius: 10, overflow: 'hidden',
+    borderRadius: 12, overflow: 'hidden',
     backgroundColor: Colors.s1,
   },
   posterPlaceholder:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  posterFade: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 64,
+  },
   posterPlatformBadge:  {
     position: 'absolute', top: 6, right: 6,
-    backgroundColor: 'rgba(0,0,0,0.72)', borderRadius: 6, padding: 4,
+    backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 5, padding: 3,
+  },
+  posterTitle: {
+    position: 'absolute', bottom: 7, left: 7, right: 7,
+    color: '#fff', fontSize: 9, fontFamily: Typography.fontMedium,
+    fontWeight: Typography.medium, lineHeight: 12,
   },
 
   // Groups
