@@ -15,11 +15,11 @@ export interface OnboardingState {
   rate: (rating: Rating) => void;
   canSkip: boolean;
   isFinished: boolean;
+  genreStepDone: boolean;
+  confirmGenres: (genres: string[]) => void;
 }
 
 // ─── Genre probes por rango de edad ──────────────────────────────────────────
-// Cada probe define qué género explorar (TMDB genre ID + tipo).
-// El onboarding empieza mostrando el #1 de cada probe, luego adapta.
 
 interface Probe { genreId: number; type: 'movie' | 'tv'; label: string }
 
@@ -63,8 +63,10 @@ const PROBES: Record<AgeRange | 'default', Probe[]> = {
     { genreId: 18,    type: 'movie', label: 'Drama'           },
     { genreId: 36,    type: 'movie', label: 'Historia'        },
     { genreId: 53,    type: 'movie', label: 'Thriller'        },
+    { genreId: 12,    type: 'movie', label: 'Aventura'        },
     { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
     { genreId: 18,    type: 'tv',    label: 'Drama TV'        },
+    { genreId: 80,    type: 'tv',    label: 'Crimen TV'       },
   ],
   senior: [
     { genreId: 35,    type: 'movie', label: 'Comedia'         },
@@ -75,6 +77,7 @@ const PROBES: Record<AgeRange | 'default', Probe[]> = {
     { genreId: 53,    type: 'movie', label: 'Thriller'        },
     { genreId: 80,    type: 'movie', label: 'Crimen'          },
     { genreId: 10751, type: 'movie', label: 'Familia'         },
+    { genreId: 12,    type: 'movie', label: 'Aventura'        },
     { genreId: 99,    type: 'tv',    label: 'Docuserie'       },
     { genreId: 18,    type: 'tv',    label: 'Drama TV'        },
     { genreId: 35,    type: 'tv',    label: 'Comedia TV'      },
@@ -96,7 +99,15 @@ const PROBES: Record<AgeRange | 'default', Probe[]> = {
   ],
 };
 
-const MIN_YEAR = new Date().getFullYear() - 15;
+// Age-aware minimum year — shows content from the user's formative cinema years.
+// A 43-year-old (adult) will see The Matrix, Gladiator, The Dark Knight, etc.
+const MIN_YEAR: Record<AgeRange | 'default', number> = {
+  young:   new Date().getFullYear() - 10,  // under ~25: mostly recent titles
+  mid:     new Date().getFullYear() - 18,  // 25–35: last 18 years
+  adult:   new Date().getFullYear() - 30,  // 36–50: back to ~1996
+  senior:  new Date().getFullYear() - 45,  // 50+: back to ~1981
+  default: new Date().getFullYear() - 15,
+};
 
 const hasTmdbKey = Boolean(process.env.EXPO_PUBLIC_TMDB_API_KEY);
 
@@ -104,11 +115,20 @@ const RATING_WEIGHTS: Record<Rating, number> = {
   loved: 2.0, liked: 1.0, seen_disliked: -0.8, not_seen: 0,
 };
 
+// seeds: genre names the user pre-selected in the genre step.
+// They act as a soft baseline (weight 0.8) that title ratings accumulate on top of.
 function computeLocalProfile(
   ratings: Record<number, Rating>,
   pool: NormalizedTitle[],
+  seeds: string[] = [],
 ): Record<string, number> {
   const raw: Record<string, number> = {};
+
+  for (const g of seeds) {
+    const idf = CATALOG_IDF[g] ?? 1.0;
+    raw[g] = (raw[g] ?? 0) + 0.8 * idf;
+  }
+
   for (const [idStr, r] of Object.entries(ratings)) {
     const title = pool.find(t => t.tmdbId === Number(idStr) || t.id === Number(idStr));
     if (!title) continue;
@@ -118,6 +138,7 @@ function computeLocalProfile(
       raw[genre] = (raw[genre] ?? 0) + w * idf;
     }
   }
+
   const max = Math.max(...Object.values(raw).filter(v => v > 0), 0.001);
   return Object.fromEntries(
     Object.entries(raw).filter(([, v]) => v > 0).map(([g, v]) => [g, v / max])
@@ -147,7 +168,6 @@ function sortAdaptive(
   return result;
 }
 
-// Fallback for mock mode: group MOCK_TITLES by primary genre, one per genre first
 function buildMockPool(): { seed: NormalizedTitle[]; rest: NormalizedTitle[] } {
   const valid = MOCK_TITLES.filter(t => t.year > 0 && t.posterPath);
   const seenGenres = new Set<string>();
@@ -165,23 +185,24 @@ function buildMockPool(): { seed: NormalizedTitle[]; rest: NormalizedTitle[] } {
   return { seed, rest };
 }
 
-export function useOnboarding(ageRange?: AgeRange): OnboardingState {
+export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): OnboardingState {
   const [pool, setPool]          = useState<NormalizedTitle[]>([]);
   const [queue, setQueue]        = useState<NormalizedTitle[]>([]);
   const [currentIndex, setIndex] = useState(0);
   const [ratings, setRatings]    = useState<Record<number, Rating>>({});
   const [isLoading, setLoading]  = useState(true);
   const [error, setError]        = useState<string | null>(null);
+  const [genreStepDone, setGenreStepDone] = useState(skipGenreStep);
   const { user }                 = useAuthStore();
   const ratingsRef               = useRef(ratings);
   ratingsRef.current             = ratings;
   const poolRef                  = useRef(pool);
   poolRef.current                = pool;
-  // Track which probes have been expanded to avoid duplicate fetches
+  const genreSeedsRef            = useRef<string[]>([]);
   const expandedProbes           = useRef(new Set<string>());
 
-  const probeList  = PROBES[ageRange ?? 'default'];
-  const minYear    = MIN_YEAR;
+  const probeList = PROBES[ageRange ?? 'default'];
+  const minYear   = MIN_YEAR[ageRange ?? 'default'];
 
   useEffect(() => {
     let cancelled = false;
@@ -195,13 +216,18 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
         const { seed, rest } = buildMockPool();
         const ordered = [...seed, ...rest];
         setPool(ordered);
-        setQueue(ordered);
+        const seeds = genreSeedsRef.current;
+        if (seeds.length > 0) {
+          const profile = computeLocalProfile({}, ordered, seeds);
+          setQueue(sortAdaptive(ordered, profile));
+        } else {
+          setQueue(ordered);
+        }
         setLoading(false);
       }
       return () => { cancelled = true; };
     }
 
-    // Fetch top 3 titles per probe in parallel
     Promise.allSettled(
       probeList.map(p => discoverByGenre(p.type, p.genreId, minYear))
     ).then(results => {
@@ -211,7 +237,7 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
       const seedTitles: NormalizedTitle[] = [];
       const restTitles: NormalizedTitle[] = [];
 
-      results.forEach((r, i) => {
+      results.forEach(r => {
         if (r.status === 'rejected' || r.value.length === 0) return;
         const [first, ...others] = r.value;
         if (!seenIds.has(first.tmdbId)) {
@@ -228,7 +254,14 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
 
       const ordered = [...seedTitles, ...restTitles];
       setPool(ordered);
-      setQueue(ordered);
+      // If genres were already confirmed (rare: user confirmed very quickly), sort now
+      const seeds = genreSeedsRef.current;
+      if (seeds.length > 0) {
+        const profile = computeLocalProfile({}, ordered, seeds);
+        setQueue(sortAdaptive(ordered, profile));
+      } else {
+        setQueue(ordered);
+      }
       setLoading(false);
     });
 
@@ -243,7 +276,7 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
     currentPool: NormalizedTitle[],
   ) {
     if (!hasTmdbKey) return;
-    const profile = computeLocalProfile(newRatings, currentPool);
+    const profile = computeLocalProfile(newRatings, currentPool, genreSeedsRef.current);
     const topGenres = new Set(
       Object.entries(profile).filter(([, s]) => s > 0.6).map(([g]) => g)
     );
@@ -252,7 +285,6 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
     const probesToExpand = probeList.filter(p => {
       const key = `${p.type}-${p.genreId}`;
       if (expandedProbes.current.has(key)) return false;
-      // Check if this probe's label genre overlaps with top genres
       const probeGenreLabel = p.label.replace(' TV', '');
       return topGenres.has(probeGenreLabel);
     });
@@ -287,10 +319,21 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
       const shownCount = currentIndex + 1;
       const shown = prev.slice(0, shownCount);
       const remaining = prev.slice(shownCount);
-      const p = computeLocalProfile(newRatings, [...prev, ...newTitles]);
+      const p = computeLocalProfile(newRatings, [...prev, ...newTitles], genreSeedsRef.current);
       return [...shown, ...sortAdaptive([...remaining, ...newTitles], p)];
     });
   }
+
+  // Sorts the pool by genre preferences immediately when the user confirms them.
+  const confirmGenres = useCallback((genres: string[]) => {
+    genreSeedsRef.current = genres;
+    setGenreStepDone(true);
+    if (poolRef.current.length > 0) {
+      const profile = computeLocalProfile({}, poolRef.current, genres);
+      setQueue(sortAdaptive(poolRef.current, profile));
+    }
+    // If the pool hasn't loaded yet, the load effect handles sorting when it arrives.
+  }, []);
 
   const rate = useCallback((rating: Rating) => {
     const currentRatings = ratingsRef.current;
@@ -311,9 +354,8 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
     if (shouldReorder && nextIndex < queue.length) {
       const shown = queue.slice(0, nextIndex);
       const remaining = queue.slice(nextIndex);
-      const profile = computeLocalProfile(newRatings, poolRef.current);
+      const profile = computeLocalProfile(newRatings, poolRef.current, genreSeedsRef.current);
       setQueue([...shown, ...sortAdaptive(remaining, profile)]);
-      // Async: expand pool with more titles from top genres
       expandPoolForRatedGenres(newRatings, poolRef.current);
     }
 
@@ -329,5 +371,7 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
     rate,
     canSkip: currentIndex >= 12,
     isFinished: queue.length > 0 && currentIndex >= queue.length,
+    genreStepDone,
+    confirmGenres,
   };
 }

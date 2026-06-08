@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Animated,
 } from 'react-native';
@@ -14,7 +14,7 @@ import TitlePoster from '../components/TitlePoster';
 import RatingButtons from '../components/RatingButtons';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useAuthStore } from '../store/useAuthStore';
-import { completeOnboarding, rateTitleAndUpdateProfile } from '../services/firebase';
+import { completeOnboarding, rateTitleAndUpdateProfile, saveInitialGenrePreferences } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
@@ -24,6 +24,27 @@ const TOTAL = 30;
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'Onboarding'>;
 
+type FeatherName = React.ComponentProps<typeof Feather>['name'];
+
+const GENRE_OPTIONS: { label: string; icon: FeatherName }[] = [
+  { label: 'Acción',          icon: 'zap'            },
+  { label: 'Aventura',        icon: 'compass'        },
+  { label: 'Animación',       icon: 'play-circle'    },
+  { label: 'Comedia',         icon: 'smile'          },
+  { label: 'Crimen',          icon: 'shield'         },
+  { label: 'Documental',      icon: 'video'          },
+  { label: 'Drama',           icon: 'book-open'      },
+  { label: 'Familia',         icon: 'users'          },
+  { label: 'Fantasía',        icon: 'star'           },
+  { label: 'Historia',        icon: 'clock'          },
+  { label: 'Terror',          icon: 'alert-triangle' },
+  { label: 'Misterio',        icon: 'search'         },
+  { label: 'Romance',         icon: 'heart'          },
+  { label: 'Ciencia Ficción', icon: 'cpu'            },
+  { label: 'Thriller',        icon: 'eye'            },
+  { label: 'Bélica',          icon: 'target'         },
+];
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const nav   = useNavigation<Nav>();
@@ -31,13 +52,18 @@ export default function OnboardingScreen() {
   const { user, updateRatings, markOnboardingDone, setAgeRange } = useAuthStore();
   const themeColors = useColors();
   const ageRange = route.params?.ageRange;
-  const { titles, currentIndex, ratings, isLoading, error, rate, canSkip, isFinished } = useOnboarding(ageRange);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
   const fromProfile = route.params?.fromProfile === true;
 
-  // Cuando markOnboardingDone() actualiza el store, RootNavigator re-renderiza
-  // con App en el stack. El useEffect dispara DESPUÉS del re-render, por eso
-  // nav.reset funciona (App ya existe en el navigator).
+  // Genre step state (local — not stored in hook until confirmed)
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+
+  const {
+    titles, currentIndex, ratings, isLoading, error,
+    rate, canSkip, isFinished, genreStepDone, confirmGenres,
+  } = useOnboarding(ageRange, fromProfile);
+
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     if (user?.onboardingDone && !fromProfile) {
       nav.reset({ index: 0, routes: [{ name: 'App' }] });
@@ -67,10 +93,88 @@ export default function OnboardingScreen() {
     Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: true }).start();
   }
 
+  function toggleGenre(genre: string) {
+    setSelectedGenres(prev =>
+      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
+    );
+  }
+
+  function handleConfirmGenres() {
+    confirmGenres(selectedGenres);
+    if (!USE_MOCK && user && selectedGenres.length > 0) {
+      saveInitialGenrePreferences(user.uid, selectedGenres).catch(() => {});
+    }
+  }
+
   useEffect(() => {
     if (isFinished) handleFinish();
   }, [isFinished]);
 
+  // ── Genre selection step ─────────────────────────────────────────────────────
+  if (!genreStepDone) {
+    return (
+      <View style={[styles.root, { paddingTop: insets.top, backgroundColor: themeColors.bg }]}>
+        <View style={styles.header}>
+          <LogoWordmark markSize={18} />
+          <Text style={styles.stepLabel}>Paso 1 de 2</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={[styles.genreScroll, { paddingBottom: insets.bottom + 80 }]} showsVerticalScrollIndicator={false}>
+          <Text style={styles.genreTitle}>
+            {'¿Qué géneros\n'}
+            <Text style={{ color: Colors.accent }}>te gustan?</Text>
+          </Text>
+          <Text style={styles.genreSub}>
+            Elegí uno o más. Queponemos los usa para mostrarte títulos más relevantes para vos.
+          </Text>
+
+          <View style={styles.genreGrid}>
+            {GENRE_OPTIONS.map(g => {
+              const selected = selectedGenres.includes(g.label);
+              return (
+                <TouchableOpacity
+                  key={g.label}
+                  style={[styles.genreChip, selected && styles.genreChipSelected]}
+                  onPress={() => toggleGenre(g.label)}
+                  activeOpacity={0.75}
+                >
+                  <Feather
+                    name={g.icon}
+                    size={18}
+                    color={selected ? Colors.accent : Colors.sub}
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={[styles.genreChipLabel, selected && styles.genreChipLabelSelected]}>
+                    {g.label}
+                  </Text>
+                  {selected && (
+                    <Feather name="check" size={14} color={Colors.accent} style={{ marginLeft: 'auto' }} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+
+        <View style={[styles.genreFooter, { paddingBottom: insets.bottom + 8 }]}>
+          {selectedGenres.length === 0 && (
+            <TouchableOpacity onPress={() => confirmGenres([])} style={styles.skipGenreBtn}>
+              <Text style={styles.skipGenreText}>Saltear este paso</Text>
+            </TouchableOpacity>
+          )}
+          {selectedGenres.length > 0 && (
+            <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirmGenres} activeOpacity={0.85}>
+              <Text style={styles.confirmBtnText}>
+                Continuar con {selectedGenres.length} {selectedGenres.length === 1 ? 'género' : 'géneros'} →
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  // ── Loading state ────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <View style={styles.center}>
@@ -89,6 +193,7 @@ export default function OnboardingScreen() {
     );
   }
 
+  // ── Title rating step ────────────────────────────────────────────────────────
   const current = titles[currentIndex];
   const progressPct = titles.length > 0 ? (currentIndex / titles.length) * 100 : 0;
   const milestonePct = (MIN_TO_SKIP / TOTAL) * 100;
@@ -97,7 +202,6 @@ export default function OnboardingScreen() {
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: themeColors.bg }]}>
 
-      {/* Header */}
       <View style={styles.header}>
         <LogoWordmark markSize={18} />
         <View style={styles.headerRight}>
@@ -108,7 +212,6 @@ export default function OnboardingScreen() {
         </View>
       </View>
 
-      {/* Progress bar con milestone */}
       <View style={styles.progressWrap}>
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
@@ -142,8 +245,8 @@ export default function OnboardingScreen() {
 
       {canSkip && (
         <View style={[styles.continueBtnWrap, { paddingBottom: insets.bottom + 8 }]}>
-          <TouchableOpacity style={styles.continueBtn} onPress={handleFinish} activeOpacity={0.85}>
-            <Text style={styles.continueBtnText}>Continuar →</Text>
+          <TouchableOpacity style={styles.confirmBtn} onPress={handleFinish} activeOpacity={0.85}>
+            <Text style={styles.confirmBtnText}>Continuar →</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -165,6 +268,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
+  stepLabel: { color: Colors.faint, fontSize: Typography.small },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   counter: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium },
   counterTotal: { color: Colors.faint, fontWeight: Typography.regular },
@@ -178,11 +282,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     marginBottom: 8,
   },
-  progressFill: {
-    height: 5,
-    backgroundColor: Colors.accent,
-    borderRadius: 3,
-  },
+  progressFill: { height: 5, backgroundColor: Colors.accent, borderRadius: 3 },
   milestoneMark: {
     position: 'absolute',
     top: -3,
@@ -192,23 +292,65 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     marginLeft: -1,
   },
-  progressHint: {
-    color: Colors.faint,
-    fontSize: Typography.small,
-  },
+  progressHint: { color: Colors.faint, fontSize: Typography.small },
 
   scroll: { paddingHorizontal: 24, paddingTop: 4 },
   ratingSection: { marginTop: 16, gap: 10 },
-  continueBtnWrap: {
+  continueBtnWrap: { paddingHorizontal: 24, paddingTop: 12, backgroundColor: Colors.bg },
+
+  // Genre step
+  genreScroll: { paddingHorizontal: 24, paddingTop: 8 },
+  genreTitle: {
+    color: Colors.text,
+    fontSize: 28,
+    fontWeight: Typography.medium,
+    lineHeight: 38,
+    marginBottom: 10,
+    letterSpacing: -0.5,
+  },
+  genreSub: {
+    color: Colors.sub,
+    fontSize: Typography.body,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  genreGrid: { gap: 10 },
+  genreChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.s1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  genreChipSelected: {
+    borderColor: Colors.accentBorder,
+    backgroundColor: Colors.accentFaint,
+  },
+  genreChipLabel: {
+    color: Colors.sub,
+    fontSize: Typography.body,
+    fontWeight: Typography.medium,
+  },
+  genreChipLabelSelected: { color: Colors.accent },
+  genreFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     paddingHorizontal: 24,
     paddingTop: 12,
     backgroundColor: Colors.bg,
   },
-  continueBtn: {
+  skipGenreBtn: { alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 20 },
+  skipGenreText: { color: Colors.faint, fontSize: Typography.small, textDecorationLine: 'underline' },
+  confirmBtn: {
     backgroundColor: Colors.accent,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
   },
-  continueBtnText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
+  confirmBtnText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
 });

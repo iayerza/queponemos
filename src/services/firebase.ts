@@ -251,6 +251,19 @@ export async function completeOnboarding(
   });
 }
 
+// Seeds the taste profile with genre preferences selected in the genre step.
+// Called immediately when the user confirms genres, before any title ratings.
+export async function saveInitialGenrePreferences(uid: string, genres: string[]): Promise<void> {
+  if (genres.length === 0) return;
+  // Use a raw score of 1.0 per genre (equivalent to one "liked" title at IDF=1.0).
+  // recalculateTasteProfile will accumulate on top of these when title ratings come in.
+  const rawScores: Record<string, number> = {};
+  for (const g of genres) rawScores[g] = 1.0;
+  await updateDoc(doc(db(), 'users', uid), {
+    'tasteProfile.genreRawScores': rawScores,
+  });
+}
+
 // ─── Groups ─────────────────────────────────────────────────────────────────
 
 export async function createGroup(
