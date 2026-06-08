@@ -140,7 +140,7 @@ const { addToHistory } = useMatchStore.getState();
 
 ### Logo
 
-**LogoMark** — ícono cuadrado con bordes redondeados rojo (`#C8302A`), diagrama de Venn SVG blanco en el interior:
+**LogoMark** — ícono cuadrado con bordes redondeados, gradiente azul diagonal (`#0F2EA8` → `#2660EA`), diagrama de Venn SVG blanco en el interior:
 - Dos círculos solapados (fillOpacity 0.2)
 - Elipse central de intersección (fillOpacity 0.55)
 - Punto central sólido blanco
