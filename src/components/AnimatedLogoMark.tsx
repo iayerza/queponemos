@@ -94,26 +94,26 @@ export default function AnimatedLogoMark({ size = 56, pulse = true, mode = 'puls
     return () => clearInterval(interval);
   }, [mode, pulse]);
 
-  // Rotate each reel around its own center via translate-rotate-translate pivot trick.
-  // Left reel center is at (lx, cy) = (cx-off, cy) → offset from view center = -off in x.
-  // translateX(+off) moves rotation pivot to view center, rotate, translateX(-off) restores.
+  // Pivot trick: to rotate around a point Q from element center, use
+  // [translateX(Q.x), rotate, translateX(-Q.x)].
+  // Left reel center in element coords: Q = (lx - size/2, 0) = (-off, 0)
   const leftStyle = useAnimatedStyle(() => ({
     opacity: leftOpacity.value,
     transform: [
-      { translateX: off },
-      { rotate: `${spinLeft.value}deg` },
       { translateX: -off },
+      { rotate: `${spinLeft.value}deg` },
+      { translateX: off },
       { scale: scaleLeft.value },
     ],
   }));
 
-  // Right reel center is at (rx, cy) = (cx+off, cy) → offset = +off → reverse pivot.
+  // Right reel center in element coords: Q = (rx - size/2, 0) = (+off, 0)
   const rightStyle = useAnimatedStyle(() => ({
     opacity: rightOpacity.value,
     transform: [
-      { translateX: -off },
-      { rotate: `${spinRight.value}deg` },
       { translateX: off },
+      { rotate: `${spinRight.value}deg` },
+      { translateX: -off },
       { scale: scaleRight.value },
     ],
   }));
