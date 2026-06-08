@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  TextInput, Modal, Alert, Image,
+  TextInput, Modal, Alert, Image, Animated, Easing,
 } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -60,6 +60,36 @@ export default function HomeScreen() {
   const [pendingCount,      setPendingCount]      = useState(0);
   const [notifDismissed,    setNotifDismissed]    = useState(false);
 
+  // ── Animated sliding header ──────────────────────────────────────────────
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
+  const lastScrollYRef   = useRef(0);
+  const headerVisRef     = useRef(true);
+  const [headerHeight, setHeaderHeight] = useState(insets.top + 68);
+
+  const handleScroll = useCallback((e: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const y  = e.nativeEvent.contentOffset.y;
+    const dy = y - lastScrollYRef.current;
+    lastScrollYRef.current = Math.max(0, y);
+
+    if (dy > 6 && y > headerHeight && headerVisRef.current) {
+      headerVisRef.current = false;
+      Animated.timing(headerTranslateY, {
+        toValue: -headerHeight,
+        duration: 220,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    } else if (dy < -6 && !headerVisRef.current) {
+      headerVisRef.current = true;
+      Animated.timing(headerTranslateY, {
+        toValue: 0,
+        duration: 240,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [headerHeight, headerTranslateY]);
+
   const { recentMovies, recentSeries } = useMemo(() => {
     const recentMovies: PosterItem[] = [];
     const recentSeries: PosterItem[] = [];
@@ -82,6 +112,10 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      // Reset header to visible when screen comes into focus
+      headerTranslateY.setValue(0);
+      headerVisRef.current = true;
+      lastScrollYRef.current = 0;
       if (!user?.uid || USE_MOCK) return;
       getPersonalWatchlist(user.uid).then(setWatchlist).catch(() => {});
       getPendingRatingsForUser(user.uid).then(items => setPendingCount(items.length)).catch(() => {});
@@ -235,18 +269,27 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: themeColors.bg }]}>
-      <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 32 }}
-        showsVerticalScrollIndicator={false}
-      >
 
-        {/* ── Header ─────────────────────────────────────────────── */}
-        <View style={styles.header}>
+      {/* ── Floating header — slides up on scroll down, down on scroll up ── */}
+      <Animated.View
+        style={[styles.headerFloat, { transform: [{ translateY: headerTranslateY }] }]}
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+      >
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <LogoWordmark markSize={24} />
           <TouchableOpacity style={styles.avatar} onPress={() => (nav as any).navigate('Profile')} activeOpacity={0.75}>
             <Text style={styles.avatarText}>{avatarLetter}</Text>
           </TouchableOpacity>
         </View>
+      </Animated.View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: insets.bottom + 32 }}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
 
         {/* ── Notificación pendientes ─────────────────────────────── */}
         {pendingCount > 0 && !notifDismissed && (
@@ -470,11 +513,15 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bg },
-
+  root:        { flex: 1, backgroundColor: Colors.bg },
+  scrollView:  { flex: 1 },
+  headerFloat: {
+    position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+    backgroundColor: Colors.bg,
+  },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 24, marginBottom: 16,
+    paddingHorizontal: 24, paddingBottom: 16,
   },
   avatar: {
     width: 40, height: 40, borderRadius: 20,
