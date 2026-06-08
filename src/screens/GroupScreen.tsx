@@ -92,8 +92,6 @@ export default function GroupScreen() {
   async function handleFindMatch() {
     setCurrentGroup(group);
     if (!USE_MOCK && user) {
-      // Solo iniciar sesión si no hay una en curso (matchId null + leaderUid set = en curso).
-      // Así el invitado no pisa la sesión que ya inició el host.
       const freshGroup = await getGroupById(group.id).catch(() => null);
       const leaderUid = freshGroup?.currentSession?.leaderUid;
       const matchId   = freshGroup?.currentSession?.matchId;

@@ -12,7 +12,7 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useColors } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
-import { setSessionMood, onGroupChange } from '../services/firebase';
+import { setSessionMood, onGroupChange, startGroupSession } from '../services/firebase';
 import { sendMoodSelectedNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import type { MoodId } from '../services/claude';
@@ -278,8 +278,12 @@ export default function MoodScreen() {
         {showSkip && !allReady && (
           <TouchableOpacity
             style={styles.skipBtn}
-            onPress={() => {
+            onPress={async () => {
               setNavigating(true);
+              // Tomar el liderazgo para no quedar como follower haciendo polling
+              if (!USE_MOCK && !isSoloRoute && user) {
+                await startGroupSession(groupId, user.uid).catch(() => {});
+              }
               nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
             }}
           >

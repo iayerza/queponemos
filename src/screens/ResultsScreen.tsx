@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,7 +10,8 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import WatchedRatingSheet from '../components/WatchedRatingSheet';
-import { updateTitleStatus, addToPersonalWatchlist, addToPendingRatings, rateTitleAndUpdateProfile, updateUserHistoryRecommendations } from '../services/firebase';
+import { updateTitleStatus, addToPersonalWatchlist, addToPendingRatings, rateTitleAndUpdateProfile, updateUserHistoryRecommendations, startGroupSession, getGroupById } from '../services/firebase';
+import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { Rating } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import type { Recommendation } from '../services/claude';
@@ -32,6 +33,34 @@ export default function ResultsScreen() {
   }
 
   const [ratingTarget, setRatingTarget] = useState<{ rec: Recommendation; idx: number } | null>(null);
+  const [startingNew, setStartingNew] = useState(false);
+
+  async function handleNewSearch() {
+    if (isSolo || !currentGroup || !user) {
+      nav.push('Mood', { solo: true });
+      return;
+    }
+    setStartingNew(true);
+    try {
+      if (!USE_MOCK) {
+        const freshGroup = await getGroupById(currentGroup.id).catch(() => null);
+        const leaderUid = freshGroup?.currentSession?.leaderUid;
+        const matchId   = freshGroup?.currentSession?.matchId;
+        const sessionInProgress = leaderUid && !matchId;
+        if (!sessionInProgress) {
+          await startGroupSession(currentGroup.id, user.uid).catch(() => {});
+        }
+      }
+      nav.push('Mood', { groupId: currentGroup.id });
+      if (!USE_MOCK) {
+        getGroupMemberTokens(currentGroup.members, user.uid)
+          .then(targets => { if (targets.length > 0) sendGroupVoteNotification(targets, currentGroup.name, currentGroup.id).catch(() => {}); })
+          .catch(() => {});
+      }
+    } finally {
+      setStartingNew(false);
+    }
+  }
 
   function celebrateAndGoHome() {
     Alert.alert(
@@ -155,11 +184,14 @@ export default function ResultsScreen() {
       ))}
 
       <TouchableOpacity
-        style={styles.newSearchBtn}
-        onPress={() => isSolo ? nav.push('Mood', { solo: true }) : currentGroup ? nav.push('Mood', { groupId: currentGroup.id }) : nav.navigate('App')}
+        style={[styles.newSearchBtn, startingNew && { opacity: 0.7 }]}
+        onPress={handleNewSearch}
+        disabled={startingNew}
         activeOpacity={0.85}
       >
-        <Text style={styles.newSearchBtnText}>Nueva búsqueda</Text>
+        {startingNew
+          ? <ActivityIndicator color="#fff" size="small" />
+          : <Text style={styles.newSearchBtnText}>Nueva búsqueda</Text>}
       </TouchableOpacity>
 
       <TouchableOpacity
