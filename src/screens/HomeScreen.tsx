@@ -353,7 +353,7 @@ export default function HomeScreen() {
               opacity: wordmarkOpacity,
               transform: [{ translateY: wordmarkTY }],
             }]}>
-              queponemos
+              que<Text style={{ color: '#2660EA' }}>ponemos</Text>
             </Animated.Text>
           </View>
 

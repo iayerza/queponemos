@@ -49,7 +49,7 @@ export default function SplashScreen({ onComplete }: Props) {
       </Animated.View>
 
       <Animated.Text style={[styles.wordmark, { opacity: wordOpacity }]}>
-        que<Text style={{ color: Colors.coral }}>ponemos</Text>
+        que<Text style={{ color: '#2660EA' }}>ponemos</Text>
       </Animated.Text>
 
       <Animated.Text style={[styles.tagline, { opacity: taglineOpacity }]}>

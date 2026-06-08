@@ -72,7 +72,7 @@ export function LogoWordmark({ markSize = 24 }: { markSize?: number }) {
         color: Colors.text,
         letterSpacing: -0.2,
       }}>
-        que<Text style={{ color: Colors.coral }}>ponemos</Text>
+        que<Text style={{ color: '#2660EA' }}>ponemos</Text>
       </Text>
     </View>
   );
