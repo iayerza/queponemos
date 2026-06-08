@@ -177,7 +177,7 @@ ${input.platforms.map(id => {
   const p = PLATFORMS.find(pl => pl.id === id);
   return `  "${id}" → ${p?.name ?? id}`;
 }).join('\n')}
-REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar en alguna de las plataformas listadas. El campo "platform" debe ser uno de los IDs entre comillas de arriba. Si hay más de una plataforma disponible, distribuí los títulos entre ellas (no pongas los 3 en la misma plataforma).
+REGLA 0 — CRÍTICA (plataformas): El campo "platform" debe reflejar dónde está disponible el título REALMENTE en Argentina/Latinoamérica. Usá solo los IDs de arriba. Ejemplos: Game of Thrones, Succession, The Wire, The Sopranos, House of the Dragon → "hbo". No fuerces un título a una plataforma equivocada para distribuir. Si un título no está en ninguna plataforma listada, no lo recomiendes.
 
 REGLAS:
 1. NUNCA recomendés títulos marcados como "ya visto" en los perfiles.
@@ -194,7 +194,7 @@ REGLAS:
 7. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
 8. Considerá la edad de los usuarios al elegir referencias culturales y títulos.
 
-Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
+IMPORTANTE: Tu respuesta debe ser ÚNICAMENTE el objeto JSON, comenzando exactamente con { y terminando exactamente con }. Sin texto antes, sin texto después, sin markdown, sin bloques de código, sin explicaciones, sin auto-correcciones. Si cometés un error en el JSON, igual respondé solo con el JSON corregido, sin comentarios.
 {
   "recommendations": [{
     "tmdbId": 12345,
@@ -212,6 +212,52 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de c
 }`;
 }
 
+/**
+ * Fix common Claude JSON errors:
+ *   - stray single quotes outside string values (e.g. `1429,'`)
+ *   - trailing commas before } or ]
+ */
+function repairJson(text: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (const ch of text) {
+    if (escaped)          { out += ch; escaped = false; }
+    else if (ch === '\\' && inString) { out += ch; escaped = true; }
+    else if (ch === '"')  { inString = !inString; out += ch; }
+    else if (ch === "'" && !inString) { /* drop stray apostrophe */ }
+    else                  { out += ch; }
+  }
+  // Remove trailing commas before closing brackets
+  return out.replace(/,(\s*[}\]])/g, '$1');
+}
+
+/** Scan text for top-level JSON objects; return the last one that has a `recommendations` array. */
+function extractLastJsonObject(text: string): string | null {
+  const candidates: string[] = [];
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (text[i] === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        candidates.push(text.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  for (let i = candidates.length - 1; i >= 0; i--) {
+    try {
+      const p = JSON.parse(candidates[i]);
+      if (Array.isArray(p?.recommendations)) return candidates[i];
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
 export async function runMatching(input: MatchingInput): Promise<MatchingOutput> {
   const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY no configurada');
@@ -223,19 +269,28 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     messages: [{ role: 'user', content: buildPrompt(input) }],
   }, apiKey);
 
-  const raw = data.content[0]?.text ?? '{}';
-
   if (data.stop_reason === 'max_tokens') {
     throw new Error('La respuesta se cortó (max_tokens). Volvé a intentar.');
   }
 
-  // Strip markdown code fences if present
+  const raw = data.content[0]?.text ?? '{}';
+
+  type ParsedResponse = { recommendations: Omit<Recommendation, 'posterPath' | 'groupStatus'>[]; groupInsight: string };
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
 
-  let parsed: { recommendations: Omit<Recommendation, 'posterPath' | 'groupStatus'>[]; groupInsight: string };
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
+  const attempts: Array<() => ParsedResponse> = [
+    () => JSON.parse(cleaned),
+    () => JSON.parse(repairJson(cleaned)),
+    () => { const x = extractLastJsonObject(cleaned); if (!x) throw new Error(); return JSON.parse(x); },
+    () => { const x = extractLastJsonObject(repairJson(cleaned)); if (!x) throw new Error(); return JSON.parse(x); },
+  ];
+
+  let parsed: ParsedResponse | null = null;
+  for (const attempt of attempts) {
+    try { parsed = attempt(); break; }
+    catch { /* try next */ }
+  }
+  if (!parsed) {
     console.error('Claude raw response:', raw);
     throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
   }
