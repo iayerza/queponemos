@@ -32,8 +32,8 @@ import { MOCK_GROUP } from '../utils/mock';
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const POSTER_W = 96;
-const POSTER_H = 144;
+const POSTER_W = 144;
+const POSTER_H = 216;
 
 interface PosterItem { posterPath: string | null; title: string; platform: PlatformId; matchId?: string }
 
@@ -245,10 +245,10 @@ export default function HomeScreen() {
 
         {/* ── Header ─────────────────────────────────────────────── */}
         <View style={styles.header}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{avatarLetter}</Text>
-          </View>
           <LogoWordmark markSize={24} />
+          <TouchableOpacity style={styles.avatar} onPress={() => (nav as any).navigate('Profile')} activeOpacity={0.75}>
+            <Text style={styles.avatarText}>{avatarLetter}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Notificación pendientes ─────────────────────────────── */}
@@ -324,7 +324,7 @@ export default function HomeScreen() {
           <View style={styles.groupBtns}>
             <TouchableOpacity style={styles.createBtnWrap} onPress={() => setCreateModal(true)} activeOpacity={0.8}>
               <LinearGradient
-                colors={[Colors.accent, '#E8503A']}
+                colors={['#0D27A0', '#2A6AEC']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={styles.createBtn}
               >
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   avatarText: {
-    color: Colors.text, fontSize: Typography.body,
+    color: Colors.text, fontSize: 18,
     fontWeight: Typography.medium, fontFamily: Typography.fontMedium,
   },
 
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   notifBody:  { flex: 1 },
-  notifTitle: { color: Colors.success, fontSize: Typography.body, fontWeight: Typography.medium },
+  notifTitle: { color: Colors.success, fontSize: 18, fontWeight: Typography.medium },
   notifClose: { padding: 4 },
 
   // Hero
@@ -520,25 +520,25 @@ const styles = StyleSheet.create({
   },
   heroVenn:  { position: 'absolute', right: -20, top: -20 },
   heroGreeting: {
-    color: '#fff', fontSize: 26, fontWeight: Typography.medium,
-    fontFamily: Typography.fontMedium, letterSpacing: -0.5, lineHeight: 32, marginBottom: 8,
+    color: '#fff', fontSize: 30, fontWeight: Typography.medium,
+    fontFamily: Typography.fontMedium, letterSpacing: -0.5, lineHeight: 38, marginBottom: 10,
   },
-  heroSub:   { color: 'rgba(255,255,255,0.72)', fontSize: 18, fontFamily: Typography.fontRegular, marginBottom: 14 },
+  heroSub:   { color: 'rgba(255,255,255,0.72)', fontSize: 22, fontFamily: Typography.fontRegular, marginBottom: 16 },
   heroPlatforms: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
   },
   heroPlatformsMore: {
-    color: 'rgba(255,255,255,0.5)', fontSize: Typography.tiny,
+    color: 'rgba(255,255,255,0.5)', fontSize: 14,
     fontWeight: Typography.medium,
   },
 
   // Sections
   section:       { marginBottom: 28, paddingHorizontal: 24 },
   sectionEyebrow:{
-    color: Colors.sub, fontSize: Typography.small, fontWeight: Typography.medium,
+    color: Colors.sub, fontSize: 16, fontWeight: Typography.medium,
     letterSpacing: 0.2, marginBottom: 4,
   },
-  sectionTitle:  { color: Colors.text, fontSize: 24, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.3 },
+  sectionTitle:  { color: Colors.text, fontSize: 28, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.3 },
 
   // Empty groups
   emptyGroups: {
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
     padding: 16, marginBottom: 14,
   },
-  emptyGroupsText: { flex: 1, color: Colors.sub, fontSize: Typography.small, lineHeight: 20 },
+  emptyGroupsText: { flex: 1, color: Colors.sub, fontSize: 16, lineHeight: 24 },
 
   // History separator
   historySeparator: {
@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
   },
   historySeparatorLine: { flex: 1, height: 1, backgroundColor: Colors.border },
   historySeparatorText: {
-    color: Colors.sub, fontSize: Typography.small,
+    color: Colors.sub, fontSize: 16,
     fontWeight: Typography.medium,
   },
 
@@ -570,44 +570,44 @@ const styles = StyleSheet.create({
   },
   posterPlaceholder:    { flex: 1, alignItems: 'center', justifyContent: 'center' },
   posterFade: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, height: 64,
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 90,
   },
   posterPlatformBadge:  {
-    position: 'absolute', top: 6, right: 6,
-    backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 5, padding: 3,
+    position: 'absolute', top: 8, right: 8,
+    backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 6, padding: 4,
   },
   posterTitle: {
-    position: 'absolute', bottom: 7, left: 7, right: 7,
-    color: '#fff', fontSize: 9, fontFamily: Typography.fontMedium,
-    fontWeight: Typography.medium, lineHeight: 12,
+    position: 'absolute', bottom: 9, left: 9, right: 9,
+    color: '#fff', fontSize: 13, fontFamily: Typography.fontMedium,
+    fontWeight: Typography.medium, lineHeight: 17,
   },
 
   // Groups
   groupBtns:     { flexDirection: 'row', gap: 10, marginTop: 4 },
   createBtnWrap: { flex: 1, borderRadius: 12, overflow: 'hidden' },
   createBtn:     { borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  createBtnText: { color: '#fff', fontWeight: Typography.medium, fontFamily: Typography.fontMedium, fontSize: Typography.body },
+  createBtnText: { color: '#fff', fontWeight: Typography.medium, fontFamily: Typography.fontMedium, fontSize: 18 },
   joinBtn:       { flex: 1, backgroundColor: Colors.s1, borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  joinBtnText:   { color: Colors.text, fontWeight: Typography.medium, fontFamily: Typography.fontMedium, fontSize: Typography.body },
+  joinBtnText:   { color: Colors.text, fontWeight: Typography.medium, fontFamily: Typography.fontMedium, fontSize: 18 },
 
   // Modals
   modalOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modal:         { backgroundColor: Colors.s1, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: Colors.border },
-  modalTitle:    { color: Colors.text, fontSize: Typography.h2, fontWeight: Typography.medium, marginBottom: 20 },
-  modalSubtitle: { color: Colors.sub, fontSize: Typography.small, fontWeight: Typography.medium, marginBottom: 10, marginTop: 16 },
-  input:         { backgroundColor: Colors.s2, borderRadius: 10, padding: 14, color: Colors.text, fontSize: Typography.body, borderWidth: 1, borderColor: Colors.border },
+  modalTitle:    { color: Colors.text, fontSize: 22, fontWeight: Typography.medium, marginBottom: 20 },
+  modalSubtitle: { color: Colors.sub, fontSize: 16, fontWeight: Typography.medium, marginBottom: 10, marginTop: 16 },
+  input:         { backgroundColor: Colors.s2, borderRadius: 10, padding: 14, color: Colors.text, fontSize: 18, borderWidth: 1, borderColor: Colors.border },
   platformGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   platformChip:  { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.s2, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: Colors.border },
   platformChipSelected: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
-  platformName:  { color: Colors.text, fontSize: Typography.body },
+  platformName:  { color: Colors.text, fontSize: 18 },
   modalBtns:     { flexDirection: 'row', gap: 10 },
   cancelBtn:     { flex: 1, backgroundColor: Colors.s2, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText: { color: Colors.sub, fontWeight: Typography.medium },
+  cancelBtnText: { color: Colors.sub, fontWeight: Typography.medium, fontSize: 18 },
   confirmBtn:    { flex: 2, backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
-  confirmBtnText:{ color: '#fff', fontWeight: Typography.medium },
+  confirmBtnText:{ color: '#fff', fontWeight: Typography.medium, fontSize: 18 },
   btnDisabled:   { opacity: 0.4 },
   hintTouchable: { marginTop: 4, marginBottom: 4 },
-  hintText:      { color: Colors.faint, fontSize: Typography.small },
+  hintText:      { color: Colors.faint, fontSize: 16 },
   qrBtn:         { marginTop: 10, borderWidth: 1, borderColor: Colors.accent, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  qrBtnText:     { color: Colors.accent, fontSize: Typography.body, fontWeight: '500' },
+  qrBtnText:     { color: Colors.accent, fontSize: 18, fontWeight: '500' },
 });
