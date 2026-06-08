@@ -3,12 +3,28 @@ import Animated, {
   useSharedValue, useAnimatedStyle,
   withRepeat, withSequence, withTiming, Easing,
 } from 'react-native-reanimated';
-import Svg, { Circle, Ellipse } from 'react-native-svg';
+import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const GRAD_START = '#0F2EA8';
 const GRAD_END   = '#2660EA';
-const S3 = Math.sqrt(3) / 2; // cos/sin for 60°
+
+// 5 hole offsets at orbit=4, 72° apart starting from top (270°)
+const HOLE_DX = [0, 3.804, 2.351, -2.351, -3.804];
+const HOLE_DY = [-4, -1.236, 3.236, 3.236, -1.236];
+
+function circlePath(cx: number, cy: number, r: number): string {
+  return `M ${cx} ${cy} m ${-r} 0 a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0 Z`;
+}
+
+function reelBodyPath(rcx: number, rcy: number, R: number, orbR: number, holeR: number): string {
+  const s     = orbR / 4; // scale relative to base orbit=4
+  const body  = circlePath(rcx, rcy, R);
+  const holes = HOLE_DX
+    .map((dx, i) => circlePath(rcx + dx * s, rcy + HOLE_DY[i] * s, holeR))
+    .join(' ');
+  return `${body} ${holes}`;
+}
 
 interface Props {
   size?: number;
@@ -19,18 +35,16 @@ export default function AnimatedLogoMark({ size = 56, pulse = true }: Props) {
   const box    = Math.round(size * 1.7);
   const radius = Math.round(size * 0.3);
 
-  // All geometry derived from the static 28×28 design, scaled to `size`.
-  // left cx=9/28, right cx=19/28, r=7/28, hub=2/28, wPos=4/28, wSz=1.2/28
-  const cx   = size / 2;
-  const cy   = size / 2;
-  const r    = size * (7  / 28);
-  const off  = size * (5  / 28); // distance from center to each reel cx (= (19-9)/2=5)
-  const hubR = size * (2  / 28);
-  const wPos = size * (4  / 28); // window orbit radius
-  const wSz  = size * (1.2/ 28); // window dot radius
+  const cx    = size / 2;
+  const cy    = size / 2;
+  const r     = size * (7   / 28);
+  const off   = size * (5   / 28);
+  const hubR  = size * (2.2 / 28);
+  const orbR  = size * (4   / 28);
+  const holeR = size * (1.4 / 28);
 
-  const lx = cx - off; // left reel center x
-  const rx = cx + off; // right reel center x
+  const lx = cx - off;
+  const rx = cx + off;
 
   const scaleLeft      = useSharedValue(1);
   const scaleRight     = useSharedValue(1);
@@ -69,18 +83,17 @@ export default function AnimatedLogoMark({ size = 56, pulse = true }: Props) {
       left: (box - size) / 2, top: (box - size) / 2,
     }, animStyle]}>
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none">
-        {/* Body */}
-        <Circle cx={reelCx} cy={cy} r={r}    fill="white" fillOpacity={0.20} />
+        {/* Reel body with 5 punched holes */}
+        <Path
+          d={reelBodyPath(reelCx, cy, r, orbR, holeR)}
+          fill="white"
+          fillOpacity={0.25}
+          fillRule="evenodd"
+        />
         {/* Rim */}
-        <Circle cx={reelCx} cy={cy} r={r}    stroke="white" strokeWidth={r * 0.05} strokeOpacity={0.28} />
+        <Circle cx={reelCx} cy={cy} r={r}    stroke="white" strokeWidth={r * 0.05} strokeOpacity={0.30} />
         {/* Hub */}
-        <Circle cx={reelCx} cy={cy} r={hubR} fill="white" fillOpacity={0.55} />
-        {/* Window — top (270°) */}
-        <Circle cx={reelCx}              cy={cy - wPos}       r={wSz} fill="white" fillOpacity={0.44} />
-        {/* Window — bottom-right (30°) */}
-        <Circle cx={reelCx + wPos * S3}  cy={cy + wPos * 0.5} r={wSz} fill="white" fillOpacity={0.44} />
-        {/* Window — bottom-left (150°) */}
-        <Circle cx={reelCx - wPos * S3}  cy={cy + wPos * 0.5} r={wSz} fill="white" fillOpacity={0.44} />
+        <Circle cx={reelCx} cy={cy} r={hubR} fill="white" fillOpacity={0.65} />
       </Svg>
     </Animated.View>
   );

@@ -208,14 +208,9 @@
     position: relative;
     cursor: pointer;
   }
-  .poster-card img {
-    width: 100%; height: 100%;
-    object-fit: cover;
-  }
   .poster-card-bg {
     width: 100%; height: 100%;
     display: flex; align-items: flex-end;
-    background: linear-gradient(to bottom, #1c2a4a 0%, #0f1829 100%);
   }
   .poster-fade {
     position: absolute; bottom: 0; left: 0; right: 0; height: 90px;
@@ -224,12 +219,6 @@
   .poster-title {
     position: absolute; bottom: 9px; left: 9px; right: 9px;
     color: #fff; font-size: 14px; font-weight: 500; line-height: 1.28;
-  }
-  .poster-placeholder {
-    width: 100%; height: 100%;
-    background: var(--s1);
-    display: flex; align-items: center; justify-content: center;
-    color: var(--faint); font-size: 28px;
   }
 
   /* ── GroupCard ────────────────────────────────────── */
@@ -313,7 +302,7 @@
 
   /* ── Logo detail panel ────────────────────────────── */
   .panel {
-    width: 320px;
+    width: 340px;
     background: #1C1C20;
     border-radius: 20px;
     padding: 28px 24px;
@@ -327,25 +316,22 @@
   }
   .logo-size-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .logo-size-label { color: #555; font-size: 11px; }
-  .logo-animated-preview {
-    width: 136px; height: 136px;
-    border-radius: 40px;
-    background: linear-gradient(135deg, #0F2EA8, #2660EA);
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 24px;
-  }
   .spec-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #2A2A2E; }
   .spec-key { color: #555; font-size: 12px; }
   .spec-val { color: #888; font-size: 12px; font-family: monospace; }
 
-  /* ── Film reel SVG ────────────────────────────────── */
-  .film-reel-demo {
+  .reel-demo {
     background: linear-gradient(135deg, #0F2EA8, #2660EA);
-    border-radius: 16px;
-    padding: 20px;
+    border-radius: 20px;
+    padding: 24px;
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
   }
+  .compare-row {
+    display: flex; gap: 24px; margin-bottom: 24px; align-items: center;
+  }
+  .compare-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .compare-label { color: #555; font-size: 11px; text-align: center; }
 </style>
 </head>
 <body>
@@ -367,28 +353,35 @@
     <div class="header">
       <div class="logo-wordmark">
         <div class="logo-mark">
+          <!-- Film reel logo: 5-hole evenodd design -->
           <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
             <defs>
               <clipPath id="clip-right">
                 <circle cx="19" cy="14" r="7"/>
               </clipPath>
             </defs>
-            <!-- Left reel -->
-            <circle cx="9"  cy="14" r="7"   fill="white" fill-opacity="0.18"/>
-            <circle cx="9"  cy="14" r="7"   stroke="white" stroke-width="0.7" stroke-opacity="0.28" fill="none"/>
-            <circle cx="9"  cy="14" r="2"   fill="white" fill-opacity="0.55"/>
-            <circle cx="9"    cy="10" r="1.2" fill="white" fill-opacity="0.44"/>
-            <circle cx="12.46" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-            <circle cx="5.54"  cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-            <!-- Right reel -->
-            <circle cx="19" cy="14" r="7"   fill="white" fill-opacity="0.18"/>
-            <circle cx="19" cy="14" r="7"   stroke="white" stroke-width="0.7" stroke-opacity="0.28" fill="none"/>
-            <circle cx="19" cy="14" r="2"   fill="white" fill-opacity="0.55"/>
-            <circle cx="19"    cy="10" r="1.2" fill="white" fill-opacity="0.44"/>
-            <circle cx="22.46" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-            <circle cx="15.54" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-            <!-- Intersection -->
-            <circle cx="9" cy="14" r="7" clip-path="url(#clip-right)" fill="white" fill-opacity="0.26"/>
+            <!-- Left reel: body + 5 holes (evenodd) -->
+            <path d="M 9 14 m -7 0 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0 Z
+                     M 9 10 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                     M 12.804 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                     M 11.351 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                     M 6.649 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                     M 5.196 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z"
+                  fill="white" fill-opacity="0.25" fill-rule="evenodd"/>
+            <circle cx="9" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.3" fill="none"/>
+            <circle cx="9" cy="14" r="2.2" fill="white" fill-opacity="0.65"/>
+            <!-- Right reel: body + 5 holes (evenodd) -->
+            <path d="M 19 14 m -7 0 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0 Z
+                     M 19 10 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                     M 22.804 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                     M 21.351 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                     M 16.649 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                     M 15.196 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z"
+                  fill="white" fill-opacity="0.25" fill-rule="evenodd"/>
+            <circle cx="19" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.3" fill="none"/>
+            <circle cx="19" cy="14" r="2.2" fill="white" fill-opacity="0.65"/>
+            <!-- Intersection highlight -->
+            <circle cx="9" cy="14" r="7" clip-path="url(#clip-right)" fill="white" fill-opacity="0.28"/>
           </svg>
         </div>
         <span class="logo-text">que<span>ponemos</span></span>
@@ -407,7 +400,6 @@
 
     <!-- Hero -->
     <div class="hero">
-      <!-- Decorative Venn bg -->
       <svg class="hero-venn" width="160" height="160" viewBox="0 0 28 28" fill="none">
         <circle cx="10" cy="14" r="8" fill="white" fill-opacity="0.07"/>
         <circle cx="18" cy="14" r="8" fill="white" fill-opacity="0.07"/>
@@ -518,90 +510,125 @@
 
 <!-- ── Logo detail panel ─────────────────────────────── -->
 <div class="panel">
-  <div class="panel-title">Logo rediseñado</div>
-  <div class="panel-sub">Dos carretes de película superpuestos en Venn. Hub central + 3 ventanas a 120°.</div>
+  <div class="panel-title">Logo — carretes rediseñados</div>
+  <div class="panel-sub">5 agujeros a 72° (evenodd fill), hub sólido r=2.2, sin puntos decorativos.</div>
 
   <!-- Big reel demo -->
-  <div class="film-reel-demo">
-    <svg width="120" height="120" viewBox="0 0 28 28" fill="none">
+  <div class="reel-demo">
+    <svg width="140" height="140" viewBox="0 0 28 28" fill="none">
       <defs>
         <clipPath id="demo-clip">
           <circle cx="19" cy="14" r="7"/>
         </clipPath>
       </defs>
-      <circle cx="9"  cy="14" r="7" fill="white" fill-opacity="0.18"/>
-      <circle cx="9"  cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.28" fill="none"/>
-      <circle cx="9"  cy="14" r="2" fill="white" fill-opacity="0.55"/>
-      <circle cx="9"    cy="10" r="1.2" fill="white" fill-opacity="0.44"/>
-      <circle cx="12.46" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-      <circle cx="5.54"  cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-      <circle cx="19" cy="14" r="7" fill="white" fill-opacity="0.18"/>
-      <circle cx="19" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.28" fill="none"/>
-      <circle cx="19" cy="14" r="2" fill="white" fill-opacity="0.55"/>
-      <circle cx="19"    cy="10" r="1.2" fill="white" fill-opacity="0.44"/>
-      <circle cx="22.46" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-      <circle cx="15.54" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-      <circle cx="9" cy="14" r="7" clip-path="url(#demo-clip)" fill="white" fill-opacity="0.26"/>
+      <!-- Left reel -->
+      <path d="M 9 14 m -7 0 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0 Z
+               M 9 10 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+               M 12.804 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+               M 11.351 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+               M 6.649 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+               M 5.196 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z"
+            fill="white" fill-opacity="0.25" fill-rule="evenodd"/>
+      <circle cx="9" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.3" fill="none"/>
+      <circle cx="9" cy="14" r="2.2" fill="white" fill-opacity="0.65"/>
+      <!-- Right reel -->
+      <path d="M 19 14 m -7 0 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0 Z
+               M 19 10 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+               M 22.804 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+               M 21.351 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+               M 16.649 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+               M 15.196 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z"
+            fill="white" fill-opacity="0.25" fill-rule="evenodd"/>
+      <circle cx="19" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.3" fill="none"/>
+      <circle cx="19" cy="14" r="2.2" fill="white" fill-opacity="0.65"/>
+      <!-- Intersection highlight -->
+      <circle cx="9" cy="14" r="7" clip-path="url(#demo-clip)" fill="white" fill-opacity="0.28"/>
     </svg>
   </div>
 
-  <!-- Sizes -->
-  <div class="logo-sizes">
-    <div class="logo-size-item">
-      <div class="logo-mark" style="width:68px;height:68px;border-radius:20px">
-        <svg width="40" height="40" viewBox="0 0 28 28" fill="none">
-          <defs><clipPath id="c1"><circle cx="19" cy="14" r="7"/></clipPath></defs>
+  <!-- Before / After comparison -->
+  <div style="color:#555;font-size:11px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.8px">Antes vs ahora</div>
+  <div class="compare-row">
+    <!-- Before: 3-dot design -->
+    <div class="compare-item">
+      <div style="width:80px;height:80px;border-radius:24px;background:linear-gradient(135deg,#0F2EA8,#2660EA);display:flex;align-items:center;justify-content:center;">
+        <svg width="47" height="47" viewBox="0 0 28 28" fill="none">
+          <defs><clipPath id="before-clip"><circle cx="19" cy="14" r="7"/></clipPath></defs>
           <circle cx="9" cy="14" r="7" fill="white" fill-opacity="0.18"/>
-          <circle cx="9" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.28" fill="none"/>
           <circle cx="9" cy="14" r="2" fill="white" fill-opacity="0.55"/>
           <circle cx="9" cy="10" r="1.2" fill="white" fill-opacity="0.44"/>
           <circle cx="12.46" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
           <circle cx="5.54" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
           <circle cx="19" cy="14" r="7" fill="white" fill-opacity="0.18"/>
-          <circle cx="19" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.28" fill="none"/>
           <circle cx="19" cy="14" r="2" fill="white" fill-opacity="0.55"/>
           <circle cx="19" cy="10" r="1.2" fill="white" fill-opacity="0.44"/>
           <circle cx="22.46" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
           <circle cx="15.54" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-          <circle cx="9" cy="14" r="7" clip-path="url(#c1)" fill="white" fill-opacity="0.26"/>
+          <circle cx="9" cy="14" r="7" clip-path="url(#before-clip)" fill="white" fill-opacity="0.26"/>
         </svg>
       </div>
-      <span class="logo-size-label">size=40</span>
+      <span class="compare-label">Antes<br>3 puntos · 120°</span>
     </div>
-    <div class="logo-size-item">
-      <div class="logo-wordmark">
-        <div class="logo-mark">
+
+    <div style="color:#444;font-size:20px">→</div>
+
+    <!-- After: 5-hole design -->
+    <div class="compare-item">
+      <div style="width:80px;height:80px;border-radius:24px;background:linear-gradient(135deg,#0F2EA8,#2660EA);display:flex;align-items:center;justify-content:center;">
+        <svg width="47" height="47" viewBox="0 0 28 28" fill="none">
+          <defs><clipPath id="after-clip"><circle cx="19" cy="14" r="7"/></clipPath></defs>
+          <path d="M 9 14 m -7 0 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0 Z
+                   M 9 10 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                   M 12.804 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                   M 11.351 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                   M 6.649 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                   M 5.196 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z"
+                fill="white" fill-opacity="0.25" fill-rule="evenodd"/>
+          <circle cx="9" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.3" fill="none"/>
+          <circle cx="9" cy="14" r="2.2" fill="white" fill-opacity="0.65"/>
+          <path d="M 19 14 m -7 0 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0 Z
+                   M 19 10 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                   M 22.804 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                   M 21.351 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                   M 16.649 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z
+                   M 15.196 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z"
+                fill="white" fill-opacity="0.25" fill-rule="evenodd"/>
+          <circle cx="19" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.3" fill="none"/>
+          <circle cx="19" cy="14" r="2.2" fill="white" fill-opacity="0.65"/>
+          <circle cx="9" cy="14" r="7" clip-path="url(#after-clip)" fill="white" fill-opacity="0.28"/>
+        </svg>
+      </div>
+      <span class="compare-label">Ahora<br>5 agujeros · 72°</span>
+    </div>
+
+    <!-- Wordmark size -->
+    <div class="compare-item">
+      <div style="display:flex;align-items:center;gap:6px;background:#0D0D0F;padding:10px 14px;border-radius:10px;border:1px solid #2A2A2E">
+        <div style="width:41px;height:41px;border-radius:12px;background:linear-gradient(135deg,#0F2EA8,#2660EA);display:flex;align-items:center;justify-content:center;">
           <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
-            <defs><clipPath id="c2"><circle cx="19" cy="14" r="7"/></clipPath></defs>
-            <circle cx="9" cy="14" r="7" fill="white" fill-opacity="0.18"/>
-            <circle cx="9" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.28" fill="none"/>
-            <circle cx="9" cy="14" r="2" fill="white" fill-opacity="0.55"/>
-            <circle cx="9" cy="10" r="1.2" fill="white" fill-opacity="0.44"/>
-            <circle cx="12.46" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-            <circle cx="5.54" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-            <circle cx="19" cy="14" r="7" fill="white" fill-opacity="0.18"/>
-            <circle cx="19" cy="14" r="7" stroke="white" stroke-width="0.7" stroke-opacity="0.28" fill="none"/>
-            <circle cx="19" cy="14" r="2" fill="white" fill-opacity="0.55"/>
-            <circle cx="19" cy="10" r="1.2" fill="white" fill-opacity="0.44"/>
-            <circle cx="22.46" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-            <circle cx="15.54" cy="16" r="1.2" fill="white" fill-opacity="0.44"/>
-            <circle cx="9" cy="14" r="7" clip-path="url(#c2)" fill="white" fill-opacity="0.26"/>
+            <defs><clipPath id="wm-clip"><circle cx="19" cy="14" r="7"/></clipPath></defs>
+            <path d="M 9 14 m -7 0 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0 Z M 9 10 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z M 12.804 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z M 11.351 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z M 6.649 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z M 5.196 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z"
+                  fill="white" fill-opacity="0.25" fill-rule="evenodd"/>
+            <circle cx="9" cy="14" r="2.2" fill="white" fill-opacity="0.65"/>
+            <path d="M 19 14 m -7 0 a 7 7 0 1 0 14 0 a 7 7 0 1 0 -14 0 Z M 19 10 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z M 22.804 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z M 21.351 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z M 16.649 17.236 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z M 15.196 12.764 m -1.4 0 a 1.4 1.4 0 1 0 2.8 0 a 1.4 1.4 0 1 0 -2.8 0 Z"
+                  fill="white" fill-opacity="0.25" fill-rule="evenodd"/>
+            <circle cx="19" cy="14" r="2.2" fill="white" fill-opacity="0.65"/>
+            <circle cx="9" cy="14" r="7" clip-path="url(#wm-clip)" fill="white" fill-opacity="0.28"/>
           </svg>
         </div>
-        <span class="logo-text">que<span>ponemos</span></span>
+        <span style="font-size:15px;font-weight:500;color:#fff;letter-spacing:-0.2px">que<span style="color:#E8503A">ponemos</span></span>
       </div>
-      <span class="logo-size-label">wordmark</span>
+      <span class="compare-label">Wordmark</span>
     </div>
   </div>
 
   <!-- Specs -->
-  <div class="spec-row"><span class="spec-key">Left reel</span><span class="spec-val">cx=9, r=7</span></div>
-  <div class="spec-row"><span class="spec-key">Right reel</span><span class="spec-val">cx=19, r=7</span></div>
-  <div class="spec-row"><span class="spec-key">Hub (spindle)</span><span class="spec-val">r=2</span></div>
-  <div class="spec-row"><span class="spec-key">Windows</span><span class="spec-val">r=1.2 @ orbit 4</span></div>
-  <div class="spec-row"><span class="spec-key">Window angles</span><span class="spec-val">270° / 30° / 150°</span></div>
-  <div class="spec-row"><span class="spec-key">Gradient</span><span class="spec-val">#0F2EA8 → #2660EA</span></div>
-  <div class="spec-row"><span class="spec-key">Intersection</span><span class="spec-val">clip-path overlay 0.26</span></div>
+  <div class="spec-row"><span class="spec-key">Reels</span><span class="spec-val">cx=9 / cx=19, r=7</span></div>
+  <div class="spec-row"><span class="spec-key">Agujeros</span><span class="spec-val">×5 por carrete, r=1.4</span></div>
+  <div class="spec-row"><span class="spec-key">Órbita agujeros</span><span class="spec-val">r=4, 72° c/u</span></div>
+  <div class="spec-row"><span class="spec-key">Hub</span><span class="spec-val">r=2.2, opacity 0.65</span></div>
+  <div class="spec-row"><span class="spec-key">Técnica</span><span class="spec-val">SVG evenodd fill-rule</span></div>
+  <div class="spec-row"><span class="spec-key">Gradiente</span><span class="spec-val">#0F2EA8 → #2660EA</span></div>
 </div>
 
 </body>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text } from 'react-native';
-import Svg, { Circle, Defs, ClipPath } from 'react-native-svg';
+import Svg, { Circle, Defs, ClipPath, Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography } from '../constants/colors';
 
@@ -9,8 +9,34 @@ const GRAD_END   = '#2660EA';
 
 // Two film reels overlapping in a Venn diagram.
 // ViewBox 28×28 — left reel cx=9, right reel cx=19, both r=7.
-// Each reel: outer body, thin rim, hub spindle (r=2), 3 windows at 120° intervals.
-// Window positions at r=4 from reel center: top (0,−4), bottom-right (+3.46,+2), bottom-left (−3.46,+2).
+// Each reel has 5 evenly-spaced punched holes (evenodd fill-rule) at orbit r=4,
+// a thick hub (r=2.2) and a rim stroke.
+// Hole positions (dx, dy) relative to reel center, 72° apart starting at top:
+//   k=0: ( 0,    -4    )  270°
+//   k=1: (+3.804,-1.236)  342°
+//   k=2: (+2.351,+3.236)   54°
+//   k=3: (-2.351,+3.236)  126°
+//   k=4: (-3.804,-1.236)  198°
+
+function circlePath(cx: number, cy: number, r: number): string {
+  return `M ${cx} ${cy} m ${-r} 0 a ${r} ${r} 0 1 0 ${2 * r} 0 a ${r} ${r} 0 1 0 ${-2 * r} 0 Z`;
+}
+
+const HOLE_OFFSETS: [number, number][] = [
+  [0,      -4     ],
+  [3.804,  -1.236 ],
+  [2.351,   3.236 ],
+  [-2.351,  3.236 ],
+  [-3.804, -1.236 ],
+];
+
+function reelPath(cx: number, cy: number): string {
+  const body  = circlePath(cx, cy, 7);
+  const holes = HOLE_OFFSETS
+    .map(([dx, dy]) => circlePath(cx + dx, cy + dy, 1.4))
+    .join(' ');
+  return `${body} ${holes}`;
+}
 
 export function LogoMark({ size = 28 }: { size?: number }) {
   const box    = Math.round(size * 1.7);
@@ -29,26 +55,18 @@ export function LogoMark({ size = 28 }: { size?: number }) {
           </ClipPath>
         </Defs>
 
-        {/* ── Left reel ───────────────────────────────── */}
-        <Circle cx={9}  cy={14} r={7}   fill="white" fillOpacity={0.18} />
-        <Circle cx={9}  cy={14} r={7}   stroke="white" strokeWidth={0.7} strokeOpacity={0.28} />
-        <Circle cx={9}  cy={14} r={2}   fill="white" fillOpacity={0.55} />
-        {/* windows */}
-        <Circle cx={9}    cy={10}  r={1.2} fill="white" fillOpacity={0.44} />
-        <Circle cx={12.46} cy={16} r={1.2} fill="white" fillOpacity={0.44} />
-        <Circle cx={5.54}  cy={16} r={1.2} fill="white" fillOpacity={0.44} />
+        {/* ── Left reel: body with 5 punched holes ────── */}
+        <Path d={reelPath(9, 14)} fill="white" fillOpacity={0.25} fillRule="evenodd" />
+        <Circle cx={9} cy={14} r={7}   stroke="white" strokeWidth={0.7} strokeOpacity={0.30} />
+        <Circle cx={9} cy={14} r={2.2} fill="white" fillOpacity={0.65} />
 
-        {/* ── Right reel ──────────────────────────────── */}
-        <Circle cx={19} cy={14} r={7}   fill="white" fillOpacity={0.18} />
-        <Circle cx={19} cy={14} r={7}   stroke="white" strokeWidth={0.7} strokeOpacity={0.28} />
-        <Circle cx={19} cy={14} r={2}   fill="white" fillOpacity={0.55} />
-        {/* windows */}
-        <Circle cx={19}    cy={10}  r={1.2} fill="white" fillOpacity={0.44} />
-        <Circle cx={22.46} cy={16}  r={1.2} fill="white" fillOpacity={0.44} />
-        <Circle cx={15.54} cy={16}  r={1.2} fill="white" fillOpacity={0.44} />
+        {/* ── Right reel: body with 5 punched holes ───── */}
+        <Path d={reelPath(19, 14)} fill="white" fillOpacity={0.25} fillRule="evenodd" />
+        <Circle cx={19} cy={14} r={7}   stroke="white" strokeWidth={0.7} strokeOpacity={0.30} />
+        <Circle cx={19} cy={14} r={2.2} fill="white" fillOpacity={0.65} />
 
-        {/* ── Intersection highlight ──────────────────── */}
-        <Circle cx={9} cy={14} r={7} clipPath="url(#lm-clip-right)" fill="white" fillOpacity={0.26} />
+        {/* ── Intersection highlight (Venn lens) ──────── */}
+        <Circle cx={9} cy={14} r={7} clipPath="url(#lm-clip-right)" fill="white" fillOpacity={0.28} />
       </Svg>
     </LinearGradient>
   );
