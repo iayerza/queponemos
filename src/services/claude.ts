@@ -177,7 +177,7 @@ ${input.platforms.map(id => {
   const p = PLATFORMS.find(pl => pl.id === id);
   return `  "${id}" → ${p?.name ?? id}`;
 }).join('\n')}
-REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar en alguna de las plataformas listadas. El campo "platform" debe ser uno de los IDs entre comillas de arriba. Si hay más de una plataforma disponible, distribuí los títulos entre ellas (no pongas los 3 en la misma plataforma).
+REGLA 0 — CRÍTICA (plataformas): El campo "platform" debe reflejar dónde está disponible el título REALMENTE en Argentina/Latinoamérica. Usá solo los IDs de arriba. Ejemplos: Game of Thrones, Succession, The Wire, The Sopranos, House of the Dragon → "hbo". No fuerces un título a una plataforma equivocada para distribuir. Si un título no está en ninguna plataforma listada, no lo recomiendes.
 
 REGLAS:
 1. NUNCA recomendés títulos marcados como "ya visto" en los perfiles.
