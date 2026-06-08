@@ -78,7 +78,7 @@ export interface GroupDoc {
   country: string;
   turnIndex?: number;
   currentSession?: {
-    moods: Record<string, MoodId>;
+    moods: Record<string, MoodId[]>;
     matchId?: string;
     leaderUid?: string;
   };
@@ -89,7 +89,7 @@ export interface MatchDoc {
   groupId: string;
   members: string[];
   recommendations: Recommendation[];
-  moods: Record<string, MoodId>;
+  moods: Record<string, MoodId[]>;
   createdAt: { seconds: number };
   groupInsight?: string;
 }
@@ -351,9 +351,9 @@ export async function updateGroupPlatforms(
   await updateDoc(doc(db(), 'groups', groupId), { platforms });
 }
 
-export async function setSessionMood(groupId: string, uid: string, mood: MoodId): Promise<void> {
+export async function setSessionMood(groupId: string, uid: string, moods: MoodId[]): Promise<void> {
   await updateDoc(doc(db(), 'groups', groupId), {
-    [`currentSession.moods.${uid}`]: mood,
+    [`currentSession.moods.${uid}`]: moods,
   });
 }
 
@@ -428,7 +428,7 @@ export async function saveMatch(
   groupId: string,
   members: string[],
   recs: Recommendation[],
-  moods: Record<string, MoodId>,
+  moods: Record<string, MoodId[]>,
   groupInsight?: string,
 ): Promise<string> {
   const ref = await addDoc(collection(db(), 'matches'), {
@@ -448,7 +448,7 @@ export async function saveMatchAndBroadcast(
   groupId: string,
   members: string[],
   recs: Recommendation[],
-  moods: Record<string, MoodId>,
+  moods: Record<string, MoodId[]>,
   groupInsight?: string,
 ): Promise<string> {
   const matchRef = doc(collection(db(), 'matches'));
@@ -496,7 +496,7 @@ export interface HistoryEntry {
   groupName: string;
   createdAt: number;
   recommendations: Recommendation[];
-  moods: Record<string, MoodId>;
+  moods: Record<string, MoodId[]>;
 }
 
 export async function addMatchToUserHistory(

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Alert, ActivityIndicator,
 } from 'react-native';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,6 +32,10 @@ const MOODS: { id: MoodId; icon: FeatherName; label: string; desc: string }[] = 
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
+function moodLabel(ids: MoodId[]): string {
+  return ids.map(id => MOODS.find(m => m.id === id)?.label).filter(Boolean).join(' + ');
+}
+
 function PulsingDots() {
   const [count, setCount] = useState(1);
   useEffect(() => {
@@ -45,9 +49,9 @@ const dotStyles = StyleSheet.create({
 });
 
 function MoodCard({
-  label, iconName, moodLabel, waiting,
+  label, iconName, moods, waiting,
 }: {
-  label: string; iconName: FeatherName; moodLabel: string; waiting?: boolean;
+  label: string; iconName: FeatherName; moods: string; waiting?: boolean;
 }) {
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -68,7 +72,7 @@ function MoodCard({
       <Animated.View style={[{ marginBottom: 10 }, waiting && { opacity: pulse }]}>
         <Feather name={iconName} size={36} color={waiting ? Colors.sub : Colors.accent} />
       </Animated.View>
-      <Text style={[cardStyles.mood, waiting && cardStyles.moodWaiting]}>{moodLabel}</Text>
+      <Text style={[cardStyles.mood, waiting && cardStyles.moodWaiting]}>{moods}</Text>
     </View>
   );
 }
@@ -115,46 +119,49 @@ export default function MoodScreen() {
   const isSolo   = isSoloRoute || members.length <= 1;
   const is2User  = members.length === 2;
 
-  const [myMood,       setMyMood]       = useState<MoodId | null>(null);
-  const [sessionMoods, setSessionMoods] = useState<Record<string, MoodId>>({});
+  // Multi-mood local state: up to 2 moods
+  const [myMoods,      setMyMoods]      = useState<MoodId[]>([]);
+  const [confirmed,    setConfirmed]    = useState(false);
+  const [sessionMoods, setSessionMoods] = useState<Record<string, MoodId[]>>({});
   const [navigating,   setNavigating]   = useState(false);
   const navigatingRef                   = useRef(false);
   const [showSkip,     setShowSkip]     = useState(false);
   const [showContinue, setShowContinue] = useState(false);
 
-  const myStoredMood = user ? (sessionMoods[user.uid] ?? null) : null;
-  const myMoodData   = (myMood ?? myStoredMood) ? MOODS.find(m => m.id === (myMood ?? myStoredMood)) : null;
+  // Derived display values
+  const myMoodsLabel  = moodLabel(myMoods);
+  const myMoodsIcon: FeatherName = MOODS.find(m => m.id === myMoods[0])?.icon ?? 'smile';
 
-  // For 2-user display: show specific partner's mood
+  // For 2-user display
   const partnerUid      = is2User ? (partners[0] ?? null) : null;
-  const partnerMood     = partnerUid ? (sessionMoods[partnerUid] ?? null) : null;
-  const partnerMoodData = partnerMood ? MOODS.find(m => m.id === partnerMood) : null;
+  const partnerMoodsArr = partnerUid ? (sessionMoods[partnerUid] ?? []) : [];
+  const partnerMoodsLabel = moodLabel(partnerMoodsArr);
+  const partnerIcon: FeatherName = partnerMoodsArr[0]
+    ? (MOODS.find(m => m.id === partnerMoodsArr[0])?.icon ?? 'clock')
+    : 'clock';
+  const partnerReady = partnerMoodsArr.length > 0;
 
-  // For 3+ users: count how many partners have picked
-  const partnersPicked     = partners.filter(uid => !!sessionMoods[uid]).length;
-  const allPartnersPicked  = partners.length > 0 && partnersPicked === partners.length;
+  // For 3+ users
+  const partnersPicked    = partners.filter(uid => (sessionMoods[uid]?.length ?? 0) > 0).length;
+  const allPartnersPicked = partners.length > 0 && partnersPicked === partners.length;
 
-  // allReady: my mood picked AND every member has a mood in Firestore
   const allReady = isSolo
-    ? !!myMood
-    : !!myMood && members.every(uid => !!sessionMoods[uid]);
+    ? confirmed
+    : confirmed && members.every(uid => (sessionMoods[uid]?.length ?? 0) > 0);
 
   // Group card props
   const groupCardIcon: FeatherName = is2User
-    ? (partnerMoodData?.icon ?? 'clock')
+    ? (partnerReady ? partnerIcon : 'clock')
     : allPartnersPicked ? 'check-circle' : 'users';
   const groupCardLabel = is2User
-    ? (partnerMoodData?.label ?? 'Eligiendo…')
+    ? (partnerReady ? partnerMoodsLabel : 'Eligiendo…')
     : `${partnersPicked} de ${partners.length} eligieron`;
-  const groupCardWaiting = is2User ? !partnerMood : !allPartnersPicked;
+  const groupCardWaiting = is2User ? !partnerReady : !allPartnersPicked;
 
-  // Ready badge label
   const readyMoodsLabel = is2User
-    ? `${myMoodData?.label ?? ''}  ×  ${partnerMoodData?.label ?? ''}`
+    ? `${myMoodsLabel}  ×  ${partnerMoodsLabel}`
     : members
-        .map(uid => sessionMoods[uid])
-        .filter(Boolean)
-        .map(id => MOODS.find(m => m.id === id)?.label)
+        .map(uid => moodLabel(sessionMoods[uid] ?? []))
         .filter(Boolean)
         .join('  ×  ');
 
@@ -168,7 +175,6 @@ export default function MoodScreen() {
     }
   }, []);
 
-  // Listen to Firestore session moods
   useEffect(() => {
     if (USE_MOCK || isSoloRoute) return;
     const unsub = onGroupChange(groupId, g => {
@@ -177,17 +183,23 @@ export default function MoodScreen() {
         nav.navigate('App');
         return;
       }
-      setSessionMoods(g.currentSession?.moods ?? {});
+      // Normalize: Firestore may return string (old data) or array
+      const raw = g.currentSession?.moods ?? {};
+      const normalized: Record<string, MoodId[]> = {};
+      for (const [uid, val] of Object.entries(raw)) {
+        normalized[uid] = Array.isArray(val) ? (val as MoodId[]) : [val as MoodId];
+      }
+      setSessionMoods(normalized);
     });
     return unsub;
   }, [groupId, isSoloRoute]);
 
-  // When Omitir/startGroupSession clears Firestore moods, reset local state so user can re-pick.
-  // Without this, someone who already picked can't pick again after a session reset.
+  // Reset when Firestore clears moods (e.g., new session started)
   useEffect(() => {
-    if (!user || !myMood || isSoloRoute || navigatingRef.current) return;
+    if (!user || !confirmed || isSoloRoute || navigatingRef.current) return;
     if (!sessionMoods[user.uid]) {
-      setMyMood(null);
+      setMyMoods([]);
+      setConfirmed(false);
       setNavigating(false);
       setShowSkip(false);
       setShowContinue(false);
@@ -197,10 +209,10 @@ export default function MoodScreen() {
 
   // Show skip button after 30s of waiting for partners
   useEffect(() => {
-    if (!myMood || isSolo) return;
+    if (!confirmed || isSolo) return;
     const timer = setTimeout(() => setShowSkip(true), 30_000);
     return () => clearTimeout(timer);
-  }, [myMood, isSolo]);
+  }, [confirmed, isSolo]);
 
   // Show manual continue button after 8s if allReady but navigation hasn't fired
   useEffect(() => {
@@ -212,38 +224,48 @@ export default function MoodScreen() {
   // When all moods ready → sync to MatchStore and navigate
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!allReady || navigatingRef.current || !myMood) return;
+    if (!allReady || navigatingRef.current || !confirmed) return;
     navigatingRef.current = true;
     setNavigating(true);
-    Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
+    Object.entries(sessionMoods).forEach(([uid, moods]) => setMood(uid, moods));
     const timer = setTimeout(() => {
       nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
     }, 1400);
     return () => clearTimeout(timer);
-  }, [allReady, myMood]);
+  }, [allReady, confirmed]);
 
-  async function handleSelect(id: MoodId) {
-    if (myMood || !user) return;
-    setMyMood(id);
-    setMood(user.uid, id);
+  // Toggle a mood on/off (FIFO: replaces oldest when already 2 selected)
+  function handleToggle(id: MoodId) {
+    if (confirmed) return;
+    setMyMoods(prev => {
+      if (prev.includes(id)) return prev.filter(m => m !== id);
+      if (prev.length >= 2) return [prev[1], id];
+      return [...prev, id];
+    });
+  }
+
+  async function handleConfirm() {
+    if (myMoods.length === 0 || !user || confirmed) return;
+    setConfirmed(true);
+    setMood(user.uid, myMoods);
 
     if (USE_MOCK) {
-      const mockMoods: MoodId[] = ['chill', 'laugh', 'intense', 'think', 'scared', 'cry'];
-      const allMoods: Record<string, MoodId> = { [user.uid]: id };
+      const mockIds: MoodId[] = ['chill', 'laugh', 'intense', 'think', 'scared', 'cry'];
+      const allMoods: Record<string, MoodId[]> = { [user.uid]: myMoods };
       partners.forEach(uid => {
-        allMoods[uid] = mockMoods[Math.floor(Math.random() * mockMoods.length)];
+        allMoods[uid] = [mockIds[Math.floor(Math.random() * mockIds.length)]];
       });
-      setSessionMoods({ [user.uid]: id });
+      setSessionMoods({ [user.uid]: myMoods });
       if (partners.length > 0) {
         setTimeout(() => setSessionMoods(allMoods), 2200);
       }
       return;
     }
     if (isSoloRoute) {
-      setSessionMoods({ [user.uid]: id });
+      setSessionMoods({ [user.uid]: myMoods });
     } else {
       try {
-        await setSessionMood(groupId, user.uid, id);
+        await setSessionMood(groupId, user.uid, myMoods);
         const targets = await getGroupMemberTokens(members, user.uid);
         if (targets.length > 0) {
           sendMoodSelectedNotification(targets, user.displayName ?? 'Tu compañero', groupId).catch(() => {});
@@ -253,14 +275,14 @@ export default function MoodScreen() {
   }
 
   // ── Waiting view ─────────────────────────────────────────────────────────────
-  if (myMood) {
+  if (confirmed) {
     if (isSoloRoute) {
       return (
         <View style={[styles.root, { paddingTop: insets.top + 20, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }]}>
           <Text style={styles.waitTitle}>Perfecto</Text>
           <Text style={styles.waitSub}>Queponemos está buscando algo para vos…</Text>
           <View style={[styles.readyBadge, { marginTop: 0, alignSelf: 'stretch' }]}>
-            <Text style={styles.readyText}>{myMoodData?.label}</Text>
+            <Text style={styles.readyText}>{myMoodsLabel}</Text>
             <Text style={styles.readySub}>Modo solo · tus plataformas</Text>
           </View>
         </View>
@@ -283,8 +305,8 @@ export default function MoodScreen() {
         <View style={styles.cards}>
           <MoodCard
             label="VOS"
-            iconName={myMoodData?.icon ?? 'smile'}
-            moodLabel={myMoodData?.label ?? ''}
+            iconName={myMoodsIcon}
+            moods={myMoodsLabel}
           />
           <View style={styles.vsCol}>
             {allReady ? (
@@ -296,7 +318,7 @@ export default function MoodScreen() {
           <MoodCard
             label="EL GRUPO"
             iconName={groupCardIcon}
-            moodLabel={groupCardLabel}
+            moods={groupCardLabel}
             waiting={groupCardWaiting}
           />
         </View>
@@ -332,7 +354,7 @@ export default function MoodScreen() {
             style={styles.continueBtn}
             onPress={() => {
               setNavigating(true);
-              Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
+              Object.entries(sessionMoods).forEach(([uid, moods]) => setMood(uid, moods));
               nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
             }}
           >
@@ -363,26 +385,43 @@ export default function MoodScreen() {
         </Text>
         <Text style={styles.sub}>
           {isSoloRoute
-            ? 'Queponemos va a encontrar algo perfecto para vos en tus plataformas.'
+            ? 'Elegí hasta 2 moods. Queponemos va a encontrar algo perfecto para vos.'
             : is2User
-              ? 'Tu compañero también va a elegir. Queponemos va a encontrar algo que les funcione a los dos.'
-              : `Todos van a elegir su mood. Queponemos va a encontrar algo que les funcione al grupo.`}
+              ? 'Elegí hasta 2 moods. Tu compañero también va a elegir.'
+              : 'Elegí hasta 2 moods. Todos van a elegir su mood.'}
         </Text>
 
         <View style={styles.grid}>
-          {MOODS.map(m => (
-            <TouchableOpacity
-              key={m.id}
-              style={styles.moodBtn}
-              onPress={() => handleSelect(m.id)}
-              activeOpacity={0.8}
-            >
-              <Feather name={m.icon} size={32} color={Colors.sub} style={styles.moodIcon} />
-              <Text style={styles.moodLabel}>{m.label}</Text>
-              <Text style={styles.moodDesc}>{m.desc}</Text>
-            </TouchableOpacity>
-          ))}
+          {MOODS.map(m => {
+            const idx     = myMoods.indexOf(m.id);
+            const selected = idx !== -1;
+            return (
+              <TouchableOpacity
+                key={m.id}
+                style={[styles.moodBtn, selected && styles.moodBtnSelected]}
+                onPress={() => handleToggle(m.id)}
+                activeOpacity={0.8}
+              >
+                {selected && (
+                  <View style={styles.selBadge}>
+                    <Text style={styles.selBadgeText}>{idx + 1}</Text>
+                  </View>
+                )}
+                <Feather name={m.icon} size={32} color={selected ? Colors.accent : Colors.sub} style={styles.moodIcon} />
+                <Text style={[styles.moodLabel, selected && styles.moodLabelSelected]}>{m.label}</Text>
+                <Text style={styles.moodDesc}>{m.desc}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
+
+        {myMoods.length > 0 && (
+          <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
+            <Text style={styles.confirmBtnText}>
+              {myMoods.length === 1 ? 'Confirmar mood' : `Confirmar: ${myMoodsLabel}`}
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </View>
   );
@@ -402,7 +441,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   sub: { color: Colors.sub, fontSize: Typography.body, marginBottom: 28, lineHeight: 22 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 28 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   moodBtn: {
     width: '47%',
     backgroundColor: Colors.s1,
@@ -411,9 +450,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  moodBtnSelected: {
+    borderColor: Colors.accentBorder,
+    backgroundColor: Colors.accentFaint,
+  },
   moodIcon: { marginBottom: 10 },
   moodLabel: { color: Colors.text, fontWeight: Typography.medium, fontSize: 16, marginBottom: 5 },
+  moodLabelSelected: { color: Colors.accent },
   moodDesc:  { color: Colors.sub, fontSize: Typography.tiny, lineHeight: 16 },
+  selBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selBadgeText: { color: '#fff', fontSize: 10, fontWeight: Typography.medium },
+  confirmBtn: {
+    marginTop: 8,
+    marginBottom: 16,
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  confirmBtnText: { color: '#fff', fontWeight: Typography.medium, fontSize: Typography.body },
   waitTitle: {
     color: Colors.text,
     fontSize: Typography.h1,

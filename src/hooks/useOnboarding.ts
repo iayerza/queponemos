@@ -96,9 +96,7 @@ const PROBES: Record<AgeRange | 'default', Probe[]> = {
   ],
 };
 
-const MIN_YEAR: Record<AgeRange | 'default', number> = {
-  young: 2012, mid: 2005, adult: 1995, senior: 1975, default: 2005,
-};
+const MIN_YEAR = new Date().getFullYear() - 15;
 
 const hasTmdbKey = Boolean(process.env.EXPO_PUBLIC_TMDB_API_KEY);
 
@@ -183,7 +181,7 @@ export function useOnboarding(ageRange?: AgeRange): OnboardingState {
   const expandedProbes           = useRef(new Set<string>());
 
   const probeList  = PROBES[ageRange ?? 'default'];
-  const minYear    = MIN_YEAR[ageRange ?? 'default'];
+  const minYear    = MIN_YEAR;
 
   useEffect(() => {
     let cancelled = false;
