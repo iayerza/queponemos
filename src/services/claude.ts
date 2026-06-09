@@ -217,7 +217,12 @@ function buildPrompt(input: MatchingInput): string {
     return `- ${u.displayName}${age}: ${profileLines}${lovedBlock}${likedBlock}${dislikBlock}\n  mood esta noche: ${mood}${seenBlock}`;
   }).join('\n');
 
-  return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.
+  const isSolo = input.users.length === 1;
+  const openingLine = isSolo
+    ? `Sos el motor de recomendación de Queponemos. Analizá el perfil y recomendá exactamente 3 títulos para ver esta noche.`
+    : `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.`;
+
+  return `${openingLine}
 
 PERFILES:
 ${userBlocks}
@@ -260,7 +265,7 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de c
     "compatibilityScore": 78,
     "whyUs": "2-3 oraciones: mencioná a los usuarios por nombre y explicá qué del perfil coincide (era, tono, géneros, afinidades estilísticas) y por qué es la elección para esta noche"
   }],
-  "groupInsight": "observación concreta y específica sobre el grupo: qué tienen en común (era, tono, géneros, afinidades) y dónde difieren. Mencioná algo del perfil que lo justifique."
+  "groupInsight": "${isSolo ? 'observación breve sobre el perfil del usuario: qué lo define (géneros, era, tono) y por qué estas 3 recomendaciones encajan esta noche' : 'observación concreta y específica sobre el grupo: qué tienen en común (era, tono, géneros, afinidades) y dónde difieren. Mencioná algo del perfil que lo justifique.'}"
 }`;
 }
 
