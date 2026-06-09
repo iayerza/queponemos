@@ -95,8 +95,8 @@ export function useMatching() {
       // ── Leader / Solo path: call Claude, save, broadcast matchId ──────────
       const allPlatformIds = PLATFORMS.map(p => p.id as PlatformId);
       const platforms: PlatformId[] = isSolo
-        ? (user.platforms?.length ? user.platforms : allPlatformIds)
-        : (currentGroup?.platforms?.length ? currentGroup.platforms : ['netflix' as PlatformId]);
+        ? (user.platforms?.length ? (user.platforms as PlatformId[]) : allPlatformIds)
+        : (currentGroup?.platforms?.length ? (currentGroup.platforms as PlatformId[]) : ['netflix' as PlatformId]);
 
       const members = isSolo
         ? [user.uid]
