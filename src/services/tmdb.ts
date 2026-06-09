@@ -30,6 +30,7 @@ export interface NormalizedTitle {
   posterPath: string | null;
   synopsis: string;
   runtime?: number;
+  keywords?: string[]; // populated lazily via fetchKeywords()
 }
 
 const GENRE_MAP: Record<number, string> = {
@@ -221,4 +222,39 @@ export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
         synopsis: (r.overview as string) ?? '',
       };
     });
+}
+
+// Keywords genéricas que no aportan señal de gusto (filtradas del perfil)
+const KW_BLOCKLIST = new Set([
+  'independent film', 'woman director', 'based on novel', 'based on true story',
+  'based on real events', 'sequel', 'prequel', 'remake', 'duringcreditsstinger',
+  'aftercreditsstinger', 'superhero', 'dc comics', 'marvel comics',
+]);
+
+// Fetch keywords for a title. Returns an array of normalized keyword strings.
+// Lightweight call (~200B response). Designed to run in background post-rating.
+export async function fetchKeywords(tmdbId: number, type: 'movie' | 'tv'): Promise<string[]> {
+  const path = type === 'movie'
+    ? `/movie/${tmdbId}/keywords`
+    : `/tv/${tmdbId}/keywords`;
+  const data = await tmdbGet(path) as {
+    keywords?: { name: string }[];
+    results?:  { name: string }[];
+  };
+  const raw = data.keywords ?? data.results ?? [];
+  return raw
+    .map(k => k.name.toLowerCase().trim())
+    .filter(k => k.length > 2 && !KW_BLOCKLIST.has(k))
+    .slice(0, 15);
+}
+
+// Fetch top-voted light-genre movies for anchor diversity補完.
+// Used when anchors lack Comedy/Romance coverage.
+export async function fetchLightAnchorTitles(minYear: number, count: number): Promise<NormalizedTitle[]> {
+  const path = `/discover/movie?sort_by=vote_count.desc&vote_count.gte=100000`
+    + `&with_genres=35|10749`   // Comedy OR Romance
+    + `&primary_release_date.gte=${minYear}-01-01`
+    + `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
+  const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
+  return (data.results ?? []).slice(0, count).map(r => parseDiscoverResult(r, 'movie'));
 }

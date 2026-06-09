@@ -10,7 +10,8 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import WatchedRatingSheet from '../components/WatchedRatingSheet';
-import { updateTitleStatus, addToPersonalWatchlist, addToPendingRatings, rateTitleAndUpdateProfile, updateUserHistoryRecommendations, startGroupSession, getGroupById } from '../services/firebase';
+import { updateTitleStatus, addToPersonalWatchlist, addToPendingRatings, rateTitleAndUpdateProfile, updateTasteKeywords, updateUserHistoryRecommendations, startGroupSession, getGroupById } from '../services/firebase';
+import { fetchKeywords } from '../services/tmdb';
 import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { Rating } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
@@ -133,13 +134,18 @@ export default function ResultsScreen() {
     handleAction(idx, 'watched');
     if (rec.tmdbId) updateRatings(rec.tmdbId, rating, rec.title);
     if (!USE_MOCK && rec.tmdbId) {
+      const type = rec.type === 'series' ? 'tv' : 'movie';
       try {
         await rateTitleAndUpdateProfile(user.uid, rec.tmdbId, rating, {
           id: rec.tmdbId, tmdbId: rec.tmdbId, title: rec.title, year: rec.year,
-          type: rec.type === 'series' ? 'tv' : 'movie',
-          genres: rec.genres, rating: rec.rating, posterPath: rec.posterPath, synopsis: rec.synopsis,
+          type, genres: rec.genres, rating: rec.rating, posterPath: rec.posterPath, synopsis: rec.synopsis,
         });
       } catch { /* silenciar */ }
+      if (rating !== 'not_seen') {
+        fetchKeywords(rec.tmdbId, type)
+          .then(kws => { if (kws.length > 0) updateTasteKeywords(user.uid, kws, rating).catch(() => {}); })
+          .catch(() => {});
+      }
     }
   }
 

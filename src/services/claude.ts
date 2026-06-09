@@ -2,6 +2,7 @@ import type { PlatformId } from '../constants/platforms';
 import { PLATFORMS } from '../constants/platforms';
 import type { UserProfile } from './firebase';
 import { fetchTitle, searchTitles } from './tmdb';
+import { topKeywordLabels } from '../utils/tasteProfile';
 
 const VALID_PLATFORMS = new Set(PLATFORMS.map(p => p.id));
 
@@ -200,11 +201,13 @@ function buildPrompt(input: MatchingInput): string {
 
     const age = u.ageRange ? ` (${AGE_RANGE_LABELS[u.ageRange]})` : '';
 
+    const keywords = topKeywordLabels(u.tasteProfile ?? { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] });
     const profileLines = [
       `géneros dominantes: ${topGenres}`,
       era  ? `época preferida: ${era}`  : '',
       tone ? `tono: ${tone}` : '',
       `formato: ${formatLabel}`,
+      keywords.length ? `afinidades estilísticas: ${keywords.join(', ')}` : '',
     ].filter(Boolean).join('; ');
 
     const lovedBlock   = lovedNames.length   ? `\n  le encantó: ${lovedNames.join(', ')}`   : '';

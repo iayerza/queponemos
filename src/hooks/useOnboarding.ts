@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MOCK_TITLES } from '../constants/mockTitles';
-import { discoverByGenre, fetchAnchorTitles, type NormalizedTitle } from '../services/tmdb';
+import { discoverByGenre, fetchAnchorTitles, fetchLightAnchorTitles, type NormalizedTitle } from '../services/tmdb';
 import { useAuthStore } from '../store/useAuthStore';
 import type { Rating } from '../services/firebase';
 import type { AgeRange } from '../navigation/types';
@@ -260,7 +260,7 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
     Promise.allSettled([
       fetchAnchorTitles(anchorMinYear),
       ...activeProbes.map(p => discoverByGenre(p.type, p.genreId, minYear)),
-    ]).then(results => {
+    ]).then(async results => {
       if (cancelled) return;
 
       const seenIds = new Set<number>();
@@ -274,6 +274,19 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
         for (const t of anchorResult.value) {
           if (!seenIds.has(t.tmdbId)) { seenIds.add(t.tmdbId); anchors.push(t); }
         }
+      }
+
+      // Diversity guarantee: ensure ≥2 light-genre (Comedy/Romance) anchors.
+      // Top vote_count lists skew action/drama; comedies are under-represented.
+      const LIGHT = new Set(['Comedia', 'Romance', 'Animación']);
+      const lightCount = anchors.filter(t => t.genres.some(g => LIGHT.has(g))).length;
+      if (lightCount < 2) {
+        try {
+          const fill = await fetchLightAnchorTitles(anchorMinYear, 2 - lightCount + 1);
+          for (const t of fill) {
+            if (!seenIds.has(t.tmdbId)) { seenIds.add(t.tmdbId); anchors.push(t); }
+          }
+        } catch { /* non-critical */ }
       }
 
       probeResults.forEach(r => {

@@ -12,6 +12,8 @@ export interface TasteProfile {
   eraPreference?: number;
   // toneScore: -1 = muy oscuro/tenso (Terror, Thriller, Crimen), +1 = ligero/optimista (Comedia, Romance)
   toneScore?: number;
+  // keyword frequency weights (normalized, accumulated post-rating via updateTasteKeywords)
+  keywordWeights?: Record<string, number>;
 }
 
 // Precompute IDF from the catalog: genres appearing in many titles get lower weight.
@@ -107,6 +109,38 @@ export function recalculateTasteProfile(
       ? parseFloat(((lightSum - darkSum) / toneTotal).toFixed(3))
       : prevProfile.toneScore,
   };
+}
+
+const KW_WEIGHTS: Record<Rating, number> = { loved: 2.0, liked: 1.0, seen_disliked: -0.5, not_seen: 0 };
+const MAX_KEYWORDS = 20;
+
+// Merge keywords from a just-rated title into the existing keyword weights.
+// Returns the updated profile. Designed to be called in background after fetchKeywords().
+export function mergeKeywords(
+  keywords: string[],
+  rating: Rating,
+  prevProfile: TasteProfile,
+): TasteProfile {
+  if (keywords.length === 0 || KW_WEIGHTS[rating] === 0) return prevProfile;
+  const w   = KW_WEIGHTS[rating];
+  const kw  = { ...(prevProfile.keywordWeights ?? {}) };
+  for (const k of keywords) kw[k] = (kw[k] ?? 0) + w;
+  // Keep only top MAX_KEYWORDS by weight (positive only)
+  const top = Object.fromEntries(
+    Object.entries(kw)
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, MAX_KEYWORDS)
+  );
+  return { ...prevProfile, keywordWeights: top };
+}
+
+// Top N keyword labels sorted by weight
+export function topKeywordLabels(profile: TasteProfile, n = 8): string[] {
+  return Object.entries(profile.keywordWeights ?? {})
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([k]) => k);
 }
 
 // Migration helper: rebuild raw scores from MOCK_TITLES for users without genreRawScores

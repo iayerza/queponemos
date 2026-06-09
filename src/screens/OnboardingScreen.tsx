@@ -14,7 +14,8 @@ import TitlePoster from '../components/TitlePoster';
 import RatingButtons from '../components/RatingButtons';
 import { useOnboarding } from '../hooks/useOnboarding';
 import { useAuthStore } from '../store/useAuthStore';
-import { completeOnboarding, rateTitleAndUpdateProfile } from '../services/firebase';
+import { completeOnboarding, rateTitleAndUpdateProfile, updateTasteKeywords } from '../services/firebase';
+import { fetchKeywords } from '../services/tmdb';
 import type { RootStackParamList } from '../navigation/types';
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
@@ -81,7 +82,15 @@ export default function OnboardingScreen() {
     if (!title || !user) return;
     fadeAnim.setValue(0);
     updateRatings(title.tmdbId, r, title.title);
-    if (!USE_MOCK) rateTitleAndUpdateProfile(user.uid, title.tmdbId, r, title).catch(() => {});
+    if (!USE_MOCK) {
+      rateTitleAndUpdateProfile(user.uid, title.tmdbId, r, title).catch(() => {});
+      // Background: fetch keywords and merge into taste profile (fire-and-forget)
+      if (r !== 'not_seen') {
+        fetchKeywords(title.tmdbId, title.type)
+          .then(kws => { if (kws.length > 0) updateTasteKeywords(user.uid, kws, r).catch(() => {}); })
+          .catch(() => {});
+      }
+    }
     rate(r);
     Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: true }).start();
   }

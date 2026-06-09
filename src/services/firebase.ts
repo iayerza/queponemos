@@ -240,6 +240,24 @@ export async function rateTitleAndUpdateProfile(
   return newProfile;
 }
 
+// Called in background after fetchKeywords() resolves. Merges keyword weights into the
+// stored taste profile without blocking the rating UX.
+export async function updateTasteKeywords(
+  uid: string,
+  keywords: string[],
+  rating: Rating,
+): Promise<void> {
+  if (keywords.length === 0) return;
+  const profile = await getUserProfile(uid);
+  if (!profile) return;
+  const { mergeKeywords } = await import('../utils/tasteProfile');
+  const updated = mergeKeywords(keywords, rating, profile.tasteProfile);
+  await updateDoc(doc(db(), 'users', uid), {
+    'tasteProfile.keywordWeights': updated.keywordWeights,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function completeOnboarding(
   uid: string,
   ageRange?: UserProfile['ageRange'],
