@@ -389,7 +389,7 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
     isLoading,
     error,
     rate,
-    canSkip: currentIndex >= 8,
+    canSkip: currentIndex >= 10,
     isFinished: queue.length > 0 && currentIndex >= queue.length,
     genreStepDone,
     confirmGenres,

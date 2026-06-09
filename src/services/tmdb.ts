@@ -178,7 +178,7 @@ export async function discoverByGenre(
     + `&vote_count.gte=${minVotes}&${dateField}=${minYear}-01-01&page=${page}`;
   if (type === 'movie') path += `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
   const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
-  return (data.results ?? []).slice(0, 4).map(r => parseDiscoverResult(r, type));
+  return (data.results ?? []).slice(0, 5).map(r => parseDiscoverResult(r, type));
 }
 
 // Fetch the most universally recognized movies for the user's era — no genre filter.
@@ -189,7 +189,7 @@ export async function fetchAnchorTitles(minYear: number): Promise<NormalizedTitl
     + `&primary_release_date.gte=${minYear}-01-01`
     + `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
   const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
-  return (data.results ?? []).slice(0, 10).map(r => parseDiscoverResult(r, 'movie'));
+  return (data.results ?? []).slice(0, 12).map(r => parseDiscoverResult(r, 'movie'));
 }
 
 export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
