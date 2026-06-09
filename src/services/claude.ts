@@ -109,7 +109,8 @@ export interface MatchingInput {
   users: UserProfile[];
   moods: Record<string, MoodId>;
   platforms: PlatformId[];
-  titleMap?: Record<number, string>; // tmdbId → "Título (año)" para usar en el prompt
+  titleMap?: Record<number, string>;
+  recentlyRecommended?: string[]; // títulos recomendados en sesiones anteriores — evitar repetir
 }
 
 export interface MatchingOutput {
@@ -138,40 +139,69 @@ function titleLabel(id: number, titleMap?: Record<number, string>): string {
 }
 
 function buildPrompt(input: MatchingInput): string {
+  const isSolo = input.users.length === 1;
+
   const userBlocks = input.users.map(u => {
     const entries = Object.entries(u.ratings ?? {});
-    const loved = entries
-      .filter(([, r]) => r === 'loved' || r === 'liked')
+
+    // Separate loved from liked — signal strength matters
+    const lovedTitles = entries
+      .filter(([, r]) => r === 'loved')
       .map(([id]) => titleLabel(Number(id), input.titleMap))
-      .join(', ') || 'ninguno aún';
-    const disliked = entries
+      .filter(t => !t.startsWith('tmdbId:'))
+      .slice(0, 8)
+      .join(', ');
+    const likedTitles = entries
+      .filter(([, r]) => r === 'liked')
+      .map(([id]) => titleLabel(Number(id), input.titleMap))
+      .filter(t => !t.startsWith('tmdbId:'))
+      .slice(0, 5)
+      .join(', ');
+    const dislikedTitles = entries
       .filter(([, r]) => r === 'seen_disliked')
       .map(([id]) => titleLabel(Number(id), input.titleMap))
-      .join(', ') || 'ninguno';
+      .filter(t => !t.startsWith('tmdbId:'))
+      .slice(0, 4)
+      .join(', ');
+
     const alreadySeen = entries
       .filter(([, r]) => r === 'loved' || r === 'liked' || r === 'seen_disliked')
       .map(([id]) => titleLabel(Number(id), input.titleMap));
+
     const mood = MOOD_LABELS[input.moods[u.uid] ?? 'chill'];
     const genres = Object.entries(u.tasteProfile?.genres ?? {})
-      .filter(([, s]) => s > 0.5)
+      .sort((a, b) => b[1] - a[1])
+      .filter(([, s]) => s > 0.4)
+      .slice(0, 5)
       .map(([g]) => g)
       .join(', ') || 'variado';
-    const intensity = u.tasteProfile?.intensity ?? 0.5;
-    const intensityLabel = intensity < 0.35 ? 'liviano (prefiere ritmo tranquilo)' : intensity > 0.65 ? 'intenso (le gusta la tensión y el drama)' : 'equilibrado';
     const formatPref = u.tasteProfile?.seriesVsMovies ?? 0.5;
-    const formatLabel = formatPref < 0.35 ? 'prefiere películas' : formatPref > 0.65 ? 'prefiere series' : 'indistinto';
+    const formatLabel = formatPref < 0.35 ? 'prefiere películas' : formatPref > 0.65 ? 'prefiere series' : 'películas y series';
     const age = u.ageRange ? ` (${AGE_RANGE_LABELS[u.ageRange]})` : '';
+
+    const lovedBlock   = lovedTitles   ? `\n  ama especialmente: ${lovedTitles}`   : '';
+    const likedBlock   = likedTitles   ? `\n  también le gustó: ${likedTitles}`   : '';
+    const dislikedBlock = dislikedTitles ? `\n  no le gustó: ${dislikedTitles}` : '';
     const seenNote = alreadySeen.length > 0
-      ? `\n  ya visto (NO recomendar): ${alreadySeen.join(', ')}`
+      ? `\n  NO recomendar (ya visto): ${alreadySeen.map(t => t.startsWith('tmdbId:') ? '' : t).filter(Boolean).slice(0, 20).join(', ')}`
       : '';
-    return `- ${u.displayName}${age}: géneros favoritos [${genres}], intensidad preferida: ${intensityLabel}, formato: ${formatLabel}, le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}${seenNote}`;
+
+    return `- ${u.displayName}${age}: géneros [${genres}], formato: ${formatLabel}${lovedBlock}${likedBlock}${dislikedBlock}\n  mood esta noche: ${mood}${seenNote}`;
   }).join('\n');
 
-  return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.
+  const recentBlock = (input.recentlyRecommended?.length ?? 0) > 0
+    ? `\nTÍTULOS YA RECOMENDADOS ANTES (NO repetir estos): ${input.recentlyRecommended!.join(', ')}`
+    : '';
+
+  const openingLine = isSolo
+    ? `Sos el motor de recomendación de Queponemos. Analizá el perfil y recomendá exactamente 3 títulos para ver esta noche.`
+    : `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.`;
+
+  return `${openingLine}
 
 PERFILES:
 ${userBlocks}
-
+${recentBlock}
 PLATAFORMAS DISPONIBLES — usá exactamente estos IDs en el campo "platform":
 ${input.platforms.map(id => {
   const p = PLATFORMS.find(pl => pl.id === id);
@@ -180,17 +210,17 @@ ${input.platforms.map(id => {
 REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar en alguna de las plataformas listadas. El campo "platform" debe ser uno de los IDs entre comillas de arriba. Si hay más de una plataforma disponible, distribuí los títulos entre ellas (no pongas los 3 en la misma plataforma).
 
 REGLAS:
-1. NUNCA recomendés títulos marcados como "ya visto" en los perfiles.
-2. VARIEDAD DE ERA: intentá cubrir distintas décadas (no es obligatorio uno por era si no hay buenos candidatos).
-3. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos.
-4. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
+1. NUNCA recomendés títulos de la lista "ya visto" ni de "ya recomendados antes".
+2. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos entre sí.
+3. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
+4. "ama especialmente" pesa el doble que "también le gustó" — priorizá las afinidades más fuertes.
 5. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
    - 60-70: buena opción, aunque no es un match perfecto
    - 71-82: muy buena opción, varios puntos de coincidencia
    - 83-91: match excelente, coincidencia clara en gustos y mood
    - 92-100: solo para coincidencia casi perfecta y evidente
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
-6. No repetir siempre los mismos títulos populares del momento.
+6. EVITAR LO GENÉRICO: no pongas siempre The Dark Knight, Breaking Bad o Inception. Si el perfil muestra géneros claros, buscá gemas menos obvias del mismo tono.
 7. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
 8. Considerá la edad de los usuarios al elegir referencias culturales y títulos.
 
@@ -206,9 +236,9 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de c
     "synopsis": "string en español, 2-3 oraciones",
     "platform": "netflix",
     "compatibilityScore": 78,
-    "whyUs": "2-3 oraciones mencionando a los usuarios por nombre y explicando por qué es buena para ellos esta noche"
+    "whyUs": "2-3 oraciones: mencioná a los usuarios por nombre, qué géneros/títulos del perfil justifican esta elección, y por qué encaja con el mood de esta noche"
   }],
-  "groupInsight": "observación breve y específica sobre el grupo basada en sus perfiles"
+  "groupInsight": "${isSolo ? 'frase sobre el perfil del usuario: qué lo define y por qué estas recomendaciones encajan' : 'qué tienen en común los perfiles y dónde difieren — algo concreto, no genérico'}"
 }`;
 }
 
@@ -277,8 +307,8 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
         const wanted = normalizeTitle(rec.title);
         const altMediaType = mediaType === 'movie' ? 'tv' : 'movie';
 
-        function titleMatches(r: { title: string; originalTitle: string }): boolean {
-          return normalizeTitle(r.title) === wanted || normalizeTitle(r.originalTitle) === wanted;
+        function titleMatches(r: { title: string; originalTitle?: string }): boolean {
+          return normalizeTitle(r.title) === wanted || (r.originalTitle ? normalizeTitle(r.originalTitle) === wanted : false);
         }
 
         // 1st pass: title match (localized or original) + type + year

@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { PLATFORMS } from '../constants/platforms';
+import type { PlatformId } from '../constants/platforms';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
   saveMatchAndBroadcast, pollForMatchId, getMatchById,
@@ -24,13 +25,22 @@ export function useMatching() {
   // Cancel any in-progress poll when the component unmounts.
   useEffect(() => () => { abortRef.current?.abort(); }, []);
 
-  // Build tmdbId → "Title (year)" map from local history for better Claude prompts.
-  const titleMap: Record<number, string> = {};
-  for (const entry of history) {
-    for (const rec of entry.recommendations) {
-      if (rec.tmdbId) titleMap[rec.tmdbId] = `${rec.title} (${rec.year})`;
+  // Build tmdbId → "Title (year)" map — memoized so the useCallback closure stays fresh.
+  const titleMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const entry of history) {
+      for (const rec of entry.recommendations) {
+        if (rec.tmdbId) map[rec.tmdbId] = `${rec.title} (${rec.year})`;
+      }
     }
-  }
+    return map;
+  }, [history]);
+
+  // Last 3 sessions' recommended titles — passed to Claude to avoid repeating.
+  const recentlyRecommended = useMemo(
+    () => history.slice(-3).flatMap(e => e.recommendations.map(r => r.title)).filter(Boolean),
+    [history],
+  );
 
   // Dynamic leader: whoever called startGroupSession sets leaderUid.
   // Fallback to createdBy for sessions started before this field existed.
@@ -84,10 +94,10 @@ export function useMatching() {
       }
 
       // ── Leader / Solo path: call Claude, save, broadcast matchId ──────────
-      const allPlatformIds = PLATFORMS.map(p => p.id);
+      const allPlatformIds = PLATFORMS.map(p => p.id) as PlatformId[];
       const platforms = isSolo
         ? (user.platforms?.length ? user.platforms : allPlatformIds)
-        : (currentGroup?.platforms?.length ? currentGroup.platforms : ['netflix']);
+        : (currentGroup?.platforms?.length ? currentGroup.platforms : ['netflix' as PlatformId]);
 
       const members = isSolo
         ? [user.uid]
@@ -131,10 +141,11 @@ export function useMatching() {
         }
       } else {
         output = await runMatching({
-          users:     memberProfiles,
-          moods:     moods as Record<string, MoodId>,
+          users:                memberProfiles,
+          moods:                moods as Record<string, MoodId>,
           platforms,
-          titleMap:  Object.keys(titleMap).length > 0 ? titleMap : undefined,
+          titleMap:             Object.keys(titleMap).length > 0 ? titleMap : undefined,
+          recentlyRecommended:  recentlyRecommended.length > 0 ? recentlyRecommended : undefined,
         });
       }
 
@@ -182,7 +193,7 @@ export function useMatching() {
       setError(String(e));
       return null;
     }
-  }, [user, currentGroup, moods, isLeader, isSolo]);
+  }, [user, currentGroup, moods, isLeader, isSolo, titleMap, recentlyRecommended]);
 
   return { runMatch, error, isLeader };
 }

@@ -23,7 +23,7 @@ export interface NormalizedTitle {
   tmdbId: number;
   type: 'movie' | 'tv';
   title: string;
-  originalTitle: string;
+  originalTitle?: string;
   year: number;
   genres: string[];
   rating: number;
