@@ -8,6 +8,10 @@ export interface TasteProfile {
   intensity: number;
   seriesVsMovies: number;
   implicitGenres: string[];
+  // eraPreference: 0 = clásicos (1980s), 1 = contemporáneo (2020s)
+  eraPreference?: number;
+  // toneScore: -1 = muy oscuro/tenso (Terror, Thriller, Crimen), +1 = ligero/optimista (Comedia, Romance)
+  toneScore?: number;
 }
 
 // Precompute IDF from the catalog: genres appearing in many titles get lower weight.
@@ -27,6 +31,11 @@ const WEIGHTS: Record<Rating, number> = {
   not_seen:       0,
 };
 
+const LIGHT_GENRES = new Set(['Comedia', 'Romance', 'Animación', 'Familia', 'Aventura', 'Fantasía']);
+const DARK_GENRES  = new Set(['Terror', 'Thriller', 'Crimen', 'Misterio', 'Bélica']);
+const ERA_MIN = 1980;
+const ERA_MAX = new Date().getFullYear();
+
 export function recalculateTasteProfile(
   deltaRatings: Record<number, Rating>,
   deltaTitles: NormalizedTitle[],
@@ -36,6 +45,8 @@ export function recalculateTasteProfile(
   const rawScores: Record<string, number> = { ...(prevProfile.genreRawScores ?? {}) };
 
   let lovedSeries = 0, lovedMovies = 0, lovedRatingsSum = 0, lovedCount = 0;
+  let eraSum = 0, eraWeight = 0;
+  let lightSum = 0, darkSum = 0;
 
   for (const [idStr, rating] of Object.entries(deltaRatings)) {
     const title = deltaTitles.find(
@@ -46,6 +57,19 @@ export function recalculateTasteProfile(
     for (const genre of title.genres) {
       const idf = CATALOG_IDF[genre] ?? DEFAULT_IDF;
       rawScores[genre] = (rawScores[genre] ?? 0) + w * idf;
+    }
+    if (rating === 'loved' || rating === 'liked') {
+      const titleW = rating === 'loved' ? 2 : 1;
+      // Era signal: normalized 0-1 from ERA_MIN to ERA_MAX
+      if (title.year && title.year >= ERA_MIN) {
+        eraSum    += ((title.year - ERA_MIN) / (ERA_MAX - ERA_MIN)) * titleW;
+        eraWeight += titleW;
+      }
+      // Tone signal: positive = light, negative = dark
+      for (const g of title.genres) {
+        if (LIGHT_GENRES.has(g)) lightSum += titleW;
+        if (DARK_GENRES.has(g))  darkSum  += titleW;
+      }
     }
     if (rating === 'loved') {
       if (title.type === 'tv') lovedSeries++;
@@ -67,6 +91,7 @@ export function recalculateTasteProfile(
     .map(([g]) => g);
 
   const total = lovedSeries + lovedMovies;
+  const toneTotal = lightSum + darkSum;
   return {
     genres,
     genreRawScores: rawScores,
@@ -75,6 +100,12 @@ export function recalculateTasteProfile(
       : prevProfile.intensity,
     seriesVsMovies: total > 0 ? lovedSeries / total : prevProfile.seriesVsMovies,
     implicitGenres,
+    eraPreference: eraWeight > 0
+      ? parseFloat((eraSum / eraWeight).toFixed(3))
+      : prevProfile.eraPreference,
+    toneScore: toneTotal > 0
+      ? parseFloat(((lightSum - darkSum) / toneTotal).toFixed(3))
+      : prevProfile.toneScore,
   };
 }
 

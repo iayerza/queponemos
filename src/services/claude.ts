@@ -109,7 +109,8 @@ export interface MatchingInput {
   users: UserProfile[];
   moods: Record<string, MoodId[]>;
   platforms: PlatformId[];
-  titleMap?: Record<number, string>; // tmdbId → "Título (año)" para usar en el prompt
+  titleMap?: Record<number, string>; // tmdbId → "Título (año)" para historial
+  ratedTitleNames?: Record<number, string>; // tmdbId → nombre; enriquece el prompt con nombres reales
 }
 
 export interface MatchingOutput {
@@ -133,39 +134,84 @@ const AGE_RANGE_LABELS: Record<string, string> = {
   senior: 'más de 50 años',
 };
 
-function titleLabel(id: number, titleMap?: Record<number, string>): string {
-  return titleMap?.[id] ?? `tmdbId:${id}`;
+// Merges titleMap (from history) with ratedTitleNames (from onboarding/results ratings)
+function resolveName(id: number, input: MatchingInput): string {
+  return input.ratedTitleNames?.[id] ?? input.titleMap?.[id] ?? '';
+}
+
+function eraLabel(era?: number): string {
+  if (era === undefined) return '';
+  if (era < 0.25) return 'clásicos (80s-90s)';
+  if (era < 0.5)  return 'títulos de los 90s-2000s';
+  if (era < 0.75) return 'títulos de los 2000s-2010s';
+  return 'cine contemporáneo (2010s-hoy)';
+}
+
+function toneLabel(tone?: number): string {
+  if (tone === undefined) return '';
+  if (tone < -0.5) return 'prefiere oscuro y tenso';
+  if (tone < -0.1) return 'prefiere tonos serios con algo de tensión';
+  if (tone <  0.1) return 'equilibrado entre oscuro y ligero';
+  if (tone <  0.5) return 'prefiere algo más liviano y optimista';
+  return 'prefiere ligero y entretenido, evita el oscurantismo';
 }
 
 function buildPrompt(input: MatchingInput): string {
   const userBlocks = input.users.map(u => {
     const entries = Object.entries(u.ratings ?? {});
-    const loved = entries
-      .filter(([, r]) => r === 'loved' || r === 'liked')
-      .map(([id]) => titleLabel(Number(id), input.titleMap))
-      .join(', ') || 'ninguno aún';
-    const disliked = entries
-      .filter(([, r]) => r === 'seen_disliked')
-      .map(([id]) => titleLabel(Number(id), input.titleMap))
-      .join(', ') || 'ninguno';
-    const alreadySeen = entries
-      .filter(([, r]) => r === 'loved' || r === 'liked' || r === 'seen_disliked')
-      .map(([id]) => titleLabel(Number(id), input.titleMap));
     const moodArr = input.moods[u.uid] ?? ['chill'];
     const mood = moodArr.map(m => MOOD_LABELS[m] ?? m).join(' + ');
-    const genres = Object.entries(u.tasteProfile?.genres ?? {})
-      .filter(([, s]) => s > 0.5)
+
+    // Top genres by score
+    const topGenres = Object.entries(u.tasteProfile?.genres ?? {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
       .map(([g]) => g)
       .join(', ') || 'variado';
-    const intensity = u.tasteProfile?.intensity ?? 0.5;
-    const intensityLabel = intensity < 0.35 ? 'liviano (prefiere ritmo tranquilo)' : intensity > 0.65 ? 'intenso (le gusta la tensión y el drama)' : 'equilibrado';
+
+    // Era and tone descriptors from new TasteProfile fields
+    const era  = eraLabel(u.tasteProfile?.eraPreference);
+    const tone = toneLabel(u.tasteProfile?.toneScore);
+
+    // Format preference
     const formatPref = u.tasteProfile?.seriesVsMovies ?? 0.5;
-    const formatLabel = formatPref < 0.35 ? 'prefiere películas' : formatPref > 0.65 ? 'prefiere series' : 'indistinto';
-    const age = u.ageRange ? ` (${AGE_RANGE_LABELS[u.ageRange]})` : '';
-    const seenNote = alreadySeen.length > 0
-      ? `\n  ya visto (NO recomendar): ${alreadySeen.join(', ')}`
+    const formatLabel = formatPref < 0.3 ? 'prefiere películas' : formatPref > 0.7 ? 'prefiere series' : 'películas y series';
+
+    // Loved titles — use real names, limit to 8 most recent
+    const lovedIds = entries
+      .filter(([, r]) => r === 'loved')
+      .map(([id]) => Number(id));
+    const likedIds = entries
+      .filter(([, r]) => r === 'liked')
+      .map(([id]) => Number(id));
+    const dislikedIds = entries
+      .filter(([, r]) => r === 'seen_disliked')
+      .map(([id]) => Number(id));
+
+    const lovedNames  = lovedIds.map(id => resolveName(id, input)).filter(Boolean).slice(0, 8);
+    const likedNames  = likedIds.map(id => resolveName(id, input)).filter(Boolean).slice(0, 6);
+    const dislikedNames = dislikedIds.map(id => resolveName(id, input)).filter(Boolean).slice(0, 4);
+
+    // All seen titles (tmdbId or name) to block from recommendations
+    const allSeenIds = [...lovedIds, ...likedIds, ...dislikedIds];
+    const seenBlock = allSeenIds.length > 0
+      ? `\n  NO recomendar (ya visto): ${allSeenIds.map(id => resolveName(id, input) || `tmdbId:${id}`).join(', ')}`
       : '';
-    return `- ${u.displayName}${age}: géneros favoritos [${genres}], intensidad preferida: ${intensityLabel}, formato: ${formatLabel}, le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}${seenNote}`;
+
+    const age = u.ageRange ? ` (${AGE_RANGE_LABELS[u.ageRange]})` : '';
+
+    const profileLines = [
+      `géneros dominantes: ${topGenres}`,
+      era  ? `época preferida: ${era}`  : '',
+      tone ? `tono: ${tone}` : '',
+      `formato: ${formatLabel}`,
+    ].filter(Boolean).join('; ');
+
+    const lovedBlock   = lovedNames.length   ? `\n  le encantó: ${lovedNames.join(', ')}`   : '';
+    const likedBlock   = likedNames.length   ? `\n  le gustó: ${likedNames.join(', ')}`     : '';
+    const dislikBlock  = dislikedNames.length? `\n  no le gustó: ${dislikedNames.join(', ')}` : '';
+
+    return `- ${u.displayName}${age}: ${profileLines}${lovedBlock}${likedBlock}${dislikBlock}\n  mood esta noche: ${mood}${seenBlock}`;
   }).join('\n');
 
   return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.

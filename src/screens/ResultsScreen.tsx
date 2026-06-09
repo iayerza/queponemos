@@ -131,7 +131,7 @@ export default function ResultsScreen() {
     const { rec, idx } = ratingTarget;
     setRatingTarget(null);
     handleAction(idx, 'watched');
-    if (rec.tmdbId) updateRatings(rec.tmdbId, rating);
+    if (rec.tmdbId) updateRatings(rec.tmdbId, rating, rec.title);
     if (!USE_MOCK && rec.tmdbId) {
       try {
         await rateTitleAndUpdateProfile(user.uid, rec.tmdbId, rating, {

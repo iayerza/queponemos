@@ -17,7 +17,7 @@ export function useMatching() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const { user }                                      = useAuthStore();
+  const { user, ratedTitleNames }                      = useAuthStore();
   const { currentGroup }                              = useGroupStore();
   const { moods, setCurrentMatch, isSolo, history }   = useMatchStore();
 
@@ -131,10 +131,11 @@ export function useMatching() {
         }
       } else {
         output = await runMatching({
-          users:     memberProfiles,
+          users:              memberProfiles,
           moods,
           platforms,
-          titleMap:  Object.keys(titleMap).length > 0 ? titleMap : undefined,
+          titleMap:           Object.keys(titleMap).length > 0 ? titleMap : undefined,
+          ratedTitleNames:    Object.keys(ratedTitleNames).length > 0 ? ratedTitleNames : undefined,
         });
       }
 

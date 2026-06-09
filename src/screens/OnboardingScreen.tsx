@@ -80,7 +80,7 @@ export default function OnboardingScreen() {
     const title = titles[currentIndex];
     if (!title || !user) return;
     fadeAnim.setValue(0);
-    updateRatings(title.tmdbId, r);
+    updateRatings(title.tmdbId, r, title.title);
     if (!USE_MOCK) rateTitleAndUpdateProfile(user.uid, title.tmdbId, r, title).catch(() => {});
     rate(r);
     Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: true }).start();
