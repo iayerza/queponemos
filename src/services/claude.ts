@@ -112,6 +112,7 @@ export interface MatchingInput {
   platforms: PlatformId[];
   titleMap?: Record<number, string>; // tmdbId → "Título (año)" para historial
   ratedTitleNames?: Record<number, string>; // tmdbId → nombre; enriquece el prompt con nombres reales
+  recentlyRecommended?: string[]; // títulos recomendados en las últimas sesiones (NO repetir)
 }
 
 export interface MatchingOutput {
@@ -222,11 +223,15 @@ function buildPrompt(input: MatchingInput): string {
     ? `Sos el motor de recomendación de Queponemos. Analizá el perfil y recomendá exactamente 3 títulos para ver esta noche.`
     : `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.`;
 
+  const recentBlock = (input.recentlyRecommended?.length ?? 0) > 0
+    ? `\nTÍTULOS YA RECOMENDADOS RECIENTEMENTE (NO repetir estos): ${input.recentlyRecommended!.join(', ')}\n`
+    : '';
+
   return `${openingLine}
 
 PERFILES:
 ${userBlocks}
-
+${recentBlock}
 PLATAFORMAS DISPONIBLES — usá exactamente estos IDs en el campo "platform":
 ${input.platforms.map(id => {
   const p = PLATFORMS.find(pl => pl.id === id);
