@@ -279,32 +279,31 @@ const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
 
   // 36–50 — grandes clásicos, drama maduro, prestige TV
   adult: [
-    // Pre-1980 (4)
-    { media: 'movie', genre: MG.drama,    yearTo: 1979, minRating: 7.5, minVotes: 3000, pick: 2 },
-    { media: 'movie', genre: MG.crime,    yearTo: 1979, minRating: 7.5, minVotes: 3000, pick: 1 },
-    { media: 'movie', genre: MG.thriller, yearTo: 1979, minRating: 7.5, minVotes: 3000, pick: 1 },
-    // 1980–1999 (8)
-    { media: 'movie', genre: MG.drama,    yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.thriller, yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.crime,    yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.comedy,   yearFrom: 1980, yearTo: 1999, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.action,   yearFrom: 1980, yearTo: 1999, minRating: 7.0, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.scifi,    yearFrom: 1980, yearTo: 1999, minRating: 7.0, minVotes: 2000, pick: 1 },
-    // 2000–2015 (8)
-    { media: 'movie', genre: MG.drama,    yearFrom: 2000, yearTo: 2015, minRating: 7.5, minVotes: 1000, pick: 3 },
-    { media: 'movie', genre: MG.thriller, yearFrom: 2000, yearTo: 2015, minRating: 7.0, minVotes: 1000, pick: 2 },
-    { media: 'movie', genre: MG.comedy,   yearFrom: 2000, yearTo: 2015, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.crime,    yearFrom: 2000, yearTo: 2015, minRating: 7.5, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.horror,   yearFrom: 2000, yearTo: 2015, minRating: 7.0, minVotes: 1000, pick: 1 },
-    // 2015+ (4)
-    { media: 'movie', genre: MG.drama,    yearFrom: 2015, minRating: 7.5, minVotes: 500, pick: 2 },
-    { media: 'movie', genre: MG.thriller, yearFrom: 2015, minRating: 7.0, minVotes: 500, pick: 1 },
-    { media: 'movie', genre: MG.comedy,   yearFrom: 2015, minRating: 7.0, minVotes: 500, pick: 1 },
+    // 1990–1999 (4) — nacidos ~1976-1990, no ven películas pre-1980
+    { media: 'movie', genre: MG.drama,    yearFrom: 1990, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 1990, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 1990, yearTo: 1999, minRating: 7.0, minVotes: 1000, pick: 1 },
+    // 2000–2012 (10)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 1000, pick: 3 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000, pick: 2 },
+    { media: 'movie', genre: MG.crime,    yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 1000, pick: 2 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.action,   yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.scifi,    yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000, pick: 1 },
+    // 2013–2021 (8)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2013, yearTo: 2021, minRating: 7.5, minVotes: 500, pick: 3 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 500, pick: 2 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 500, pick: 1 },
+    { media: 'movie', genre: MG.horror,   yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 500, pick: 1 },
+    { media: 'movie', genre: MG.crime,    yearFrom: 2013, yearTo: 2021, minRating: 7.5, minVotes: 500, pick: 1 },
+    // 2022+ (2)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2022, minRating: 7.0, minVotes: 200, pick: 1 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 2022, minRating: 7.0, minVotes: 200, pick: 1 },
     // Series (6)
     { media: 'tv', genre: TG.drama,  minRating: 8.0, minVotes: 500, pick: 3 },
     { media: 'tv', genre: TG.crime,  minRating: 8.0, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.comedy, minRating: 7.5, minVotes: 300, pick: 1 },
-  ], // 4+8+8+4+6 = 30
+  ], // 4+10+8+2+6 = 30
 
   // 50+ — clásicos, period drama, cine de autor
   senior: [
