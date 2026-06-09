@@ -62,6 +62,7 @@ export interface UserProfile {
   displayName: string;
   photoURL: string | null;
   ratings: Record<number, Rating>;
+  ratingTimestamps?: Record<number, number>; // tmdbId → epoch ms; enables time-decay weighting
   tasteProfile: TasteProfile;
   onboardingDone: boolean;
   platforms: PlatformId[];
@@ -230,10 +231,12 @@ export async function rateTitleAndUpdateProfile(
   }
 
   // Incremental update: pass only the delta (new rating + its metadata)
-  const newProfile = recalculateTasteProfile({ [titleId]: rating }, [titleMeta], prevProfile);
+  const ts = { ...(profile.ratingTimestamps ?? {}), [titleId]: Date.now() };
+  const newProfile = recalculateTasteProfile({ [titleId]: rating }, [titleMeta], prevProfile, ts);
 
   await updateDoc(doc(db(), 'users', uid), {
     [`ratings.${titleId}`]: rating,
+    [`ratingTimestamps.${titleId}`]: Date.now(),
     tasteProfile: newProfile,
     updatedAt: serverTimestamp(),
   });

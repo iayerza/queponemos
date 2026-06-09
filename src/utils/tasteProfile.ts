@@ -38,10 +38,21 @@ const DARK_GENRES  = new Set(['Terror', 'Thriller', 'Crimen', 'Misterio', 'Béli
 const ERA_MIN = 1980;
 const ERA_MAX = new Date().getFullYear();
 
+// Half-life: ratings older than DECAY_HALF_LIFE_DAYS are at 50% weight.
+// 180 days = onboarding ratings still matter for ~6 months, then fade.
+const DECAY_HALF_LIFE_DAYS = 180;
+
+function decayMultiplier(ratingTimestamp?: number): number {
+  if (!ratingTimestamp) return 1;
+  const daysSince = (Date.now() - ratingTimestamp) / 86_400_000;
+  return Math.exp(-Math.LN2 * daysSince / DECAY_HALF_LIFE_DAYS);
+}
+
 export function recalculateTasteProfile(
   deltaRatings: Record<number, Rating>,
   deltaTitles: NormalizedTitle[],
   prevProfile: TasteProfile,
+  ratingTimestamps?: Record<number, number>,
 ): TasteProfile {
   // Accumulate IDF-weighted scores on top of stored raw scores
   const rawScores: Record<string, number> = { ...(prevProfile.genreRawScores ?? {}) };
@@ -55,13 +66,14 @@ export function recalculateTasteProfile(
       t => t.tmdbId === Number(idStr) || t.id === Number(idStr)
     );
     if (!title) continue;
-    const w = WEIGHTS[rating];
+    const decay = decayMultiplier(ratingTimestamps?.[Number(idStr)]);
+    const w = WEIGHTS[rating] * decay;
     for (const genre of title.genres) {
       const idf = CATALOG_IDF[genre] ?? DEFAULT_IDF;
       rawScores[genre] = (rawScores[genre] ?? 0) + w * idf;
     }
     if (rating === 'loved' || rating === 'liked') {
-      const titleW = rating === 'loved' ? 2 : 1;
+      const titleW = (rating === 'loved' ? 2 : 1) * decay;
       // Era signal: normalized 0-1 from ERA_MIN to ERA_MAX
       if (title.year && title.year >= ERA_MIN) {
         eraSum    += ((title.year - ERA_MIN) / (ERA_MAX - ERA_MIN)) * titleW;
