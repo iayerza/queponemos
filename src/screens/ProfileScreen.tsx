@@ -16,6 +16,7 @@ import { useTheme, type ThemePreference } from '../context/ThemeContext';
 import { PLATFORMS } from '../constants/platforms';
 import type { PlatformId } from '../constants/platforms';
 import PlatformLogo from '../components/PlatformLogo';
+import { topKeywordLabels } from '../utils/tasteProfile';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
@@ -39,14 +40,41 @@ export default function ProfileScreen() {
     { key: 'system', label: 'Sistema' },
   ];
 
-  const topGenres = Object.entries(user?.tasteProfile?.genres ?? {})
+  const profile = user?.tasteProfile;
+
+  const topGenres = Object.entries(profile?.genres ?? {})
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
     .map(([g, score]) => ({ genre: g, score }));
 
+  const topKeywords = topKeywordLabels(profile ?? { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] });
+
   const ratingCount = Object.keys(user?.ratings ?? {}).length;
   const lovedCount  = Object.values(user?.ratings ?? {}).filter(r => r === 'loved').length;
   const seenCount   = Object.values(user?.ratings ?? {}).filter(r => r === 'seen_disliked').length;
+
+  // Natural language profile summary
+  const era  = profile?.eraPreference;
+  const tone = profile?.toneScore;
+  const eraStr  = era  === undefined ? ''
+    : era  < 0.25 ? 'clásicos 80s-90s'
+    : era  < 0.5  ? '90s-2000s'
+    : era  < 0.75 ? '2000s-2010s'
+    : 'cine contemporáneo';
+  const toneStr = tone === undefined ? ''
+    : tone < -0.5 ? 'muy oscuro y tenso'
+    : tone < -0.1 ? 'serio con cierta tensión'
+    : tone <  0.1 ? 'equilibrado'
+    : tone <  0.5 ? 'más bien ligero'
+    : 'ligero y optimista';
+  const summaryParts = [
+    topGenres.length ? topGenres.slice(0, 2).map(g => g.genre).join(' y ') : null,
+    eraStr  ? eraStr  : null,
+    toneStr ? toneStr : null,
+  ].filter(Boolean);
+  const profileSummary = summaryParts.length >= 2
+    ? `${summaryParts.join(' · ')}`
+    : null;
 
   async function handleLogout() {
     Alert.alert('Cerrar sesión', '¿Querés cerrar sesión?', [
@@ -186,14 +214,29 @@ export default function ProfileScreen() {
       </View>
 
       {/* Géneros ocultos */}
-      {(user?.tasteProfile?.implicitGenres ?? []).length > 0 && (
+      {(profile?.implicitGenres ?? []).length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>También te gusta (sin darte cuenta)</Text>
           <Text style={styles.sectionSub}>Géneros que el sistema detectó pero no elegiste conscientemente</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
-            {user!.tasteProfile.implicitGenres.map(g => (
+            {profile!.implicitGenres.map(g => (
               <View key={g} style={styles.implicitChip}>
                 <Text style={styles.implicitChipText}>{g}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Afinidades estilísticas (keywords) */}
+      {topKeywords.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tus afinidades</Text>
+          <Text style={styles.sectionSub}>Temas y estilos recurrentes en lo que más te gustó</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+            {topKeywords.map(k => (
+              <View key={k} style={styles.keywordChip}>
+                <Text style={styles.keywordChipText}>{k}</Text>
               </View>
             ))}
           </View>
@@ -203,23 +246,38 @@ export default function ProfileScreen() {
       {/* Perfil inferido */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Tu perfil</Text>
+        {profileSummary && (
+          <View style={styles.profileSummaryBox}>
+            <Text style={styles.profileSummaryText}>{profileSummary}</Text>
+          </View>
+        )}
         {[
           {
-            label: 'Intensidad preferida',
-            value: (user?.tasteProfile?.intensity ?? 0.5) > 0.65 ? 'Alta' :
-                   (user?.tasteProfile?.intensity ?? 0.5) < 0.35 ? 'Suave' : 'Moderada',
+            label: 'Época favorita',
+            value: eraStr || '—',
+            hide: !eraStr,
           },
           {
-            label: 'Series vs películas',
-            value: (user?.tasteProfile?.seriesVsMovies ?? 0.5) > 0.6 ? 'Series' :
-                   (user?.tasteProfile?.seriesVsMovies ?? 0.5) < 0.4 ? 'Películas' : 'Mitad y mitad',
+            label: 'Tono preferido',
+            value: toneStr || '—',
+            hide: !toneStr,
+          },
+          {
+            label: 'Intensidad',
+            value: (profile?.intensity ?? 0.5) > 0.65 ? 'Alta' :
+                   (profile?.intensity ?? 0.5) < 0.35 ? 'Suave' : 'Moderada',
+          },
+          {
+            label: 'Formato',
+            value: (profile?.seriesVsMovies ?? 0.5) > 0.6 ? 'Series' :
+                   (profile?.seriesVsMovies ?? 0.5) < 0.4 ? 'Películas' : 'Mitad y mitad',
           },
           {
             label: 'Títulos calificados',
             value: `${ratingCount}/30${ratingCount < 12 ? ' — completá el onboarding' : ' ✓'}`,
             accent: ratingCount >= 12,
           },
-        ].map(row => (
+        ].filter(r => !r.hide).map(row => (
           <View key={row.label} style={styles.profileRow}>
             <Text style={styles.profileLabel}>{row.label}</Text>
             <Text style={[styles.profileValue, row.accent === true && { color: Colors.success }]}>
@@ -334,17 +392,17 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg },
   content: { paddingHorizontal: 24 },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 24, marginBottom: 24 },
-  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: '#fff', fontSize: Typography.h1, fontWeight: Typography.medium },
-  displayName: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium },
-  email: { color: Colors.sub, fontSize: Typography.small, marginTop: 2 },
+  displayName: { color: Colors.text, fontSize: Typography.h2, fontWeight: Typography.medium },
+  email: { color: Colors.sub, fontSize: Typography.body, marginTop: 3 },
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 28 },
-  statBox: { flex: 1, backgroundColor: Colors.s1, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  statNum: { color: Colors.accent, fontSize: Typography.h1, fontWeight: Typography.medium },
-  statLabel: { color: Colors.sub, fontSize: Typography.tiny, marginTop: 2, textAlign: 'center' },
+  statBox: { flex: 1, backgroundColor: Colors.s1, borderRadius: 14, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  statNum: { color: Colors.accent, fontSize: 26, fontWeight: Typography.medium },
+  statLabel: { color: Colors.sub, fontSize: Typography.tiny, marginTop: 3, textAlign: 'center' },
   section: { marginBottom: 28 },
-  sectionTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium, marginBottom: 2 },
-  sectionSub: { color: Colors.faint, fontSize: Typography.tiny, marginBottom: 14 },
+  sectionTitle: { color: Colors.text, fontSize: Typography.h2, fontWeight: Typography.medium, marginBottom: 2 },
+  sectionSub: { color: Colors.faint, fontSize: Typography.small, marginBottom: 14 },
   implicitChip: { backgroundColor: Colors.accentFaint, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: Colors.accentBorder },
   implicitChipText: { color: Colors.accent, fontSize: Typography.small },
   genreRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
@@ -353,6 +411,10 @@ const styles = StyleSheet.create({
   barFill: { height: 4, backgroundColor: Colors.accent, borderRadius: 2 },
   genreScore: { color: Colors.accent, fontSize: Typography.tiny, width: 36, textAlign: 'right' },
   emptyNote: { color: Colors.faint, fontSize: Typography.small },
+  keywordChip: { backgroundColor: Colors.s2, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
+  keywordChipText: { color: Colors.sub, fontSize: Typography.small },
+  profileSummaryBox: { borderLeftWidth: 3, borderLeftColor: Colors.accent, backgroundColor: Colors.accentFaint, borderRadius: 6, padding: 12, marginBottom: 16 },
+  profileSummaryText: { color: Colors.text, fontSize: Typography.body, fontWeight: Typography.medium },
   profileRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
   profileLabel: { color: Colors.sub, fontSize: Typography.small },
   profileValue: { color: Colors.text, fontSize: Typography.small, fontWeight: Typography.medium },

@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { PLATFORMS } from '../constants/platforms';
-import type { PlatformId } from '../constants/platforms';
+import { PLATFORMS, type PlatformId } from '../constants/platforms';
 import { runMatching, mockMatching, type MatchingOutput } from '../services/claude';
 import {
   saveMatchAndBroadcast, pollForMatchId, getMatchById,
@@ -18,7 +17,7 @@ export function useMatching() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const { user }                                      = useAuthStore();
+  const { user, ratedTitleNames }                      = useAuthStore();
   const { currentGroup }                              = useGroupStore();
   const { moods, setCurrentMatch, isSolo, history }   = useMatchStore();
 
@@ -83,7 +82,7 @@ export function useMatching() {
             groupName: currentGroup.name,
             createdAt: Date.now(),
             recommendations: match.recommendations,
-            moods: moods as Record<string, MoodId>,
+            moods: moods,
           };
           const { addToHistory } = useMatchStore.getState();
           addToHistory(followerEntry);
@@ -94,8 +93,8 @@ export function useMatching() {
       }
 
       // ── Leader / Solo path: call Claude, save, broadcast matchId ──────────
-      const allPlatformIds = PLATFORMS.map(p => p.id) as PlatformId[];
-      const platforms = isSolo
+      const allPlatformIds = PLATFORMS.map(p => p.id as PlatformId);
+      const platforms: PlatformId[] = isSolo
         ? (user.platforms?.length ? user.platforms : allPlatformIds)
         : (currentGroup?.platforms?.length ? currentGroup.platforms : ['netflix' as PlatformId]);
 
@@ -121,7 +120,7 @@ export function useMatching() {
         await new Promise(r => setTimeout(r, 2500));
         const mockOut = mockMatching({
           users:     memberProfiles,
-          moods:     moods as Record<string, MoodId>,
+          moods,
           platforms,
         });
         if (process.env.EXPO_PUBLIC_TMDB_API_KEY) {
@@ -142,9 +141,10 @@ export function useMatching() {
       } else {
         output = await runMatching({
           users:                memberProfiles,
-          moods:                moods as Record<string, MoodId>,
+          moods,
           platforms,
           titleMap:             Object.keys(titleMap).length > 0 ? titleMap : undefined,
+          ratedTitleNames:      Object.keys(ratedTitleNames).length > 0 ? ratedTitleNames : undefined,
           recentlyRecommended:  recentlyRecommended.length > 0 ? recentlyRecommended : undefined,
         });
       }
@@ -159,7 +159,7 @@ export function useMatching() {
             currentGroup.id,
             members,
             output.recommendations,
-            moods as Record<string, MoodId>,
+            moods,
             output.groupInsight,
           );
           // Advance the rotating leader turn after the match is committed.
@@ -176,7 +176,7 @@ export function useMatching() {
         groupName: isSolo ? 'Solo' : (currentGroup?.name ?? 'Solo'),
         createdAt: Date.now(),
         recommendations: output.recommendations,
-        moods: moods as Record<string, MoodId>,
+        moods: moods,
       };
 
       const { addToHistory } = useMatchStore.getState();
@@ -193,7 +193,7 @@ export function useMatching() {
       setError(String(e));
       return null;
     }
-  }, [user, currentGroup, moods, isLeader, isSolo, titleMap, recentlyRecommended]);
+  }, [user, currentGroup, moods, isLeader, isSolo, titleMap, recentlyRecommended, ratedTitleNames]);
 
   return { runMatch, error, isLeader };
 }

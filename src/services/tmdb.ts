@@ -30,6 +30,7 @@ export interface NormalizedTitle {
   posterPath: string | null;
   synopsis: string;
   runtime?: number;
+  keywords?: string[]; // populated lazily via fetchKeywords()
 }
 
 const GENRE_MAP: Record<number, string> = {
@@ -138,6 +139,60 @@ export async function fetchTrailerKey(tmdbId: number, type: 'movie' | 'tv'): Pro
   return pick?.key ?? null;
 }
 
+function parseDiscoverResult(r: Record<string, unknown>, type: 'movie' | 'tv'): NormalizedTitle {
+  const title = type === 'movie' ? (r.title as string) : (r.name as string);
+  const originalTitle = type === 'movie'
+    ? (r.original_title as string ?? title)
+    : (r.original_name as string ?? title);
+  const dateStr = type === 'movie'
+    ? (r.release_date as string)
+    : (r.first_air_date as string);
+  return {
+    id: r.id as number,
+    tmdbId: r.id as number,
+    type,
+    title,
+    originalTitle,
+    year: dateStr ? parseInt(dateStr.slice(0, 4), 10) : 0,
+    genres: ((r.genre_ids as number[]) ?? []).map(id => GENRE_MAP[id] ?? 'Otro'),
+    rating: parseFloat(((r.vote_average as number) ?? 0).toFixed(1)),
+    posterPath: (r.poster_path as string | null) ?? null,
+    synopsis: (r.overview as string) ?? '',
+  };
+}
+
+function isoDateDaysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+export async function discoverByGenre(
+  type: 'movie' | 'tv',
+  genreId: number,
+  minYear: number,
+  page = 1,
+): Promise<NormalizedTitle[]> {
+  const dateField = type === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
+  const minVotes  = type === 'movie' ? 500 : 100;
+  let path = `/discover/${type}?with_genres=${genreId}&sort_by=vote_count.desc`
+    + `&vote_count.gte=${minVotes}&${dateField}=${minYear}-01-01&page=${page}`;
+  if (type === 'movie') path += `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
+  const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
+  return (data.results ?? []).slice(0, 5).map(r => parseDiscoverResult(r, type));
+}
+
+// Fetch the most universally recognized movies for the user's era — no genre filter.
+// These anchor the cold start: vote_count.desc across all genres gives The Dark Knight,
+// Inception, Pulp Fiction, The Matrix, Forrest Gump, etc. — movies everyone has seen.
+export async function fetchAnchorTitles(minYear: number): Promise<NormalizedTitle[]> {
+  const path = `/discover/movie?sort_by=vote_count.desc&vote_count.gte=300000`
+    + `&primary_release_date.gte=${minYear}-01-01`
+    + `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
+  const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
+  return (data.results ?? []).slice(0, 12).map(r => parseDiscoverResult(r, 'movie'));
+}
+
 export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
   const data = await tmdbGet(`/search/multi?query=${encodeURIComponent(query)}`) as {
     results: Record<string, unknown>[];
@@ -167,4 +222,39 @@ export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
         synopsis: (r.overview as string) ?? '',
       };
     });
+}
+
+// Keywords genéricas que no aportan señal de gusto (filtradas del perfil)
+const KW_BLOCKLIST = new Set([
+  'independent film', 'woman director', 'based on novel', 'based on true story',
+  'based on real events', 'sequel', 'prequel', 'remake', 'duringcreditsstinger',
+  'aftercreditsstinger', 'superhero', 'dc comics', 'marvel comics',
+]);
+
+// Fetch keywords for a title. Returns an array of normalized keyword strings.
+// Lightweight call (~200B response). Designed to run in background post-rating.
+export async function fetchKeywords(tmdbId: number, type: 'movie' | 'tv'): Promise<string[]> {
+  const path = type === 'movie'
+    ? `/movie/${tmdbId}/keywords`
+    : `/tv/${tmdbId}/keywords`;
+  const data = await tmdbGet(path) as {
+    keywords?: { name: string }[];
+    results?:  { name: string }[];
+  };
+  const raw = data.keywords ?? data.results ?? [];
+  return raw
+    .map(k => k.name.toLowerCase().trim())
+    .filter(k => k.length > 2 && !KW_BLOCKLIST.has(k))
+    .slice(0, 15);
+}
+
+// Fetch top-voted light-genre movies for anchor diversity補完.
+// Used when anchors lack Comedy/Romance coverage.
+export async function fetchLightAnchorTitles(minYear: number, count: number): Promise<NormalizedTitle[]> {
+  const path = `/discover/movie?sort_by=vote_count.desc&vote_count.gte=100000`
+    + `&with_genres=35|10749`   // Comedy OR Romance
+    + `&primary_release_date.gte=${minYear}-01-01`
+    + `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
+  const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
+  return (data.results ?? []).slice(0, count).map(r => parseDiscoverResult(r, 'movie'));
 }
