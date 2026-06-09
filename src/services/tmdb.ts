@@ -173,13 +173,23 @@ export async function discoverByGenre(
   page = 1,
 ): Promise<NormalizedTitle[]> {
   const dateField = type === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
-  const minVotes  = type === 'movie' ? 200 : 50;
-  let path = `/discover/${type}?with_genres=${genreId}&sort_by=popularity.desc`
+  const minVotes  = type === 'movie' ? 500 : 100;
+  let path = `/discover/${type}?with_genres=${genreId}&sort_by=vote_count.desc`
     + `&vote_count.gte=${minVotes}&${dateField}=${minYear}-01-01&page=${page}`;
-  // For movies: exclude releases from the last 90 days (still in theaters / not yet on streaming)
   if (type === 'movie') path += `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
   const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
   return (data.results ?? []).slice(0, 4).map(r => parseDiscoverResult(r, type));
+}
+
+// Fetch the most universally recognized movies for the user's era — no genre filter.
+// These anchor the cold start: vote_count.desc across all genres gives The Dark Knight,
+// Inception, Pulp Fiction, The Matrix, Forrest Gump, etc. — movies everyone has seen.
+export async function fetchAnchorTitles(minYear: number): Promise<NormalizedTitle[]> {
+  const path = `/discover/movie?sort_by=vote_count.desc&vote_count.gte=300000`
+    + `&primary_release_date.gte=${minYear}-01-01`
+    + `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
+  const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
+  return (data.results ?? []).slice(0, 10).map(r => parseDiscoverResult(r, 'movie'));
 }
 
 export async function searchTitles(query: string): Promise<NormalizedTitle[]> {

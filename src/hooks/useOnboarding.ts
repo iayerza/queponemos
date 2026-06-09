@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MOCK_TITLES } from '../constants/mockTitles';
-import { discoverByGenre, type NormalizedTitle } from '../services/tmdb';
+import { discoverByGenre, fetchAnchorTitles, type NormalizedTitle } from '../services/tmdb';
 import { useAuthStore } from '../store/useAuthStore';
 import type { Rating } from '../services/firebase';
 import type { AgeRange } from '../navigation/types';
@@ -104,14 +104,23 @@ const ALL_PROBES: Record<AgeRange | 'default', Probe[]> = {
   ],
 };
 
-// Age-aware minimum year: adult (36-50) gets MIN_YEAR=1996 so The Matrix, Gladiator,
-// Dark Knight, etc. appear. senior gets 1981 for Spielberg-era classics.
+// MIN_YEAR filters genre probes — keeps results era-appropriate for the user.
 const MIN_YEAR: Record<AgeRange | 'default', number> = {
   young:   new Date().getFullYear() - 10,
   mid:     new Date().getFullYear() - 18,
   adult:   new Date().getFullYear() - 30,
   senior:  new Date().getFullYear() - 45,
   default: new Date().getFullYear() - 15,
+};
+
+// ANCHOR_MIN_YEAR is wider: allows classics the user saw in their youth.
+// Adults (43yo) definitely watched Forrest Gump, Pulp Fiction, The Matrix.
+const ANCHOR_MIN_YEAR: Record<AgeRange | 'default', number> = {
+  young:   new Date().getFullYear() - 15,
+  mid:     new Date().getFullYear() - 25,
+  adult:   1990,
+  senior:  1980,
+  default: new Date().getFullYear() - 20,
 };
 
 const hasTmdbKey = Boolean(process.env.EXPO_PUBLIC_TMDB_API_KEY);
@@ -216,7 +225,8 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
   );
   const expandedProbes = useRef(new Set<string>());
 
-  const minYear = MIN_YEAR[ageRange ?? 'default'];
+  const minYear       = MIN_YEAR[ageRange ?? 'default'];
+  const anchorMinYear = ANCHOR_MIN_YEAR[ageRange ?? 'default'];
 
   // Fetch titles — deferred until genre step is confirmed (or on mount if skipGenreStep)
   useEffect(() => {
@@ -244,16 +254,29 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
       return () => { cancelled = true; };
     }
 
-    Promise.allSettled(
-      activeProbes.map(p => discoverByGenre(p.type, p.genreId, minYear))
-    ).then(results => {
+    // Fetch universal anchors (no genre filter, highest vote_count) + genre probes in parallel.
+    // Anchors go first: they are the movies everyone has seen, so they get rated immediately
+    // and bootstrap the taste profile before genre-specific titles appear.
+    Promise.allSettled([
+      fetchAnchorTitles(anchorMinYear),
+      ...activeProbes.map(p => discoverByGenre(p.type, p.genreId, minYear)),
+    ]).then(results => {
       if (cancelled) return;
 
       const seenIds = new Set<number>();
+      const anchors: NormalizedTitle[] = [];
       const seedTitles: NormalizedTitle[] = [];
       const restTitles: NormalizedTitle[] = [];
 
-      results.forEach(r => {
+      // First result is anchors
+      const [anchorResult, ...probeResults] = results;
+      if (anchorResult.status === 'fulfilled') {
+        for (const t of anchorResult.value) {
+          if (!seenIds.has(t.tmdbId)) { seenIds.add(t.tmdbId); anchors.push(t); }
+        }
+      }
+
+      probeResults.forEach(r => {
         if (r.status === 'rejected' || r.value.length === 0) return;
         const [first, ...others] = r.value;
         if (!seenIds.has(first.tmdbId)) { seenIds.add(first.tmdbId); seedTitles.push(first); }
@@ -262,13 +285,20 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
         });
       });
 
-      const ordered = [...seedTitles, ...restTitles];
+      // Anchors first, then genre probes seeds (diverse interleave), then rest
+      const ordered = [...anchors, ...seedTitles, ...restTitles];
       setPool(ordered);
 
       const seeds = genreSeedsRef.current;
       if (seeds.length > 0) {
         const profile = computeLocalProfile({}, ordered, seeds);
-        setQueue(sortAdaptive(ordered, profile));
+        // Keep anchors pinned at front; only reorder genre-specific tail
+        const anchorCount = anchors.length;
+        const reordered = [
+          ...ordered.slice(0, anchorCount),
+          ...sortAdaptive(ordered.slice(anchorCount), profile),
+        ];
+        setQueue(reordered);
       } else {
         setQueue(ordered);
       }

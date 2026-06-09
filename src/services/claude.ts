@@ -107,7 +107,7 @@ export interface Recommendation {
 
 export interface MatchingInput {
   users: UserProfile[];
-  moods: Record<string, MoodId>;
+  moods: Record<string, MoodId[]>;
   platforms: PlatformId[];
   titleMap?: Record<number, string>; // tmdbId → "Título (año)" para usar en el prompt
 }
@@ -151,7 +151,8 @@ function buildPrompt(input: MatchingInput): string {
     const alreadySeen = entries
       .filter(([, r]) => r === 'loved' || r === 'liked' || r === 'seen_disliked')
       .map(([id]) => titleLabel(Number(id), input.titleMap));
-    const mood = MOOD_LABELS[input.moods[u.uid] ?? 'chill'];
+    const moodArr = input.moods[u.uid] ?? ['chill'];
+    const mood = moodArr.map(m => MOOD_LABELS[m] ?? m).join(' + ');
     const genres = Object.entries(u.tasteProfile?.genres ?? {})
       .filter(([, s]) => s > 0.5)
       .map(([g]) => g)

@@ -73,7 +73,7 @@ export function useMatching() {
             groupName: currentGroup.name,
             createdAt: Date.now(),
             recommendations: match.recommendations,
-            moods: moods as Record<string, MoodId[]>,
+            moods: moods,
           };
           const { addToHistory } = useMatchStore.getState();
           addToHistory(followerEntry);
@@ -111,7 +111,7 @@ export function useMatching() {
         await new Promise(r => setTimeout(r, 2500));
         const mockOut = mockMatching({
           users:     memberProfiles,
-          moods:     moods as Record<string, MoodId[]>,
+          moods,
           platforms,
         });
         if (process.env.EXPO_PUBLIC_TMDB_API_KEY) {
@@ -132,7 +132,7 @@ export function useMatching() {
       } else {
         output = await runMatching({
           users:     memberProfiles,
-          moods:     moods as Record<string, MoodId[]>,
+          moods,
           platforms,
           titleMap:  Object.keys(titleMap).length > 0 ? titleMap : undefined,
         });
@@ -148,7 +148,7 @@ export function useMatching() {
             currentGroup.id,
             members,
             output.recommendations,
-            moods as Record<string, MoodId[]>,
+            moods,
             output.groupInsight,
           );
           // Advance the rotating leader turn after the match is committed.
@@ -165,7 +165,7 @@ export function useMatching() {
         groupName: isSolo ? 'Solo' : (currentGroup?.name ?? 'Solo'),
         createdAt: Date.now(),
         recommendations: output.recommendations,
-        moods: moods as Record<string, MoodId[]>,
+        moods: moods,
       };
 
       const { addToHistory } = useMatchStore.getState();
