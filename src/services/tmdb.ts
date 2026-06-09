@@ -193,6 +193,185 @@ export async function fetchAnchorTitles(minYear: number): Promise<NormalizedTitl
   return (data.results ?? []).slice(0, 12).map(r => parseDiscoverResult(r, 'movie'));
 }
 
+// ─── Onboarding pool — dynamic, diverse by era × genre ──────────────────────
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+interface DiscoverSlot {
+  media: 'movie' | 'tv';
+  genre: number;
+  yearFrom?: number;
+  yearTo?: number;
+  minRating?: number;
+  minVotes?: number;
+  pick: number;
+}
+
+const MG = { action: 28, animation: 16, comedy: 35, crime: 80, drama: 18, horror: 27, scifi: 878, thriller: 53 } as const;
+const TG = { comedy: 35, crime: 80, drama: 18, scifiFantasy: 10765, mystery: 9648 } as const;
+
+const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
+  // <25 — acción, sci-fi, animación, horror, series del momento
+  young: [
+    // Clásicos pre-1990 (3)
+    { media: 'movie', genre: MG.action,    yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
+    { media: 'movie', genre: MG.scifi,     yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
+    { media: 'movie', genre: MG.animation, yearTo: 2010, minRating: 7.5, minVotes: 2000, pick: 1 },
+    // 1990–2009 (5)
+    { media: 'movie', genre: MG.action,    yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.scifi,     yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.comedy,    yearFrom: 1990, yearTo: 2009, minRating: 6.8, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.horror,    yearFrom: 1990, yearTo: 2009, minRating: 6.8, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
+    // 2010–2019 (7)
+    { media: 'movie', genre: MG.action,    yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 2010, yearTo: 2019, minRating: 7.5, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.horror,    yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 1000, pick: 2 },
+    { media: 'movie', genre: MG.comedy,    yearFrom: 2010, yearTo: 2019, minRating: 6.8, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.animation, yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 1000, pick: 1 },
+    // 2020+ (4)
+    { media: 'movie', genre: MG.action,    yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 2 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 1 },
+    { media: 'movie', genre: MG.horror,    yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 1 },
+    // Series (11)
+    { media: 'tv', genre: TG.drama,        minRating: 8.0, minVotes: 500, pick: 3 },
+    { media: 'tv', genre: TG.scifiFantasy, minRating: 7.5, minVotes: 300, pick: 3 },
+    { media: 'tv', genre: TG.comedy,       minRating: 7.5, minVotes: 300, pick: 2 },
+    { media: 'tv', genre: TG.crime,        minRating: 7.5, minVotes: 300, pick: 2 },
+    { media: 'tv', genre: TG.mystery,      minRating: 7.5, minVotes: 300, pick: 1 },
+  ], // 3+5+7+4+11 = 30
+
+  // 25–35 — calidad cinematográfica, drama, thriller, prestige TV
+  mid: [
+    // Pre-1990 (4)
+    { media: 'movie', genre: MG.drama,    yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 2 },
+    { media: 'movie', genre: MG.crime,    yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
+    { media: 'movie', genre: MG.thriller, yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
+    // 1990–2009 (8)
+    { media: 'movie', genre: MG.drama,    yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.crime,    yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.horror,   yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.scifi,    yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 1 },
+    // 2010–2019 (6)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2010, yearTo: 2019, minRating: 7.5, minVotes: 1000, pick: 2 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 1000, pick: 2 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.horror,   yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 1000, pick: 1 },
+    // 2020+ (4)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2020, minRating: 7.5, minVotes: 500, pick: 2 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 1 },
+    { media: 'movie', genre: MG.scifi,    yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 1 },
+    // Series (8)
+    { media: 'tv', genre: TG.drama,        minRating: 8.0, minVotes: 500, pick: 3 },
+    { media: 'tv', genre: TG.crime,        minRating: 8.0, minVotes: 300, pick: 2 },
+    { media: 'tv', genre: TG.comedy,       minRating: 7.5, minVotes: 300, pick: 1 },
+    { media: 'tv', genre: TG.scifiFantasy, minRating: 7.5, minVotes: 300, pick: 2 },
+  ], // 4+8+6+4+8 = 30
+
+  // 36–50 — grandes clásicos, drama maduro, prestige TV
+  adult: [
+    // Pre-1980 (4)
+    { media: 'movie', genre: MG.drama,    yearTo: 1979, minRating: 7.5, minVotes: 3000, pick: 2 },
+    { media: 'movie', genre: MG.crime,    yearTo: 1979, minRating: 7.5, minVotes: 3000, pick: 1 },
+    { media: 'movie', genre: MG.thriller, yearTo: 1979, minRating: 7.5, minVotes: 3000, pick: 1 },
+    // 1980–1999 (8)
+    { media: 'movie', genre: MG.drama,    yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.crime,    yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 1980, yearTo: 1999, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.action,   yearFrom: 1980, yearTo: 1999, minRating: 7.0, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.scifi,    yearFrom: 1980, yearTo: 1999, minRating: 7.0, minVotes: 2000, pick: 1 },
+    // 2000–2015 (8)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2000, yearTo: 2015, minRating: 7.5, minVotes: 1000, pick: 3 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 2000, yearTo: 2015, minRating: 7.0, minVotes: 1000, pick: 2 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 2000, yearTo: 2015, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.crime,    yearFrom: 2000, yearTo: 2015, minRating: 7.5, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.horror,   yearFrom: 2000, yearTo: 2015, minRating: 7.0, minVotes: 1000, pick: 1 },
+    // 2015+ (4)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2015, minRating: 7.5, minVotes: 500, pick: 2 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 2015, minRating: 7.0, minVotes: 500, pick: 1 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 2015, minRating: 7.0, minVotes: 500, pick: 1 },
+    // Series (6)
+    { media: 'tv', genre: TG.drama,  minRating: 8.0, minVotes: 500, pick: 3 },
+    { media: 'tv', genre: TG.crime,  minRating: 8.0, minVotes: 300, pick: 2 },
+    { media: 'tv', genre: TG.comedy, minRating: 7.5, minVotes: 300, pick: 1 },
+  ], // 4+8+8+4+6 = 30
+
+  // 50+ — clásicos, period drama, cine de autor
+  senior: [
+    // Pre-1970 (4)
+    { media: 'movie', genre: MG.drama,    yearTo: 1969, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.crime,    yearTo: 1969, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.comedy,   yearTo: 1969, minRating: 7.5, minVotes: 1000, pick: 1 },
+    // 1970–1989 (8)
+    { media: 'movie', genre: MG.drama,    yearFrom: 1970, yearTo: 1989, minRating: 7.5, minVotes: 2000, pick: 3 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 1970, yearTo: 1989, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.crime,    yearFrom: 1970, yearTo: 1989, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 1970, yearTo: 1989, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.action,   yearFrom: 1970, yearTo: 1989, minRating: 7.0, minVotes: 2000, pick: 1 },
+    // 1990–2010 (6)
+    { media: 'movie', genre: MG.drama,    yearFrom: 1990, yearTo: 2010, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 1990, yearTo: 2010, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 1990, yearTo: 2010, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.crime,    yearFrom: 1990, yearTo: 2010, minRating: 7.5, minVotes: 2000, pick: 1 },
+    // 2010+ (4)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2010, minRating: 7.5, minVotes: 500, pick: 2 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 2010, minRating: 7.5, minVotes: 500, pick: 1 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 2010, minRating: 7.0, minVotes: 500, pick: 1 },
+    // Series (8)
+    { media: 'tv', genre: TG.drama,   minRating: 8.0, minVotes: 500, pick: 3 },
+    { media: 'tv', genre: TG.crime,   minRating: 8.0, minVotes: 300, pick: 2 },
+    { media: 'tv', genre: TG.comedy,  minRating: 7.5, minVotes: 300, pick: 2 },
+    { media: 'tv', genre: TG.mystery, minRating: 7.5, minVotes: 300, pick: 1 },
+  ], // 4+8+6+4+8 = 30
+};
+
+async function fetchDiscoverSlot(slot: DiscoverSlot): Promise<NormalizedTitle[]> {
+  const page = Math.ceil(Math.random() * 3);
+  const p: Record<string, string> = {
+    with_genres:      String(slot.genre),
+    'vote_count.gte': String(slot.minVotes ?? 500),
+    sort_by:          'vote_average.desc',
+    page:             String(page),
+  };
+  if (slot.minRating) p['vote_average.gte'] = String(slot.minRating);
+  if (slot.yearFrom)  p[slot.media === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte'] = `${slot.yearFrom}-01-01`;
+  if (slot.yearTo)    p[slot.media === 'movie' ? 'primary_release_date.lte' : 'first_air_date.lte'] = `${slot.yearTo}-12-31`;
+
+  const qs   = Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const data = await tmdbGet(`/discover/${slot.media}?${qs}`) as { results: Record<string, unknown>[] };
+
+  return shuffle(
+    data.results.map(r => parseDiscoverResult(r, slot.media)).filter(t => t.posterPath && t.year > 0)
+  ).slice(0, slot.pick);
+}
+
+export async function fetchOnboardingPool(ageRange?: string): Promise<NormalizedTitle[]> {
+  const slots   = ONBOARDING_SLOTS[ageRange ?? 'mid'] ?? ONBOARDING_SLOTS.mid;
+  const results = await Promise.allSettled(slots.map(fetchDiscoverSlot));
+
+  const seen = new Set<number>();
+  const pool: NormalizedTitle[] = [];
+  for (const r of results) {
+    if (r.status === 'rejected') continue;
+    for (const t of r.value) {
+      if (!seen.has(t.tmdbId)) { seen.add(t.tmdbId); pool.push(t); }
+    }
+  }
+  return shuffle(pool).slice(0, 30);
+}
+
+// ─── Search ──────────────────────────────────────────────────────────────────
+
 export async function searchTitles(query: string): Promise<NormalizedTitle[]> {
   const data = await tmdbGet(`/search/multi?query=${encodeURIComponent(query)}`) as {
     results: Record<string, unknown>[];
