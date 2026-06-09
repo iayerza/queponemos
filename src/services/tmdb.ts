@@ -337,10 +337,11 @@ const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
 async function fetchDiscoverSlot(slot: DiscoverSlot): Promise<NormalizedTitle[]> {
   const page = Math.ceil(Math.random() * 3);
   const p: Record<string, string> = {
-    with_genres:      String(slot.genre),
-    'vote_count.gte': String(slot.minVotes ?? 500),
-    sort_by:          'vote_average.desc',
-    page:             String(page),
+    with_genres:           String(slot.genre),
+    'vote_count.gte':      String(slot.minVotes ?? 500),
+    sort_by:               'vote_average.desc',
+    with_original_language: 'en|es',
+    page:                  String(page),
   };
   if (slot.minRating) p['vote_average.gte'] = String(slot.minRating);
   if (slot.yearFrom)  p[slot.media === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte'] = `${slot.yearFrom}-01-01`;
