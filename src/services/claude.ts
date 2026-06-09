@@ -231,18 +231,20 @@ REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar en alguna de las plataformas li
 
 REGLAS:
 1. NUNCA recomendés títulos marcados como "ya visto" en los perfiles.
-2. VARIEDAD DE ERA: intentá cubrir distintas décadas (no es obligatorio uno por era si no hay buenos candidatos).
-3. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos.
-4. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
-5. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
+2. ÉPOCA DEL USUARIO: si el perfil indica "época preferida", priorizá títulos de esa era como primera o segunda opción. Podés incluir un título de otra era, pero que sea la excepción, no la norma. No cambies la era solo por dar "variedad".
+3. TONO: respetá el tono del perfil. Si el usuario prefiere "oscuro y tenso", no pongas una comedia liviana como primera opción. Si prefiere "ligero y entretenido", evitá el terror y el drama pesado como primera opción. El mood de esta noche puede flexibilizar el tono, pero no lo ignorés.
+4. AFINIDADES ESTILÍSTICAS: si el perfil incluye "afinidades estilísticas" (ej: "psychological thriller", "dark humor", "coming of age"), priorizá títulos que compartan esos rasgos. Esos keywords son más específicos que los géneros: usalos.
+5. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos entre sí.
+6. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
+7. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
    - 60-70: buena opción, aunque no es un match perfecto
    - 71-82: muy buena opción, varios puntos de coincidencia
    - 83-91: match excelente, coincidencia clara en gustos y mood
    - 92-100: solo para coincidencia casi perfecta y evidente
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
-6. No repetir siempre los mismos títulos populares del momento.
-7. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
-8. Considerá la edad de los usuarios al elegir referencias culturales y títulos.
+8. No repetir siempre los mismos títulos populares del momento.
+9. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
+10. Considerá la edad de los usuarios al elegir referencias culturales y títulos.
 
 Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
 {
@@ -256,9 +258,9 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de c
     "synopsis": "string en español, 2-3 oraciones",
     "platform": "netflix",
     "compatibilityScore": 78,
-    "whyUs": "2-3 oraciones mencionando a los usuarios por nombre y explicando por qué es buena para ellos esta noche"
+    "whyUs": "2-3 oraciones: mencioná a los usuarios por nombre y explicá qué del perfil coincide (era, tono, géneros, afinidades estilísticas) y por qué es la elección para esta noche"
   }],
-  "groupInsight": "observación breve y específica sobre el grupo basada en sus perfiles"
+  "groupInsight": "observación concreta y específica sobre el grupo: qué tienen en común (era, tono, géneros, afinidades) y dónde difieren. Mencioná algo del perfil que lo justifique."
 }`;
 }
 
