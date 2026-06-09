@@ -124,6 +124,7 @@ const ANCHOR_MIN_YEAR: Record<AgeRange | 'default', number> = {
 };
 
 const hasTmdbKey = Boolean(process.env.EXPO_PUBLIC_TMDB_API_KEY);
+const MAX_ONBOARDING_TITLES = 30;
 
 const RATING_WEIGHTS: Record<Rating, number> = {
   loved: 2.0, liked: 1.0, seen_disliked: -0.8, not_seen: 0,
@@ -241,7 +242,8 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
     const activeProbes = activeProbesRef.current;
 
     if (!hasTmdbKey) {
-      const mockPool = buildMockPool(genreSeedsRef.current);
+      const rawMockPool = buildMockPool(genreSeedsRef.current);
+      const mockPool = rawMockPool.slice(0, MAX_ONBOARDING_TITLES);
       const seeds = genreSeedsRef.current;
       setPool(mockPool);
       if (seeds.length > 0) {
@@ -298,8 +300,8 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
         });
       });
 
-      // Anchors first, then genre probes seeds (diverse interleave), then rest
-      const ordered = [...anchors, ...seedTitles, ...restTitles];
+      // Anchors first, then genre probes seeds (diverse interleave), then rest; cap at MAX
+      const ordered = [...anchors, ...seedTitles, ...restTitles].slice(0, MAX_ONBOARDING_TITLES);
       setPool(ordered);
 
       const seeds = genreSeedsRef.current;
@@ -355,12 +357,18 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
 
     if (newTitles.length === 0) return;
 
-    setPool(prev => { const u = [...prev, ...newTitles]; poolRef.current = u; return u; });
+    setPool(prev => {
+      const u = [...prev, ...newTitles].slice(0, MAX_ONBOARDING_TITLES);
+      poolRef.current = u;
+      return u;
+    });
     setQueue(prev => {
       const shown = prev.slice(0, currentIndex + 1);
       const remaining = prev.slice(currentIndex + 1);
+      const slots = MAX_ONBOARDING_TITLES - shown.length;
+      if (slots <= 0) return prev;
       const p = computeLocalProfile(newRatings, [...prev, ...newTitles], genreSeedsRef.current);
-      return [...shown, ...sortAdaptive([...remaining, ...newTitles], p)];
+      return [...shown, ...sortAdaptive([...remaining, ...newTitles], p).slice(0, slots)];
     });
   }
 
