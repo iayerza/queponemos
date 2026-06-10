@@ -155,7 +155,11 @@ function franchiseKey(t: NormalizedTitle): string {
   return words[0] ?? t.title.toLowerCase();
 }
 
-export async function fetchOnboardingPool(ageRange = 'adult', selectedGenres: string[] = []): Promise<NormalizedTitle[]> {
+export async function fetchOnboardingPool(
+  ageRange = 'adult',
+  selectedGenres: string[] = [],
+  poolSize = 60, // lo define el caller: máximo de cartas + reserva para reemplazos
+): Promise<NormalizedTitle[]> {
   const genreIds = selectedGenres
     .map(g => GENRE_NAME_TO_ID[g])
     .filter((id): id is number => id !== undefined);
@@ -164,9 +168,7 @@ export async function fetchOnboardingPool(ageRange = 'adult', selectedGenres: st
   const eras = ERAS[ageRange] ?? ERAS.adult;
   const nE = eras.length;
   const yearFrom = eras[0][0];
-  // Pool de candidatos: el doble de lo que se muestra (30). El hook arma la
-  // cola visible y usa el resto como reserva para reemplazos y expansión a 40/50
-  const TARGET = 60;
+  const TARGET = poolSize;
   // Excluir géneros fuertes no elegidos de TODAS las queries
   const withoutGenres = STRONG_GENRES.filter(g => !ids.includes(g));
 

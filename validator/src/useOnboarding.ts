@@ -30,6 +30,8 @@ export interface OnboardingState {
 const BASE_TARGET = 30;
 const EXTEND_STEP = 10;
 const MAX_TARGET  = 50;
+// Candidatos a traer de TMDB: el máximo mostrable + reserva para reemplazos
+const POOL_SIZE   = MAX_TARGET + 10;
 
 // Géneros a vigilar para dudas cuando el usuario salteó la selección
 const DEFAULT_WATCH = ['Acción', 'Comedia', 'Drama', 'Thriller', 'Romance', 'Ciencia Ficción'];
@@ -204,7 +206,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     setTarget(BASE_TARGET);
     setExtendDeclined(false);
 
-    fetchOnboardingPool(ageRange, genreSeedsRef.current)
+    fetchOnboardingPool(ageRange, genreSeedsRef.current, POOL_SIZE)
       .then(fetched => {
         if (cancelled) return;
         if (fetched.length === 0) {

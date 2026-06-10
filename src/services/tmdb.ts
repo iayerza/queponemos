@@ -547,13 +547,15 @@ function franchiseKey(t: NormalizedTitle): string {
   return words[0] ?? t.title.toLowerCase();
 }
 
-async function fetchRecognitionPool(ageRange: string, genreIds: number[]): Promise<NormalizedTitle[]> {
+async function fetchRecognitionPool(
+  ageRange: string,
+  genreIds: number[],
+  poolSize: number,
+): Promise<NormalizedTitle[]> {
   const eras = ERAS[ageRange] ?? ERAS.adult;
   const nE = eras.length;
   const yearFrom = eras[0][0];
-  // Pool de candidatos: el doble de lo que se muestra (30). El hook arma la
-  // cola visible y usa el resto como reserva para reemplazos y expansión a 40/50
-  const TARGET = 60;
+  const TARGET = poolSize;
   // Excluir géneros fuertes no elegidos de TODAS las queries
   const withoutGenres = STRONG_GENRES.filter(g => !genreIds.includes(g));
 
@@ -631,13 +633,14 @@ export async function fetchOnboardingPool(
   ageRange?: string,
   tone?: string,
   selectedGenres: string[] = [],
+  poolSize = 60, // lo define el caller: máximo de cartas + reserva para reemplazos
 ): Promise<NormalizedTitle[]> {
   // Onboarding (sin tone): siempre recognition pool; sin géneros usa el set default
   if (!tone) {
     const genreIds = selectedGenres
       .map(g => GENRE_NAME_TO_ID[g])
       .filter((id): id is number => id !== undefined);
-    return fetchRecognitionPool(ageRange ?? 'adult', genreIds.length > 0 ? genreIds : DEFAULT_GENRE_IDS);
+    return fetchRecognitionPool(ageRange ?? 'adult', genreIds.length > 0 ? genreIds : DEFAULT_GENRE_IDS, poolSize);
   }
 
   const anchorSlots = ANCHOR_SLOTS[ageRange ?? 'mid'] ?? ANCHOR_SLOTS.mid;

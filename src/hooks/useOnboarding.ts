@@ -38,6 +38,8 @@ const hasTmdbKey = Boolean(process.env.EXPO_PUBLIC_TMDB_API_KEY);
 const BASE_TARGET = 30;
 const EXTEND_STEP = 10;
 const MAX_TARGET  = 50;
+// Candidatos a traer de TMDB: el máximo mostrable + reserva para reemplazos
+const POOL_SIZE   = MAX_TARGET + 10;
 
 // Géneros a vigilar para dudas cuando el usuario salteó la selección
 const DEFAULT_WATCH = ['Acción', 'Comedia', 'Drama', 'Thriller', 'Romance', 'Ciencia Ficción'];
@@ -233,7 +235,7 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
       return () => { cancelled = true; };
     }
 
-    fetchOnboardingPool(ageRange, tone, genreSeedsRef.current)
+    fetchOnboardingPool(ageRange, tone, genreSeedsRef.current, POOL_SIZE)
       .then(fetched => {
         if (cancelled) return;
         initQueue(fetched.length >= 10 ? fetched : MOCK_FALLBACK);
