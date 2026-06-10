@@ -12,22 +12,27 @@ export async function generateRecommendations(
   profile: Record<string, number>,
   mood: string,
 ): Promise<{ recs: ValidatorRec[]; rawJson: string; ms: number }> {
-  const profileText = Object.entries(profile)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 12)
-    .map(([g, v]) => `  ${g}: ${v.toFixed(2)}`)
-    .join('\n');
+  const entries  = Object.entries(profile).sort(([, a], [, b]) => b - a);
+  const likes    = entries.filter(([, v]) => v > 0.1).slice(0, 8);
+  const dislikes = entries.filter(([, v]) => v < 0);
+
+  const likesText = likes.map(([g, v]) => `  ${g}: ${v.toFixed(2)}`).join('\n');
+  const dislikesText = dislikes.length > 0
+    ? `\nGéneros que le DISGUSTAN (evitalos por completo):\n` +
+      dislikes.map(([g, v]) => `  ${g}: ${v.toFixed(2)}`).join('\n') + '\n'
+    : '';
 
   const prompt =
-    `Sos un recomendador de películas y series para Argentina. ` +
+    `Sos un recomendador de películas para Argentina. ` +
     `Dado el perfil de gustos del usuario y su estado de ánimo, ` +
-    `recomendá exactamente 3 títulos disponibles en streaming.\n\n` +
-    `Perfil de géneros (escala 0-1, mayor = más preferido):\n${profileText}\n\n` +
-    `Estado de ánimo: ${mood}\n\n` +
+    `recomendá exactamente 3 PELÍCULAS (no series) disponibles en streaming.\n\n` +
+    `Géneros que le gustan (escala 0-1, mayor = más preferido):\n${likesText}\n` +
+    dislikesText +
+    `\nEstado de ánimo: ${mood}\n\n` +
     `Respondé SOLO con JSON válido, sin texto extra:\n` +
     `{\n` +
     `  "recommendations": [\n` +
-    `    { "title": string, "year": number, "type": "movie"|"series", "platform": string, "reason": string }\n` +
+    `    { "title": string, "year": number, "type": "movie", "platform": string, "reason": string }\n` +
     `  ]\n` +
     `}`;
 

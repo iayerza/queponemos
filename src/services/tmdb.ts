@@ -502,8 +502,13 @@ const FRANCHISE_KEYWORDS = '180547|229266|9715';
 // Set amplio para cuando el usuario saltea la selección de géneros
 const DEFAULT_GENRE_IDS = [28, 35, 18, 53, 10749, 878]; // acción, comedia, drama, thriller, romance, sci-fi
 
+// Géneros de identidad fuerte: si el usuario no los eligió, se excluyen de
+// todas las queries (un thriller-terror ES terror para quien odia el terror)
+const STRONG_GENRES = [27, 16, 99, 10751]; // terror, animación, documental, familia
+
 async function fetchTopVoted(opts: {
   genres?: number[];        // OR entre géneros (pipe)
+  withoutGenres?: number[]; // géneros excluidos
   yearFrom?: number;
   yearTo?: number;
   minVotes: number;
@@ -516,7 +521,8 @@ async function fetchTopVoted(opts: {
     sort_by: 'vote_count.desc',
     page: '1',
   };
-  if (opts.genres?.length)   p.with_genres = opts.genres.join('|');
+  if (opts.genres?.length)        p.with_genres = opts.genres.join('|');
+  if (opts.withoutGenres?.length) p.without_genres = opts.withoutGenres.join(',');
   if (opts.language)         p.with_original_language = opts.language;
   if (opts.originCountry)    p.with_origin_country = opts.originCountry;
   if (opts.withoutKeywords)  p.without_keywords = opts.withoutKeywords;
@@ -546,12 +552,14 @@ async function fetchRecognitionPool(ageRange: string, genreIds: number[]): Promi
   const nE = eras.length;
   const yearFrom = eras[0][0];
   const TARGET = 30;
+  // Excluir géneros fuertes no elegidos de TODAS las queries
+  const withoutGenres = STRONG_GENRES.filter(g => !genreIds.includes(g));
 
   // Una request por género × época, en paralelo con blockbusters y cine AR
   const genreEraReqs = genreIds.flatMap(g =>
     eras.map(([from, to]) =>
       fetchTopVoted({
-        genres: [g], yearFrom: from, yearTo: to ?? undefined,
+        genres: [g], withoutGenres, yearFrom: from, yearTo: to ?? undefined,
         minVotes: from < 2000 ? 1500 : 3000,
         language: 'en', withoutKeywords: FRANCHISE_KEYWORDS,
       }).catch(() => [] as NormalizedTitle[])
@@ -560,9 +568,9 @@ async function fetchRecognitionPool(ageRange: string, genreIds: number[]): Promi
 
   const [genreEraLists, blockbusters, localTop, localGenre] = await Promise.all([
     Promise.all(genreEraReqs),
-    fetchTopVoted({ yearFrom, minVotes: 15000, language: 'en' }).catch(() => [] as NormalizedTitle[]),
-    fetchTopVoted({ originCountry: 'AR', yearFrom, minVotes: 300 }).catch(() => [] as NormalizedTitle[]),
-    fetchTopVoted({ originCountry: 'AR', genres: genreIds, yearFrom, minVotes: 100 }).catch(() => [] as NormalizedTitle[]),
+    fetchTopVoted({ withoutGenres, yearFrom, minVotes: 15000, language: 'en' }).catch(() => [] as NormalizedTitle[]),
+    fetchTopVoted({ withoutGenres, originCountry: 'AR', yearFrom, minVotes: 300 }).catch(() => [] as NormalizedTitle[]),
+    fetchTopVoted({ withoutGenres, originCountry: 'AR', genres: genreIds, yearFrom, minVotes: 100 }).catch(() => [] as NormalizedTitle[]),
   ]);
 
   const seenIds = new Set<number>();
