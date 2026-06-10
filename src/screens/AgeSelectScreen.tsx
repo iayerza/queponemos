@@ -28,7 +28,7 @@ export default function AgeSelectScreen() {
 
   function handleNext() {
     if (!selected) return;
-    nav.navigate('ToneSelect', { ageRange: selected, fromProfile: fromProfile || undefined });
+    nav.navigate('Onboarding', { ageRange: selected, fromProfile: fromProfile || undefined });
   }
 
   return (
