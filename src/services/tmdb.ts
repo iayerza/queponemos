@@ -469,7 +469,102 @@ const TONE_SLOTS: Record<string, DiscoverSlot[]> = {
   ], // 5+3+3+2+2 + 3+4+3 = 25
 };
 
-export async function fetchOnboardingPool(ageRange?: string, tone?: string): Promise<NormalizedTitle[]> {
+// ─── Recognition pool — armado desde los géneros elegidos ────────────────────
+// sort_by=vote_count.desc ≈ "cuánta gente la vio": maximiza el reconocimiento.
+// Por cada género elegido: 1 anchor mega-conocido + relleno del mismo género.
+// Más 4 blockbusters transversales (2 pelis + 2 series) para identificación.
+
+export const GENRE_NAME_TO_ID: Record<string, number> = {
+  'Acción': 28, 'Aventura': 12, 'Animación': 16, 'Comedia': 35,
+  'Crimen': 80, 'Documental': 99, 'Drama': 18, 'Familia': 10751,
+  'Fantasía': 14, 'Historia': 36, 'Terror': 27, 'Misterio': 9648,
+  'Romance': 10749, 'Ciencia Ficción': 878, 'Thriller': 53, 'Bélica': 10752,
+};
+
+const AGE_YEAR_FROM: Record<string, number> = { young: 2005, mid: 1995, adult: 1988, senior: 1975 };
+
+async function fetchTopVoted(opts: {
+  media: 'movie' | 'tv'; genre?: number; yearFrom?: number; minVotes: number; pages?: number;
+}): Promise<NormalizedTitle[]> {
+  const pages = opts.pages ?? 1;
+  const reqs = Array.from({ length: pages }, (_, i) => {
+    const p: Record<string, string> = {
+      'vote_count.gte': String(opts.minVotes),
+      sort_by: 'vote_count.desc',
+      with_original_language: 'en|es',
+      page: String(i + 1),
+    };
+    if (opts.genre)    p.with_genres = String(opts.genre);
+    if (opts.yearFrom) p[opts.media === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte'] = `${opts.yearFrom}-01-01`;
+    const qs = Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+    return tmdbGet(`/discover/${opts.media}?${qs}`) as Promise<{ results: Record<string, unknown>[] }>;
+  });
+  const results = await Promise.all(reqs);
+  return results
+    .flatMap(d => d.results.map(r => parseDiscoverResult(r, opts.media)))
+    .filter(t => t.posterPath && t.year > 0);
+}
+
+async function fetchRecognitionPool(ageRange: string, genreIds: number[]): Promise<NormalizedTitle[]> {
+  const yearFrom = AGE_YEAR_FROM[ageRange] ?? 1988;
+  const TARGET = 30;
+  // Con pocos géneros necesitamos más profundidad por género
+  const pages = genreIds.length <= 3 ? 2 : 1;
+
+  const [genreRes, movieBlocks, tvBlocks] = await Promise.all([
+    Promise.allSettled(genreIds.map(g => fetchTopVoted({ media: 'movie', genre: g, yearFrom, minVotes: 1500, pages }))),
+    fetchTopVoted({ media: 'movie', yearFrom, minVotes: 15000 }).catch(() => [] as NormalizedTitle[]),
+    fetchTopVoted({ media: 'tv', minVotes: 5000 }).catch(() => [] as NormalizedTitle[]),
+  ]);
+
+  const seen = new Set<number>();
+  const pool: NormalizedTitle[] = [];
+  const push = (t: NormalizedTitle, isAnchor: boolean): boolean => {
+    if (seen.has(t.tmdbId)) return false;
+    seen.add(t.tmdbId);
+    pool.push({ ...t, isAnchor });
+    return true;
+  };
+
+  // 4 blockbusters transversales: no perfilan, pero generan "el algoritmo me conoce"
+  for (const t of movieBlocks.slice(0, 2)) push(t, true);
+  for (const t of tvBlocks.slice(0, 2))    push(t, true);
+
+  // Round-robin entre géneros: ronda 0 = el anchor de cada género
+  const lists = genreRes.map(r => (r.status === 'fulfilled' ? r.value : []));
+  const idx   = lists.map(() => 0);
+  let round = 0;
+  while (pool.length < TARGET) {
+    let added = false;
+    for (let g = 0; g < lists.length && pool.length < TARGET; g++) {
+      while (idx[g] < lists[g].length) {
+        const t = lists[g][idx[g]++];
+        if (push(t, round === 0)) { added = true; break; }
+      }
+    }
+    if (!added) break;
+    round++;
+  }
+
+  // Si los géneros no alcanzan, completar con más blockbusters
+  for (const t of [...movieBlocks.slice(2), ...tvBlocks.slice(2)]) {
+    if (pool.length >= TARGET) break;
+    push(t, false);
+  }
+
+  return shuffle(pool);
+}
+
+export async function fetchOnboardingPool(
+  ageRange?: string,
+  tone?: string,
+  selectedGenres: string[] = [],
+): Promise<NormalizedTitle[]> {
+  const genreIds = selectedGenres
+    .map(g => GENRE_NAME_TO_ID[g])
+    .filter((id): id is number => id !== undefined);
+  if (genreIds.length > 0 && !tone) return fetchRecognitionPool(ageRange ?? 'adult', genreIds);
+
   const anchorSlots = ANCHOR_SLOTS[ageRange ?? 'mid'] ?? ANCHOR_SLOTS.mid;
   const discSlots   = tone
     ? (TONE_SLOTS[tone] ?? TONE_SLOTS.tension)

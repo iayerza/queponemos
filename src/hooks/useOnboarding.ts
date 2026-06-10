@@ -134,7 +134,7 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
       return () => { cancelled = true; };
     }
 
-    fetchOnboardingPool(ageRange, tone)
+    fetchOnboardingPool(ageRange, tone, genreSeedsRef.current)
       .then(fetched => {
         if (cancelled) return;
         let ordered = fetched.length >= 10 ? fetched : MOCK_FALLBACK;

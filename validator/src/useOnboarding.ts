@@ -103,7 +103,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     setIdx(0);
     setRatings({});
 
-    fetchOnboardingPool(ageRange)
+    fetchOnboardingPool(ageRange, genreSeedsRef.current)
       .then(fetched => {
         if (cancelled) return;
         if (fetched.length === 0) {
