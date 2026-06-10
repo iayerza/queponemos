@@ -486,8 +486,8 @@ export async function fetchOnboardingPool(ageRange?: string, tone?: string): Pro
     }
   }
 
-  // Anchors always come first (no shuffle), then shuffled discriminators
-  return [...anchors.slice(0, 5), ...shuffle(disc).slice(0, 25)];
+  // Anchors mezclados uniformemente entre los discriminadores (sin front-loading)
+  return shuffle([...anchors.slice(0, 5), ...disc.slice(0, 25)]);
 }
 
 // ─── Search ──────────────────────────────────────────────────────────────────

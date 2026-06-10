@@ -44,18 +44,32 @@ function computeLocalProfile(
   pool: NormalizedTitle[],
   seeds: string[] = [],
 ): Record<string, number> {
-  const raw: Record<string, number> = {};
-  for (const g of seeds) raw[g] = (raw[g] ?? 0) + 0.8;
+  const weightSum: Record<string, number> = {};
+  const occurrences: Record<string, number> = {};
+
+  for (const g of seeds) {
+    weightSum[g] = (weightSum[g] ?? 0) + 0.8;
+    occurrences[g] = (occurrences[g] ?? 0) + 1;
+  }
   for (const [idStr, r] of Object.entries(ratings)) {
     const title = pool.find(t => t.tmdbId === Number(idStr) || t.id === Number(idStr));
     if (!title) continue;
     const w = RATING_WEIGHTS[r];
-    for (const genre of title.genres) raw[genre] = (raw[genre] ?? 0) + w;
+    for (const genre of title.genres) {
+      weightSum[genre]  = (weightSum[genre]  ?? 0) + w;
+      occurrences[genre] = (occurrences[genre] ?? 0) + 1;
+    }
   }
-  const max = Math.max(...Object.values(raw).filter(v => v > 0), 0.001);
-  return Object.fromEntries(
-    Object.entries(raw).filter(([, v]) => v > 0).map(([g, v]) => [g, v / max])
-  );
+
+  // Usar promedio (mean) en lugar de suma: evita que un género acumule peso
+  // solo por aparecer muchas veces en los títulos mostrados (exposure bias)
+  const mean: Record<string, number> = {};
+  for (const g of Object.keys(weightSum)) {
+    const avg = weightSum[g] / occurrences[g];
+    if (avg > 0) mean[g] = avg;
+  }
+  const max = Math.max(...Object.values(mean), 0.001);
+  return Object.fromEntries(Object.entries(mean).map(([g, v]) => [g, v / max]));
 }
 
 function scoreTitle(t: NormalizedTitle, profile: Record<string, number>): number {
