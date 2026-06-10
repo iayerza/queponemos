@@ -42,6 +42,30 @@ const GENRE_MAP: Record<number, string> = {
   10766: 'Telenovela', 10767: 'Talk', 10768: 'Guerra y Política',
 };
 
+export const GENRE_NAME_TO_ID: Record<string, number> = {
+  'Acción': 28, 'Aventura': 12, 'Animación': 16, 'Comedia': 35,
+  'Crimen': 80, 'Documental': 99, 'Drama': 18, 'Familia': 10751,
+  'Fantasía': 14, 'Historia': 36, 'Terror': 27, 'Misterio': 9648,
+  'Romance': 10749, 'Ciencia Ficción': 878, 'Thriller': 53, 'Bélica': 10752,
+};
+
+// Géneros que requieren selección explícita — excluidos si el usuario no los eligió
+export const STRONG_GENRES = [27, 16, 99, 10751]; // Terror, Animación, Documental, Familia
+
+// Ventanas temporales por franja etaria (null = hasta hoy)
+const ERAS: Record<string, [number, number | null][]> = {
+  young:  [[2005, 2014], [2015, null]],
+  mid:    [[1995, 2007], [2008, 2016], [2017, null]],
+  adult:  [[1988, 1999], [2000, 2012], [2013, null]],
+  senior: [[1975, 1990], [1991, 2005], [2006, null]],
+};
+
+const FRANCHISE_KEYWORDS = '180547|229266|9715'; // MCU, DCEU, Star Wars
+
+const TITLE_STOPWORDS = new Set([
+  'the','a','an','la','el','los','las','un','una','de','of','and','y','en','in',
+]);
+
 async function tmdbGet(path: string): Promise<unknown> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -87,6 +111,170 @@ export async function fetchTitle(
 
 export function getPosterUrl(posterPath: string | null): string | null {
   return posterPath ? `${TMDB_IMG}${posterPath}` : null;
+}
+
+// ─── Feature extraction ───────────────────────────────────────────────────────
+
+export function eraBucket(year: number): string {
+  if (year < 1980) return 'clásico';
+  if (year < 1990) return '80s';
+  if (year < 2000) return '90s';
+  if (year < 2010) return '00s';
+  if (year < 2020) return '10s';
+  return '20s';
+}
+
+export function featuresOf(t: NormalizedTitle): string[] {
+  const feats: string[] = [];
+  for (const g of t.genres) feats.push(`g:${g}`);
+  const sg = [...t.genres].sort();
+  for (let i = 0; i < sg.length; i++)
+    for (let j = i + 1; j < sg.length; j++) feats.push(`p:${sg[i]}+${sg[j]}`);
+  if (t.year) feats.push(`e:${eraBucket(t.year)}`);
+  if (t.rating >= 7.8) feats.push('t:prestigio');
+  if (t.rating > 0 && t.rating <= 7.0) feats.push('t:palomitera');
+  return feats;
+}
+
+function franchiseKey(t: NormalizedTitle): string {
+  const base = t.title.toLowerCase();
+  const first = base.split(/\s+/).find(w => !TITLE_STOPWORDS.has(w)) ?? base;
+  return first.replace(/[^a-z0-9]/g, '');
+}
+
+// ─── Onboarding pool building ─────────────────────────────────────────────────
+
+function parseDiscoverResult(r: Record<string, unknown>): NormalizedTitle {
+  const isTV = 'name' in r;
+  const type: 'movie' | 'tv' = isTV ? 'tv' : 'movie';
+  const title = isTV ? (r.name as string ?? '') : (r.title as string ?? '');
+  const dateStr = isTV ? (r.first_air_date as string ?? '') : (r.release_date as string ?? '');
+  return {
+    id: r.id as number,
+    tmdbId: r.id as number,
+    type,
+    title,
+    year: dateStr ? parseInt(dateStr.slice(0, 4), 10) : 0,
+    genres: ((r.genre_ids as number[]) ?? []).map(id => GENRE_MAP[id] ?? 'Otro'),
+    rating: parseFloat(((r.vote_average as number) ?? 0).toFixed(1)),
+    posterPath: (r.poster_path as string | null) ?? null,
+    synopsis: (r.overview as string) ?? '',
+  };
+}
+
+async function discoverMedia(
+  mediaType: 'movie' | 'tv',
+  genreId: number,
+  from: number,
+  to: number | null,
+  excludeGenreIds: number[] = [],
+): Promise<NormalizedTitle[]> {
+  const year = new Date().getFullYear();
+  const dateMax = to ? `${to}-12-31` : `${year}-12-31`;
+  const dateField = mediaType === 'movie' ? 'primary_release_date' : 'first_air_date';
+  const parts = [
+    `with_genres=${genreId}`,
+    `sort_by=vote_count.desc`,
+    `vote_count.gte=100`,
+    `${dateField}.gte=${from}-01-01`,
+    `${dateField}.lte=${dateMax}`,
+  ];
+  if (excludeGenreIds.length > 0) parts.push(`without_genres=${excludeGenreIds.join(',')}`);
+  if (mediaType === 'movie') parts.push(`without_keywords=${FRANCHISE_KEYWORDS}`);
+  const data = await tmdbGet(`/discover/${mediaType}?${parts.join('&')}`) as {
+    results: Record<string, unknown>[];
+  };
+  return (data.results ?? []).map(r => parseDiscoverResult(r));
+}
+
+export async function fetchOnboardingPool(
+  ageRange: string,
+  selectedGenreIds: number[],
+): Promise<NormalizedTitle[]> {
+  const eras = ERAS[ageRange] ?? ERAS.adult;
+  const excludeStrong = STRONG_GENRES.filter(id => !selectedGenreIds.includes(id));
+
+  // Fallback genres when user hasn't selected specific ones
+  const genres = selectedGenreIds.length > 0
+    ? selectedGenreIds.slice(0, 5)
+    : [28, 35, 18, 53, 878]; // Acción, Comedia, Drama, Thriller, Sci-Fi
+
+  const tasks: Promise<NormalizedTitle[]>[] = [];
+
+  for (const [from, to] of eras) {
+    // Genre-specific slots (movies)
+    for (const gid of genres) {
+      tasks.push(
+        discoverMedia('movie', gid, from, to, excludeStrong)
+          .then(r => r.slice(0, 6))
+          .catch(() => []),
+      );
+    }
+    // Popular Drama for every era (anchor for drama-adjacent taste)
+    tasks.push(
+      discoverMedia('movie', 18, from, to, excludeStrong)
+        .then(r => r.slice(0, 4))
+        .catch(() => []),
+    );
+    // TV shows per era (Drama + Thriller)
+    tasks.push(
+      discoverMedia('tv', 18, from, to, excludeStrong)
+        .then(r => r.slice(0, 3))
+        .catch(() => []),
+    );
+  }
+
+  const all = (await Promise.all(tasks)).flat();
+
+  // Dedup: prefer higher-rated version when franchise key collides
+  const byKey = new Map<string, NormalizedTitle>();
+  for (const t of all) {
+    if (!t.year || !t.posterPath) continue;
+    const key = franchiseKey(t);
+    const existing = byKey.get(key);
+    if (!existing || t.rating > existing.rating) byKey.set(key, t);
+  }
+
+  return Array.from(byKey.values());
+}
+
+export async function fetchDeepeningBatch(
+  topGenreIds: number[],
+  _companionIds: number[],
+  ageRange = 'adult',
+  excludeGenreIds: number[] = [],
+  maxSize = 40,
+): Promise<NormalizedTitle[]> {
+  const eras = ERAS[ageRange] ?? ERAS.adult;
+  const tasks: Promise<NormalizedTitle[]>[] = [];
+
+  for (const [from, to] of eras) {
+    for (const gid of topGenreIds.slice(0, 2)) {
+      // Prestige tier (critically acclaimed)
+      tasks.push(
+        discoverMedia('movie', gid, from, to, excludeGenreIds)
+          .then(r => r.filter(t => t.rating >= 7.8).slice(0, 5))
+          .catch(() => []),
+      );
+      // Palomitero tier (popular but not prestige)
+      tasks.push(
+        discoverMedia('movie', gid, from, to, excludeGenreIds)
+          .then(r => r.filter(t => t.rating > 0 && t.rating <= 7.2).slice(0, 4))
+          .catch(() => []),
+      );
+    }
+  }
+
+  const all = (await Promise.all(tasks)).flat();
+  const seen = new Set<number>();
+  const deduped: NormalizedTitle[] = [];
+  for (const t of all) {
+    if (t.posterPath && !seen.has(t.tmdbId)) {
+      seen.add(t.tmdbId);
+      deduped.push(t);
+    }
+  }
+  return deduped.slice(0, maxSize);
 }
 
 // ─── Watch provider logos ────────────────────────────────────────────────────

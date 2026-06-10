@@ -1,10 +1,12 @@
 export type AgeRange = 'young' | 'mid' | 'adult' | 'senior';
+export type ToneId   = 'mix' | 'prestige' | 'fun';
 
 export type RootStackParamList = {
   Login: undefined;
   OnboardingIntro: undefined;
   AgeSelect: { fromProfile?: true };
-  Onboarding: { fromProfile?: true; ageRange?: AgeRange };
+  ToneSelect: { ageRange: AgeRange; fromProfile?: true };
+  Onboarding: { fromProfile?: true; ageRange?: AgeRange; toneId?: ToneId };
   App: undefined;
   Group: { groupId: string };
   Mood: { groupId?: string; solo?: true };

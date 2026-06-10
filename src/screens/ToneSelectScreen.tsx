@@ -6,46 +6,48 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
 import { useColors } from '../context/ThemeContext';
-import type { RootStackParamList, AgeRange } from '../navigation/types';
+import type { RootStackParamList, ToneId } from '../navigation/types';
 
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
-type Route = RouteProp<RootStackParamList, 'AgeSelect'>;
+type Route = RouteProp<RootStackParamList, 'ToneSelect'>;
 
-const AGE_OPTIONS: { range: AgeRange; label: string; sub: string }[] = [
-  { range: 'young',  label: 'Menos de 25', sub: 'Estrenos, series del momento' },
-  { range: 'mid',    label: '25 a 35',     sub: 'Cine de autor, drama, thriller' },
-  { range: 'adult',  label: '36 a 50',     sub: 'Clásicos modernos, prestige TV' },
-  { range: 'senior', label: 'Más de 50',   sub: 'Grandes clásicos, period drama' },
+const TONE_OPTIONS: { id: ToneId; label: string; sub: string }[] = [
+  { id: 'prestige', label: 'Cine de autor',    sub: 'Premios, crítica, historias profundas' },
+  { id: 'fun',      label: 'Entretenimiento',  sub: 'Blockbusters, acción, comedias' },
+  { id: 'mix',      label: 'De todo',          sub: 'Sin filtros, sorprendeme' },
 ];
 
-export default function AgeSelectScreen() {
+export default function ToneSelectScreen() {
   const insets = useSafeAreaInsets();
   const nav    = useNavigation<Nav>();
   const route  = useRoute<Route>();
   const themeColors = useColors();
-  const [selected, setSelected] = useState<AgeRange | null>(null);
-  const fromProfile = route.params?.fromProfile === true;
+  const [selected, setSelected] = useState<ToneId | null>(null);
+  const { ageRange, fromProfile } = route.params;
 
   function handleNext() {
-    if (!selected) return;
-    nav.navigate('ToneSelect', { ageRange: selected, fromProfile: fromProfile || undefined });
+    nav.navigate('Onboarding', {
+      ageRange,
+      toneId: selected ?? 'mix',
+      fromProfile: fromProfile || undefined,
+    });
   }
 
   return (
     <View style={[styles.root, { backgroundColor: themeColors.bg }]}>
       <View style={[styles.content, { paddingTop: insets.top + 40 }]}>
-        <Text style={styles.eyebrow}>TU PERFIL</Text>
-        <Text style={styles.heading}>¿Qué edad tenés?</Text>
-        <Text style={styles.sub}>Usamos esto para mostrarte títulos que te van a resultar conocidos.</Text>
+        <Text style={styles.eyebrow}>TU ESTILO</Text>
+        <Text style={styles.heading}>¿Qué tipo de cine{'\n'}preferís?</Text>
+        <Text style={styles.sub}>Usamos esto para calibrar las primeras sugerencias.</Text>
         <View style={styles.options}>
-          {AGE_OPTIONS.map(opt => (
+          {TONE_OPTIONS.map(opt => (
             <TouchableOpacity
-              key={opt.range}
-              style={[styles.optionCard, selected === opt.range && styles.optionCardActive]}
-              onPress={() => setSelected(opt.range)}
+              key={opt.id}
+              style={[styles.optionCard, selected === opt.id && styles.optionCardActive]}
+              onPress={() => setSelected(opt.id)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.optionLabel, selected === opt.range && styles.optionLabelActive]}>
+              <Text style={[styles.optionLabel, selected === opt.id && styles.optionLabelActive]}>
                 {opt.label}
               </Text>
               <Text style={styles.optionSub}>{opt.sub}</Text>
@@ -55,9 +57,8 @@ export default function AgeSelectScreen() {
       </View>
       <View style={[styles.actions, { paddingBottom: insets.bottom + 24 }]}>
         <TouchableOpacity
-          style={[styles.nextBtn, !selected && styles.nextBtnDisabled]}
+          style={styles.nextBtn}
           onPress={handleNext}
-          disabled={!selected}
           activeOpacity={0.85}
         >
           <Text style={styles.nextBtnText}>Siguiente</Text>
@@ -71,7 +72,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 24, gap: 16 },
   eyebrow: { color: Colors.faint, fontSize: Typography.tiny, fontWeight: Typography.medium, letterSpacing: 2 },
-  heading: { color: Colors.text, fontSize: Typography.h1, fontWeight: Typography.bold },
+  heading: { color: Colors.text, fontSize: Typography.h1, fontWeight: Typography.bold, lineHeight: 30 },
   sub: { color: Colors.sub, fontSize: Typography.small, lineHeight: 20 },
   options: { gap: 10, marginTop: 8 },
   optionCard: {
@@ -87,6 +88,5 @@ const styles = StyleSheet.create({
   optionSub: { color: Colors.sub, fontSize: Typography.small },
   actions: { paddingHorizontal: 24 },
   nextBtn: { backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
-  nextBtnDisabled: { opacity: 0.4 },
   nextBtnText: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body },
 });
