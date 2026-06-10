@@ -172,7 +172,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
 
   return {
     titles: queue, currentIndex, ratings, isLoading, error,
-    rate, canSkip: currentIndex >= 10,
+    rate, canSkip: currentIndex >= 12,
     isFinished: queue.length > 0 && currentIndex >= queue.length,
     genreStepDone, confirmGenres, liveProfile, anchorPositions,
   };

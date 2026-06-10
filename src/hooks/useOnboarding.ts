@@ -203,7 +203,7 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
     isLoading,
     error,
     rate,
-    canSkip: currentIndex >= 10,
+    canSkip: currentIndex >= 12,
     isFinished: queue.length > 0 && currentIndex >= queue.length,
     genreStepDone,
     confirmGenres,
