@@ -60,35 +60,58 @@ function scoreTitle(t: NormalizedTitle, profile: Record<string, number>): number
   return t.genres.reduce((s, g) => s + (profile[g] ?? 0), 0);
 }
 
-// Cuántas cartas respondidas cubrieron cada género (medida de evidencia)
-export function computeGenreCounts(
+// Evidencia por género: cuántas cartas se respondieron y cuántas fueron vistas
+export interface GenreEvidence {
+  answered: Record<string, number>; // cartas respondidas que cubren el género
+  seen:     Record<string, number>; // de esas, cuántas el usuario vio (loved/liked/disliked)
+}
+
+export function computeGenreEvidence(
   ratings: Record<number, Rating>,
   pool: NormalizedTitle[],
-): Record<string, number> {
-  const occ: Record<string, number> = {};
-  for (const idStr of Object.keys(ratings)) {
+): GenreEvidence {
+  const answered: Record<string, number> = {};
+  const seen:     Record<string, number> = {};
+  for (const [idStr, r] of Object.entries(ratings)) {
     const title = pool.find(t => t.tmdbId === Number(idStr) || t.id === Number(idStr));
     if (!title) continue;
-    for (const g of title.genres) occ[g] = (occ[g] ?? 0) + 1;
+    for (const g of title.genres) {
+      answered[g] = (answered[g] ?? 0) + 1;
+      if (r !== 'not_seen') seen[g] = (seen[g] ?? 0) + 1;
+    }
   }
-  return occ;
+  return { answered, seen };
 }
 
 // Incertidumbre: cuánto aporta este título sobre géneros con poca evidencia
-function infoScore(t: NormalizedTitle, occ: Record<string, number>): number {
-  return t.genres.reduce((s, g) => s + 1 / (1 + (occ[g] ?? 0)), 0);
+function infoScore(t: NormalizedTitle, answered: Record<string, number>): number {
+  return t.genres.reduce((s, g) => s + 1 / (1 + (answered[g] ?? 0)), 0);
+}
+
+// Género frío: 2+ "no la vi" y ninguna vista → dejar de gastar cartas ahí
+function coldGenres(ev: GenreEvidence): Set<string> {
+  const cold = new Set<string>();
+  for (const g of Object.keys(ev.answered)) {
+    const notSeen = ev.answered[g] - (ev.seen[g] ?? 0);
+    if (notSeen >= 2 && (ev.seen[g] ?? 0) === 0) cold.add(g);
+  }
+  return cold;
 }
 
 // Intercala 2 cartas de mejor match : 1 carta de sondeo dirigido (la que más
-// reduce incertidumbre). Penalizados (score < 0) siempre al final.
+// reduce incertidumbre). Al final: géneros fríos, y últimos los penalizados.
 function sortAdaptive(
   remaining: NormalizedTitle[],
   profile: Record<string, number>,
-  occ: Record<string, number>,
+  ev: GenreEvidence,
 ): NormalizedTitle[] {
-  const scored  = remaining.map(t => ({ t, score: scoreTitle(t, profile), info: infoScore(t, occ) }));
-  const active  = scored.filter(s => s.score >= 0);
+  const cold    = coldGenres(ev);
+  const scored  = remaining.map(t => ({ t, score: scoreTitle(t, profile), info: infoScore(t, ev.answered) }));
   const penalty = scored.filter(s => s.score < 0).sort((a, b) => b.score - a.score).map(s => s.t);
+  // Frío sin evidencia positiva: el usuario no conoce ese género, no insistir
+  const demoted = scored.filter(s => s.score >= 0 && s.score <= 0.001 && s.t.genres.some(g => cold.has(g))).map(s => s.t);
+  const demotedIds = new Set(demoted.map(t => t.tmdbId));
+  const active  = scored.filter(s => s.score >= 0 && !demotedIds.has(s.t.tmdbId));
 
   const byMatch = [...active].sort((a, b) => b.score - a.score);
   const byInfo  = [...active].sort((a, b) => b.info - a.info);
@@ -105,7 +128,7 @@ function sortAdaptive(
     if (i < byInfo.length) { used.add(byInfo[i].t.tmdbId); result.push(byInfo[i].t); }
     if (m >= byMatch.length && i >= byInfo.length) break;
   }
-  return [...result, ...penalty];
+  return [...result, ...demoted, ...penalty];
 }
 
 export function useOnboarding(ageRange: AgeRange): OnboardingState {
@@ -148,7 +171,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
         poolRef.current = fetched;
         if (genreSeedsRef.current.length > 0) {
           const profile = computeLocalProfile({}, fetched, genreSeedsRef.current);
-          setQueue(sortAdaptive(fetched, profile, {}));
+          setQueue(sortAdaptive(fetched, profile, { answered: {}, seen: {} }));
         } else {
           setQueue(fetched);
         }
@@ -180,8 +203,8 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
       const shown     = queue.slice(0, next);
       const remaining = queue.slice(next);
       const profile   = computeLocalProfile(newRatings, poolRef.current, genreSeedsRef.current);
-      const occ       = computeGenreCounts(newRatings, poolRef.current);
-      setQueue([...shown, ...sortAdaptive(remaining, profile, occ)]);
+      const ev        = computeGenreEvidence(newRatings, poolRef.current);
+      setQueue([...shown, ...sortAdaptive(remaining, profile, ev)]);
     }
     setTimeout(() => setIdx(next), 250);
   }, [queue, currentIndex]);
