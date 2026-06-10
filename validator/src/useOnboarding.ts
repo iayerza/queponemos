@@ -60,25 +60,52 @@ function scoreTitle(t: NormalizedTitle, profile: Record<string, number>): number
   return t.genres.reduce((s, g) => s + (profile[g] ?? 0), 0);
 }
 
-function sortAdaptive(remaining: NormalizedTitle[], profile: Record<string, number>): NormalizedTitle[] {
-  const scored  = remaining.map(t => ({ t, score: scoreTitle(t, profile) }));
-  // Separar penalizados (score < 0): van al final, nunca al explore
+// Cuántas cartas respondidas cubrieron cada género (medida de evidencia)
+export function computeGenreCounts(
+  ratings: Record<number, Rating>,
+  pool: NormalizedTitle[],
+): Record<string, number> {
+  const occ: Record<string, number> = {};
+  for (const idStr of Object.keys(ratings)) {
+    const title = pool.find(t => t.tmdbId === Number(idStr) || t.id === Number(idStr));
+    if (!title) continue;
+    for (const g of title.genres) occ[g] = (occ[g] ?? 0) + 1;
+  }
+  return occ;
+}
+
+// Incertidumbre: cuánto aporta este título sobre géneros con poca evidencia
+function infoScore(t: NormalizedTitle, occ: Record<string, number>): number {
+  return t.genres.reduce((s, g) => s + 1 / (1 + (occ[g] ?? 0)), 0);
+}
+
+// Intercala 2 cartas de mejor match : 1 carta de sondeo dirigido (la que más
+// reduce incertidumbre). Penalizados (score < 0) siempre al final.
+function sortAdaptive(
+  remaining: NormalizedTitle[],
+  profile: Record<string, number>,
+  occ: Record<string, number>,
+): NormalizedTitle[] {
+  const scored  = remaining.map(t => ({ t, score: scoreTitle(t, profile), info: infoScore(t, occ) }));
   const active  = scored.filter(s => s.score >= 0);
   const penalty = scored.filter(s => s.score < 0).sort((a, b) => b.score - a.score).map(s => s.t);
 
-  const cut     = Math.ceil(active.length * 0.65);
-  const sorted  = [...active].sort((a, b) => b.score - a.score);
-  const exploit = sorted.slice(0, cut).map(s => s.t);
-  const explore = sorted.slice(cut).map(s => s.t).sort(() => Math.random() - 0.5);
+  const byMatch = [...active].sort((a, b) => b.score - a.score);
+  const byInfo  = [...active].sort((a, b) => b.info - a.info);
 
+  const used = new Set<number>();
   const result: NormalizedTitle[] = [];
-  let e = 0, x = 0;
-  while (e < exploit.length || x < explore.length) {
-    if (e < exploit.length) result.push(exploit[e++]);
-    if (e < exploit.length) result.push(exploit[e++]);
-    if (x < explore.length) result.push(explore[x++]);
+  let m = 0, i = 0;
+  while (result.length < active.length) {
+    for (let k = 0; k < 2; k++) {
+      while (m < byMatch.length && used.has(byMatch[m].t.tmdbId)) m++;
+      if (m < byMatch.length) { used.add(byMatch[m].t.tmdbId); result.push(byMatch[m].t); }
+    }
+    while (i < byInfo.length && used.has(byInfo[i].t.tmdbId)) i++;
+    if (i < byInfo.length) { used.add(byInfo[i].t.tmdbId); result.push(byInfo[i].t); }
+    if (m >= byMatch.length && i >= byInfo.length) break;
   }
-  return [...result, ...penalty]; // penalizados siempre al final
+  return [...result, ...penalty];
 }
 
 export function useOnboarding(ageRange: AgeRange): OnboardingState {
@@ -121,7 +148,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
         poolRef.current = fetched;
         if (genreSeedsRef.current.length > 0) {
           const profile = computeLocalProfile({}, fetched, genreSeedsRef.current);
-          setQueue(sortAdaptive(fetched, profile));
+          setQueue(sortAdaptive(fetched, profile, {}));
         } else {
           setQueue(fetched);
         }
@@ -147,13 +174,14 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     setRatings(newRatings);
 
     const next = currentIndex + 1;
-    const SEED = 5;
-    const shouldReorder = next === SEED || (next > SEED && (next - SEED) % 4 === 0);
-    if (shouldReorder && next < queue.length) {
+    const SEED = 3;
+    // Reordenar después de cada carta a partir de la 3: máxima reactividad
+    if (next >= SEED && next < queue.length) {
       const shown     = queue.slice(0, next);
       const remaining = queue.slice(next);
       const profile   = computeLocalProfile(newRatings, poolRef.current, genreSeedsRef.current);
-      setQueue([...shown, ...sortAdaptive(remaining, profile)]);
+      const occ       = computeGenreCounts(newRatings, poolRef.current);
+      setQueue([...shown, ...sortAdaptive(remaining, profile, occ)]);
     }
     setTimeout(() => setIdx(next), 250);
   }, [queue, currentIndex]);
