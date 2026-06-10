@@ -113,7 +113,8 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
         }
         if (genreSeedsRef.current.length > 0) {
           const selectedSet = new Set(genreSeedsRef.current);
-          const genreFiltered = fetched.filter(t => t.genres.some(g => selectedSet.has(g)));
+          // Anchors always pass — they're calibration points regardless of genre
+          const genreFiltered = fetched.filter(t => t.isAnchor || t.genres.some(g => selectedSet.has(g)));
           if (genreFiltered.length >= 15) fetched = genreFiltered;
         }
         setPool(fetched);

@@ -31,6 +31,7 @@ export interface NormalizedTitle {
   synopsis: string;
   runtime?: number;
   keywords?: string[]; // populated lazily via fetchKeywords()
+  isAnchor?: boolean;  // set by placeAnchors — calibration titles that bypass genre filter
 }
 
 const GENRE_MAP: Record<number, string> = {
@@ -197,8 +198,8 @@ export async function fetchAnchorTitles(minYear: number): Promise<NormalizedTitl
 
 // Distribuye anchors de forma estratificada: 3 en 0-9, 1 en 10-19, 1 en 20-29
 function placeAnchors(anchors: NormalizedTitle[], disc: NormalizedTitle[]): NormalizedTitle[] {
-  const sa = shuffle(anchors.slice(0, 5));
-  const sd = shuffle(disc.slice(0, 25));
+  const sa = shuffle(anchors.slice(0, 5)).map(t => ({ ...t, isAnchor: true }));
+  const sd = shuffle(disc.slice(0, 25)).map(t => ({ ...t, isAnchor: false }));
   const block1 = shuffle([...sa.slice(0, 3), ...sd.slice(0,  7)]);  // 10 cards
   const block2 = shuffle([...sa.slice(3, 4), ...sd.slice(7,  16)]); // 10 cards
   const block3 = shuffle([...sa.slice(4, 5), ...sd.slice(16, 25)]); // 10 cards

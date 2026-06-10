@@ -140,7 +140,8 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
         let ordered = fetched.length >= 10 ? fetched : MOCK_FALLBACK;
         if (genreSeedsRef.current.length > 0) {
           const selectedSet = new Set(genreSeedsRef.current);
-          const genreFiltered = ordered.filter(t => t.genres.some(g => selectedSet.has(g)));
+          // Anchors always pass — they're calibration points regardless of genre
+          const genreFiltered = ordered.filter(t => t.isAnchor || t.genres.some(g => selectedSet.has(g)));
           if (genreFiltered.length >= 15) ordered = genreFiltered;
         }
         setPool(ordered);
