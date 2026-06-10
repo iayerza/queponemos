@@ -49,11 +49,11 @@ export function computeLocalProfile(
 
   const mean: Record<string, number> = {};
   for (const g of Object.keys(weightSum)) {
-    const avg = weightSum[g] / occurrences[g];
-    if (avg > 0) mean[g] = avg;
+    mean[g] = weightSum[g] / occurrences[g]; // conservar negativos
   }
-  const max = Math.max(...Object.values(mean), 0.001);
-  return Object.fromEntries(Object.entries(mean).map(([g, v]) => [g, v / max]));
+  // Normalizar por el máximo positivo; los negativos quedan como penalización
+  const maxPos = Math.max(...Object.values(mean).filter(v => v > 0), 0.001);
+  return Object.fromEntries(Object.entries(mean).map(([g, v]) => [g, v / maxPos]));
 }
 
 function scoreTitle(t: NormalizedTitle, profile: Record<string, number>): number {
@@ -61,19 +61,24 @@ function scoreTitle(t: NormalizedTitle, profile: Record<string, number>): number
 }
 
 function sortAdaptive(remaining: NormalizedTitle[], profile: Record<string, number>): NormalizedTitle[] {
-  const scored = remaining.map(t => ({ t, score: scoreTitle(t, profile) }));
-  const cut    = Math.ceil(scored.length * 0.65);
-  const sorted = [...scored].sort((a, b) => b.score - a.score);
+  const scored  = remaining.map(t => ({ t, score: scoreTitle(t, profile) }));
+  // Separar penalizados (score < 0): van al final, nunca al explore
+  const active  = scored.filter(s => s.score >= 0);
+  const penalty = scored.filter(s => s.score < 0).sort((a, b) => b.score - a.score).map(s => s.t);
+
+  const cut     = Math.ceil(active.length * 0.65);
+  const sorted  = [...active].sort((a, b) => b.score - a.score);
   const exploit = sorted.slice(0, cut).map(s => s.t);
-  const explore  = sorted.slice(cut).map(s => s.t).sort(() => Math.random() - 0.5);
+  const explore = sorted.slice(cut).map(s => s.t).sort(() => Math.random() - 0.5);
+
   const result: NormalizedTitle[] = [];
   let e = 0, x = 0;
-  while (result.length < remaining.length) {
-    if (e < exploit.length)                                result.push(exploit[e++]);
-    if (result.length < remaining.length && e < exploit.length) result.push(exploit[e++]);
-    if (result.length < remaining.length && x < explore.length) result.push(explore[x++]);
+  while (e < exploit.length || x < explore.length) {
+    if (e < exploit.length) result.push(exploit[e++]);
+    if (e < exploit.length) result.push(exploit[e++]);
+    if (x < explore.length) result.push(explore[x++]);
   }
-  return result;
+  return [...result, ...penalty]; // penalizados siempre al final
 }
 
 export function useOnboarding(ageRange: AgeRange): OnboardingState {
