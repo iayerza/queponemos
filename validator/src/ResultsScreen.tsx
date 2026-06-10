@@ -1,14 +1,40 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  TextInput, ActivityIndicator,
+  View, Text, TouchableOpacity, StyleSheet,
+  ScrollView, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateRecommendations, type ValidatorRec } from './claude';
-import type { OnboardingState, AnchorInfo } from './useOnboarding';
+import type { AnchorInfo } from './useOnboarding';
 import type { NormalizedTitle } from './tmdb';
 
-const C = { bg:'#0D0D0F', s1:'#1C1C20', s2:'#252528', border:'#2A2A2E', accent:'#C8302A', accentFaint:'rgba(200,48,42,0.15)', accentBorder:'rgba(200,48,42,0.4)', text:'#FFFFFF', sub:'#888888', faint:'#555555', success:'#1D9E75' };
+const C = {
+  bg:'#0D0D0F', s1:'#1C1C20', s2:'#252528', border:'#2A2A2E',
+  accent:'#C8302A', accentFaint:'rgba(200,48,42,0.15)', accentBorder:'rgba(200,48,42,0.4)',
+  text:'#FFFFFF', sub:'#888888', faint:'#555555', success:'#1D9E75',
+};
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+type Step = 'profile' | 'mood' | 'tone' | 'result';
+
+const MOODS = [
+  { id:'energized',    emoji:'⚡', label:'Con energía y ganas de algo bueno' },
+  { id:'relaxed',      emoji:'😌', label:'Tranquilo, quiero relajarme' },
+  { id:'nostalgic',    emoji:'🌅', label:'Melancólico o nostálgico' },
+  { id:'stressed',     emoji:'😤', label:'Estresado, necesito escapar' },
+  { id:'curious',      emoji:'🤔', label:'Con ganas de algo que me haga pensar' },
+  { id:'tired',        emoji:'😴', label:'Cansado, algo fácil' },
+];
+
+const TONES = [
+  { id:'tension', emoji:'🎯', label:'Enganchar al borde del sillón' },
+  { id:'light',   emoji:'😂', label:'Reírme y desenchufar'           },
+  { id:'think',   emoji:'💭', label:'Pensar y reflexionar'            },
+  { id:'fear',    emoji:'😱', label:'Sustos y adrenalina'             },
+];
+
+// ── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
   ratings:         Record<number, string>;
@@ -18,9 +44,13 @@ interface Props {
   onRepeat:        () => void;
 }
 
+// ── Component ────────────────────────────────────────────────────────────────
+
 export default function ResultsScreen({ ratings, liveProfile, titles, anchorPositions, onRepeat }: Props) {
   const insets = useSafeAreaInsets();
+  const [step, setStep]       = useState<Step>('profile');
   const [mood, setMood]       = useState('');
+  const [tone, setTone]       = useState('');
   const [loading, setLoading] = useState(false);
   const [recs, setRecs]       = useState<ValidatorRec[] | null>(null);
   const [rawJson, setRawJson] = useState('');
@@ -32,15 +62,16 @@ export default function ResultsScreen({ ratings, liveProfile, titles, anchorPosi
   const ratedCount    = Object.keys(ratings).length;
 
   async function callClaude() {
-    if (!mood.trim()) return;
     setLoading(true);
     setErr('');
-    setRecs(null);
     try {
-      const result = await generateRecommendations(liveProfile, mood);
+      const moodLabel = MOODS.find(m => m.id === mood)?.label ?? mood;
+      const toneLabel = TONES.find(t => t.id === tone)?.label ?? tone;
+      const result = await generateRecommendations(liveProfile, `${moodLabel} / ${toneLabel}`);
       setRecs(result.recs);
       setRawJson(result.rawJson);
       setMs(result.ms);
+      setStep('result');
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -48,89 +79,155 @@ export default function ResultsScreen({ ratings, liveProfile, titles, anchorPosi
     }
   }
 
-  return (
-    <ScrollView
-      style={{ flex:1, backgroundColor:C.bg }}
-      contentContainerStyle={[s.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 40 }]}
-    >
-      <Text style={s.tag}>RESULTADOS</Text>
-      <Text style={s.title}>Perfil construido</Text>
-      <Text style={s.sub}>{ratedCount} títulos calificados de {titles.length}</Text>
+  // ── Step: perfil ──────────────────────────────────────────────────────────
+  if (step === 'profile') {
+    return (
+      <ScrollView style={s.root} contentContainerStyle={[s.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 40 }]}>
+        <Text style={s.tag}>PERFIL CONSTRUIDO</Text>
+        <Text style={s.title}>Tu perfil de gustos</Text>
+        <Text style={s.sub}>{ratedCount} títulos calificados de {titles.length}</Text>
 
-      {/* Full profile */}
-      <View style={s.box}>
-        <Text style={s.boxTitle}>GÉNEROS (ordenados por preferencia)</Text>
-        {sortedProfile.length === 0 ? (
-          <Text style={s.empty}>No hay datos — calificá al menos un título.</Text>
-        ) : sortedProfile.map(([g, v]) => (
-          <View key={g} style={s.barRow}>
-            <Text style={s.barLabel}>{g}</Text>
-            <View style={s.barTrack}>
-              <View style={[s.barFill, { width:`${Math.round(v * 100)}%` }]} />
-            </View>
-            <Text style={s.barVal}>{v.toFixed(3)}</Text>
-          </View>
-        ))}
-      </View>
+        <View style={s.box}>
+          <Text style={s.boxTitle}>GÉNEROS</Text>
+          {sortedProfile.length === 0
+            ? <Text style={s.empty}>Calificá al menos un título.</Text>
+            : sortedProfile.map(([g, v]) => (
+              <View key={g} style={s.barRow}>
+                <Text style={s.barLabel}>{g}</Text>
+                <View style={s.barTrack}>
+                  <View style={[s.barFill, { width:`${Math.round(v * 100)}%` }]} />
+                </View>
+                <Text style={s.barVal}>{v.toFixed(2)}</Text>
+              </View>
+            ))
+          }
+        </View>
 
-      {/* Anchors */}
-      <View style={s.box}>
-        <Text style={s.boxTitle}>ANCHORS ({anchorPositions.length}/5)</Text>
-        {anchorPositions.length === 0 ? (
-          <Text style={s.empty}>Ningún anchor apareció aún.</Text>
-        ) : anchorPositions.map(a => (
-          <Text key={a.idx} style={s.anchorRow}>
-            <Text style={{ color:C.accent }}>#{a.idx + 1}</Text>  {a.title}
-          </Text>
-        ))}
-      </View>
+        <View style={s.box}>
+          <Text style={s.boxTitle}>⚓ ANCHORS ({anchorPositions.length}/5)</Text>
+          {anchorPositions.length === 0
+            ? <Text style={s.empty}>Ningún anchor apareció.</Text>
+            : anchorPositions.map(a => (
+              <Text key={a.idx} style={s.anchorRow}>
+                <Text style={{ color:C.accent }}>#{a.idx + 1}</Text>{'  '}{a.title}
+              </Text>
+            ))
+          }
+        </View>
 
-      {/* Claude call */}
-      <View style={s.box}>
-        <Text style={s.boxTitle}>GENERAR RECOMENDACIÓN CON CLAUDE</Text>
-        <TextInput
-          style={s.input}
-          placeholder="¿Cómo te sentís hoy? (ej: cansado, necesito reír)"
-          placeholderTextColor={C.faint}
-          value={mood}
-          onChangeText={setMood}
-          multiline
-        />
+        <TouchableOpacity style={s.btn} onPress={() => setStep('mood')} activeOpacity={0.85}>
+          <Text style={s.btnText}>Buscar match →</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.repeatBtn} onPress={onRepeat} activeOpacity={0.85}>
+          <Text style={s.repeatText}>↩  Repetir con otro perfil</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
+  // ── Step: mood ────────────────────────────────────────────────────────────
+  if (step === 'mood') {
+    return (
+      <ScrollView style={s.root} contentContainerStyle={[s.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 40 }]}>
+        <TouchableOpacity onPress={() => setStep('profile')} style={s.back}>
+          <Text style={s.backText}>← Volver</Text>
+        </TouchableOpacity>
+        <Text style={s.tag}>PASO 1 DE 2</Text>
+        <Text style={s.title}>¿Cómo estás hoy?</Text>
+
+        <View style={s.moodGrid}>
+          {MOODS.map(m => (
+            <TouchableOpacity
+              key={m.id}
+              style={[s.moodCard, mood === m.id && s.moodCardActive]}
+              onPress={() => setMood(m.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={s.moodEmoji}>{m.emoji}</Text>
+              <Text style={[s.moodLabel, mood === m.id && s.moodLabelActive]}>{m.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <TouchableOpacity
-          style={[s.btn, (!mood.trim() || loading) && s.btnDisabled]}
+          style={[s.btn, !mood && s.btnDisabled]}
+          onPress={() => setStep('tone')}
+          disabled={!mood}
+          activeOpacity={0.85}
+        >
+          <Text style={s.btnText}>Siguiente →</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
+  // ── Step: tone ────────────────────────────────────────────────────────────
+  if (step === 'tone') {
+    return (
+      <ScrollView style={s.root} contentContainerStyle={[s.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 40 }]}>
+        <TouchableOpacity onPress={() => setStep('mood')} style={s.back}>
+          <Text style={s.backText}>← Volver</Text>
+        </TouchableOpacity>
+        <Text style={s.tag}>PASO 2 DE 2</Text>
+        <Text style={s.title}>Hoy tengo ganas de…</Text>
+
+        <View style={s.toneGrid}>
+          {TONES.map(t => (
+            <TouchableOpacity
+              key={t.id}
+              style={[s.toneCard, tone === t.id && s.toneCardActive]}
+              onPress={() => setTone(t.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={s.toneEmoji}>{t.emoji}</Text>
+              <Text style={[s.toneLabel, tone === t.id && s.toneLabelActive]}>{t.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {err ? <Text style={s.errText}>{err}</Text> : null}
+
+        <TouchableOpacity
+          style={[s.btn, (!tone || loading) && s.btnDisabled]}
           onPress={callClaude}
-          disabled={!mood.trim() || loading}
+          disabled={!tone || loading}
           activeOpacity={0.85}
         >
           {loading
             ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={s.btnText}>Generar →</Text>
+            : <Text style={s.btnText}>Generar recomendación →</Text>
           }
         </TouchableOpacity>
-        {err ? <Text style={s.errText}>{err}</Text> : null}
-      </View>
+      </ScrollView>
+    );
+  }
 
-      {/* Recommendations */}
-      {recs && (
-        <View style={s.box}>
-          <Text style={s.boxTitle}>RECOMENDACIONES  ·  {ms}ms</Text>
-          {recs.map((r, i) => (
-            <View key={i} style={s.recCard}>
-              <View style={s.recHeader}>
-                <Text style={s.recTitle}>{r.title}</Text>
-                <Text style={s.recMeta}>{r.year}  ·  {r.type === 'movie' ? '🎬' : '📺'}  ·  {r.platform}</Text>
-              </View>
-              <Text style={s.recReason}>{r.reason}</Text>
-            </View>
-          ))}
-          <TouchableOpacity onPress={() => setShowRaw(v => !v)} style={s.rawToggle}>
-            <Text style={s.rawToggleText}>{showRaw ? 'Ocultar JSON' : 'Ver JSON crudo'}</Text>
-          </TouchableOpacity>
-          {showRaw && <Text style={s.rawJson}>{rawJson}</Text>}
+  // ── Step: resultado ───────────────────────────────────────────────────────
+  return (
+    <ScrollView style={s.root} contentContainerStyle={[s.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 40 }]}>
+      <Text style={s.tag}>RECOMENDACIONES · {ms}ms</Text>
+      <Text style={s.title}>Tu match de hoy</Text>
+      <Text style={s.sub}>
+        {MOODS.find(m => m.id === mood)?.emoji} {MOODS.find(m => m.id === mood)?.label}{'  ·  '}
+        {TONES.find(t => t.id === tone)?.emoji} {TONES.find(t => t.id === tone)?.label}
+      </Text>
+
+      {recs?.map((r, i) => (
+        <View key={i} style={s.recCard}>
+          <Text style={s.recTitle}>{r.title} <Text style={s.recMeta}>({r.year})</Text></Text>
+          <Text style={s.recMeta}>{r.type === 'movie' ? '🎬 Película' : '📺 Serie'}  ·  {r.platform}</Text>
+          <Text style={s.recReason}>{r.reason}</Text>
         </View>
-      )}
+      ))}
 
-      {/* Repeat */}
+      <TouchableOpacity onPress={() => setShowRaw(v => !v)} style={s.rawToggle}>
+        <Text style={s.rawToggleText}>{showRaw ? 'Ocultar JSON' : 'Ver JSON crudo'}</Text>
+      </TouchableOpacity>
+      {showRaw && <Text style={s.rawJson}>{rawJson}</Text>}
+
+      <TouchableOpacity style={s.btn} onPress={() => { setStep('mood'); setRecs(null); }} activeOpacity={0.85}>
+        <Text style={s.btnText}>Cambiar mood →</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={s.repeatBtn} onPress={onRepeat} activeOpacity={0.85}>
         <Text style={s.repeatText}>↩  Repetir con otro perfil</Text>
       </TouchableOpacity>
@@ -138,33 +235,58 @@ export default function ResultsScreen({ ratings, liveProfile, titles, anchorPosi
   );
 }
 
+// ── Styles ───────────────────────────────────────────────────────────────────
+
 const s = StyleSheet.create({
-  content:    { paddingHorizontal:16, gap:16 },
-  tag:        { color:C.faint, fontSize:10, fontWeight:'500', letterSpacing:2 },
-  title:      { color:C.text, fontSize:24, fontWeight:'600' },
-  sub:        { color:C.sub, fontSize:13 },
-  box:        { backgroundColor:C.s1, borderRadius:14, borderWidth:1, borderColor:C.border, padding:14, gap:8 },
-  boxTitle:   { color:C.faint, fontSize:9, fontWeight:'600', letterSpacing:2, marginBottom:4 },
-  empty:      { color:C.faint, fontSize:13 },
-  barRow:     { flexDirection:'row', alignItems:'center', gap:8 },
-  barLabel:   { color:C.sub, fontSize:11, width:100 },
-  barTrack:   { flex:1, height:5, backgroundColor:C.s2, borderRadius:3 },
-  barFill:    { height:5, backgroundColor:C.accent, borderRadius:3 },
-  barVal:     { color:C.faint, fontSize:10, width:36, textAlign:'right' },
-  anchorRow:  { color:C.sub, fontSize:13, lineHeight:20 },
-  input:      { backgroundColor:C.s2, borderRadius:10, padding:12, borderWidth:1, borderColor:C.border, color:C.text, fontSize:14, minHeight:52 },
-  btn:        { backgroundColor:C.accent, borderRadius:10, paddingVertical:14, alignItems:'center' },
+  root:    { flex:1, backgroundColor:C.bg },
+  content: { paddingHorizontal:16, gap:16 },
+  tag:     { color:C.faint, fontSize:10, fontWeight:'500', letterSpacing:2 },
+  title:   { color:C.text, fontSize:24, fontWeight:'600' },
+  sub:     { color:C.sub, fontSize:13, lineHeight:20 },
+  back:    { paddingVertical:4 },
+  backText:{ color:C.faint, fontSize:13 },
+
+  // Profile
+  box:      { backgroundColor:C.s1, borderRadius:14, borderWidth:1, borderColor:C.border, padding:14, gap:8 },
+  boxTitle: { color:C.faint, fontSize:9, fontWeight:'600', letterSpacing:2, marginBottom:4 },
+  empty:    { color:C.faint, fontSize:13 },
+  barRow:   { flexDirection:'row', alignItems:'center', gap:8 },
+  barLabel: { color:C.sub, fontSize:11, width:100 },
+  barTrack: { flex:1, height:5, backgroundColor:C.s2, borderRadius:3 },
+  barFill:  { height:5, backgroundColor:C.accent, borderRadius:3 },
+  barVal:   { color:C.faint, fontSize:10, width:36, textAlign:'right' },
+  anchorRow:{ color:C.sub, fontSize:13, lineHeight:20 },
+
+  // Mood grid
+  moodGrid: { gap:10 },
+  moodCard: { backgroundColor:C.s1, borderRadius:14, borderWidth:1, borderColor:C.border, padding:16, flexDirection:'row', alignItems:'center', gap:14 },
+  moodCardActive: { borderColor:C.accentBorder, backgroundColor:C.accentFaint },
+  moodEmoji: { fontSize:24 },
+  moodLabel: { color:C.sub, fontSize:14, fontWeight:'500', flex:1 },
+  moodLabelActive: { color:C.text },
+
+  // Tone grid
+  toneGrid: { gap:10 },
+  toneCard: { backgroundColor:C.s1, borderRadius:14, borderWidth:1, borderColor:C.border, padding:20, alignItems:'center', gap:10 },
+  toneCardActive: { borderColor:C.accentBorder, backgroundColor:C.accentFaint },
+  toneEmoji: { fontSize:32 },
+  toneLabel: { color:C.sub, fontSize:15, fontWeight:'500', textAlign:'center' },
+  toneLabelActive: { color:C.text },
+
+  // Buttons
+  btn:        { backgroundColor:C.accent, borderRadius:12, paddingVertical:16, alignItems:'center' },
   btnDisabled:{ opacity:0.4 },
   btnText:    { color:'#fff', fontSize:14, fontWeight:'600' },
-  errText:    { color:'#f55', fontSize:12 },
-  recCard:    { backgroundColor:C.s2, borderRadius:10, padding:12, gap:6, borderWidth:1, borderColor:C.border },
-  recHeader:  { gap:2 },
-  recTitle:   { color:C.text, fontSize:15, fontWeight:'600' },
-  recMeta:    { color:C.sub, fontSize:12 },
-  recReason:  { color:C.sub, fontSize:13, lineHeight:18 },
-  rawToggle:  { alignSelf:'flex-start', paddingVertical:4 },
-  rawToggleText:{ color:C.faint, fontSize:12, textDecorationLine:'underline' },
-  rawJson:    { color:C.faint, fontSize:10, lineHeight:16, fontFamily:'monospace' },
   repeatBtn:  { backgroundColor:C.s1, borderRadius:12, borderWidth:1, borderColor:C.border, paddingVertical:14, alignItems:'center' },
   repeatText: { color:C.sub, fontSize:14 },
+
+  // Results
+  recCard:   { backgroundColor:C.s1, borderRadius:14, borderWidth:1, borderColor:C.border, padding:16, gap:6 },
+  recTitle:  { color:C.text, fontSize:16, fontWeight:'600' },
+  recMeta:   { color:C.sub, fontSize:12 },
+  recReason: { color:C.sub, fontSize:13, lineHeight:19 },
+  errText:   { color:'#f88', fontSize:12 },
+  rawToggle: { alignSelf:'flex-start' },
+  rawToggleText: { color:C.faint, fontSize:12, textDecorationLine:'underline' },
+  rawJson:   { color:C.faint, fontSize:10, lineHeight:15 },
 });

@@ -98,7 +98,7 @@ const MG = { action:28, adventure:12, animation:16, comedy:35, crime:80, drama:1
 const TG = { comedy:35, crime:80, drama:18, scifiFantasy:10765, mystery:9648 } as const;
 
 async function fetchDiscoverSlot(slot: DiscoverSlot): Promise<NormalizedTitle[]> {
-  const page = Math.ceil(Math.random() * 3);
+  const page = slot.sortBy === 'popularity.desc' ? 1 : Math.ceil(Math.random() * 3);
   const p: Record<string, string> = {
     with_genres: String(slot.genre),
     'vote_count.gte': String(slot.minVotes ?? 500),
