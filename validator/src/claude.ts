@@ -8,26 +8,54 @@ export interface ValidatorRec {
   reason:   string;
 }
 
+// El perfil viene con features prefijadas: g: género, p: par de sabor,
+// e: época, t: tono (prestigio/palomitera)
+function section(profile: Record<string, number>, prefix: string) {
+  return Object.entries(profile)
+    .filter(([f]) => f.startsWith(prefix))
+    .map(([f, v]) => [f.slice(prefix.length), v] as const)
+    .sort(([, a], [, b]) => b - a);
+}
+
 export async function generateRecommendations(
   profile: Record<string, number>,
   mood: string,
 ): Promise<{ recs: ValidatorRec[]; rawJson: string; ms: number }> {
-  const entries  = Object.entries(profile).sort(([, a], [, b]) => b - a);
-  const likes    = entries.filter(([, v]) => v > 0.1).slice(0, 8);
-  const dislikes = entries.filter(([, v]) => v < 0);
+  const genres = section(profile, 'g:');
+  const pairs  = section(profile, 'p:');
+  const eras   = section(profile, 'e:');
+  const tones  = section(profile, 't:');
 
-  const likesText = likes.map(([g, v]) => `  ${g}: ${v.toFixed(2)}`).join('\n');
-  const dislikesText = dislikes.length > 0
-    ? `\nGéneros que le DISGUSTAN (evitalos por completo):\n` +
-      dislikes.map(([g, v]) => `  ${g}: ${v.toFixed(2)}`).join('\n') + '\n'
-    : '';
+  const likes    = genres.filter(([, v]) => v > 0.1).slice(0, 8);
+  const dislikes = genres.filter(([, v]) => v < 0);
+  const topPairs = pairs.filter(([, v]) => v > 0.2).slice(0, 3);
+  const topEras  = eras.filter(([, v]) => v > 0.2).slice(0, 2);
+  const tone     = tones.length > 0 && tones[0][1] > 0.2 ? tones[0] : null;
+
+  let profileText = `Géneros que le gustan (escala 0-1, mayor = más preferido):\n` +
+    likes.map(([g, v]) => `  ${g}: ${v.toFixed(2)}`).join('\n') + '\n';
+  if (dislikes.length > 0) {
+    profileText += `\nGéneros que le DISGUSTAN (evitalos por completo):\n` +
+      dislikes.map(([g, v]) => `  ${g}: ${v.toFixed(2)}`).join('\n') + '\n';
+  }
+  if (topPairs.length > 0) {
+    profileText += `\nSabores específicos que más le gustan (combinaciones de género):\n` +
+      topPairs.map(([p, v]) => `  ${p.replace('+', ' + ')}: ${v.toFixed(2)}`).join('\n') + '\n';
+  }
+  if (topEras.length > 0) {
+    profileText += `\nÉpocas preferidas: ${topEras.map(([e]) => e).join(', ')}\n`;
+  }
+  if (tone) {
+    profileText += `\nTono preferido: ${tone[0] === 'prestigio'
+      ? 'cine aclamado y de prestigio'
+      : 'cine palomitero y entretenido'}\n`;
+  }
 
   const prompt =
     `Sos un recomendador de películas para Argentina. ` +
     `Dado el perfil de gustos del usuario y su estado de ánimo, ` +
     `recomendá exactamente 3 PELÍCULAS (no series) disponibles en streaming.\n\n` +
-    `Géneros que le gustan (escala 0-1, mayor = más preferido):\n${likesText}\n` +
-    dislikesText +
+    profileText +
     `\nEstado de ánimo: ${mood}\n\n` +
     `Respondé SOLO con JSON válido, sin texto extra:\n` +
     `{\n` +

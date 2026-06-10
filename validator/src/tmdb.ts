@@ -112,14 +112,17 @@ const DEFAULT_GENRE_IDS = [28, 35, 18, 53, 10749, 878]; // acción, comedia, dra
 
 // Géneros de identidad fuerte: si el usuario no los eligió, se excluyen de
 // todas las queries (un thriller-terror ES terror para quien odia el terror)
-const STRONG_GENRES = [27, 16, 99, 10751]; // terror, animación, documental, familia
+export const STRONG_GENRES = [27, 16, 99, 10751]; // terror, animación, documental, familia
 
 async function fetchTopVoted(opts: {
-  genres?: number[];        // OR entre géneros (pipe)
+  genres?: number[];        // géneros (por defecto OR via pipe)
+  genresJoin?: '|' | ',';   // ',' = AND, para pares de sabor
   withoutGenres?: number[]; // géneros excluidos
   yearFrom?: number;
   yearTo?: number;
   minVotes: number;
+  minRating?: number;       // vote_average.gte (tono prestigio)
+  maxRating?: number;       // vote_average.lte (tono palomitero)
   language?: string;        // with_original_language
   originCountry?: string;   // with_origin_country (ej: 'AR')
   withoutKeywords?: string; // keywords excluidas (pipe)
@@ -129,8 +132,10 @@ async function fetchTopVoted(opts: {
     sort_by: 'vote_count.desc',
     page: '1',
   };
-  if (opts.genres?.length)        p.with_genres = opts.genres.join('|');
+  if (opts.genres?.length)        p.with_genres = opts.genres.join(opts.genresJoin ?? '|');
   if (opts.withoutGenres?.length) p.without_genres = opts.withoutGenres.join(',');
+  if (opts.minRating)        p['vote_average.gte'] = String(opts.minRating);
+  if (opts.maxRating)        p['vote_average.lte'] = String(opts.maxRating);
   if (opts.language)         p.with_original_language = opts.language;
   if (opts.originCountry)    p.with_origin_country = opts.originCountry;
   if (opts.withoutKeywords)  p.without_keywords = opts.withoutKeywords;
@@ -146,7 +151,7 @@ async function fetchTopVoted(opts: {
 // Primera palabra significativa del título original: dos películas que la
 // comparten son casi siempre la misma saga (Avengers, Spider-Man, Harry...)
 const TITLE_STOPWORDS = new Set(['the', 'and', 'los', 'las', 'del', 'una', 'uno']);
-function franchiseKey(t: NormalizedTitle): string {
+export function franchiseKey(t: NormalizedTitle): string {
   const words = (t.originalTitle ?? t.title)
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
@@ -240,4 +245,57 @@ export async function fetchOnboardingPool(
   while (pool.length < TARGET && pickRandom(blockbusters, false, 20)) { /* noop */ }
 
   return shuffle(pool);
+}
+
+// ─── Deepening batch — fase 2 ─────────────────────────────────────────────────
+// Cuando los géneros ganadores están claros (~carta 12), se trae en background
+// una tanda de candidatos para distinguir SUB-gustos dentro de esos géneros:
+//   pares de sabor (thriller+crimen vs thriller+sci-fi vs thriller+drama)
+//   tono (prestigio: rating ≥7.8 / palomitero: rating ≤7.0 con muchos votos)
+// Las épocas ya quedaron cubiertas por el pool de fase 1.
+
+export async function fetchDeepeningBatch(
+  topGenreIds: number[],      // 1-2 géneros ganadores
+  companionIds: number[],     // con qué géneros formar pares
+  ageRange = 'adult',
+  excludeGenreIds: number[] = [], // géneros fuertes no elegidos
+  maxSize = 40,
+): Promise<NormalizedTitle[]> {
+  const yearFrom = (ERAS[ageRange] ?? ERAS.adult)[0][0];
+  const base = {
+    withoutGenres: excludeGenreIds,
+    yearFrom,
+    language: 'en',
+    withoutKeywords: FRANCHISE_KEYWORDS,
+  };
+
+  const reqs: Promise<NormalizedTitle[]>[] = [];
+  for (const g of topGenreIds) {
+    for (const c of companionIds) {
+      if (c === g) continue;
+      reqs.push(fetchTopVoted({ ...base, genres: [g, c], genresJoin: ',', minVotes: 1000 }).catch(() => []));
+    }
+    reqs.push(fetchTopVoted({ ...base, genres: [g], minRating: 7.8, minVotes: 2000 }).catch(() => []));
+    reqs.push(fetchTopVoted({ ...base, genres: [g], maxRating: 7.0, minVotes: 3000 }).catch(() => []));
+  }
+
+  const lists = await Promise.all(reqs);
+
+  // Round-robin entre listas para que ningún eje domine la tanda
+  const seen = new Set<number>();
+  const out: NormalizedTitle[] = [];
+  for (let idx = 0; out.length < maxSize; idx++) {
+    let added = false;
+    for (const list of lists) {
+      if (out.length >= maxSize) break;
+      const t = list[idx];
+      if (t && !seen.has(t.tmdbId)) {
+        seen.add(t.tmdbId);
+        out.push({ ...t, isAnchor: false });
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return out;
 }

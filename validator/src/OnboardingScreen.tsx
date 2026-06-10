@@ -137,7 +137,15 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
   }
 
   const poster    = getPosterUrl(title.posterPath);
-  const topGenres = Object.entries(ob.liveProfile).sort(([,a],[,b]) => b-a).slice(0, 6);
+  const byPrefix  = (p: string, n: number) => Object.entries(ob.liveProfile)
+    .filter(([f]) => f.startsWith(p))
+    .map(([f, v]) => [f.slice(p.length), v] as const)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, n);
+  const topGenres = byPrefix('g:', 6);
+  const topPairs  = byPrefix('p:', 3).filter(([, v]) => v > 0.1);
+  const topEras   = byPrefix('e:', 2).filter(([, v]) => v > 0.1);
+  const topTones  = byPrefix('t:', 2).filter(([, v]) => v > 0.1);
   const anchorsSoFar = ob.anchorPositions.filter(a => a.idx < ob.currentIndex);
 
   return (
@@ -147,6 +155,7 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
         <Text style={s.tag}>
           {ob.currentIndex + 1}/{ob.titles.length}
           {title.isAnchor ? '  ·  ⚓ ANCHOR' : ''}
+          {ob.deepened ? '  ·  🔬 FASE 2' : ''}
         </Text>
         {ob.canSkip && (
           <TouchableOpacity onPress={() => onFinish({ ratings:ob.ratings, liveProfile:ob.liveProfile, titles:ob.titles, anchorPositions:ob.anchorPositions })}>
@@ -201,16 +210,37 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
         {/* Live profile */}
         {topGenres.length > 0 && (
           <View style={s.profileBox}>
-            <Text style={s.profileTitle}>Perfil en tiempo real</Text>
+            <Text style={s.profileTitle}>Perfil en tiempo real · Géneros</Text>
             {topGenres.map(([g, v]) => (
               <View key={g} style={s.barRow}>
                 <Text style={s.barLabel}>{g}</Text>
                 <View style={s.barTrack}>
-                  <View style={[s.barFill, { width:`${Math.round(v * 100)}%` }]} />
+                  <View style={[s.barFill, { width:`${Math.round(Math.max(0, v) * 100)}%` }]} />
                 </View>
                 <Text style={s.barVal}>{v.toFixed(2)}</Text>
               </View>
             ))}
+            {topPairs.length > 0 && (
+              <>
+                <Text style={[s.profileTitle, { marginTop: 8 }]}>Sabores</Text>
+                {topPairs.map(([p, v]) => (
+                  <View key={p} style={s.barRow}>
+                    <Text style={s.barLabel} numberOfLines={1}>{p.replace('+', ' + ')}</Text>
+                    <View style={s.barTrack}>
+                      <View style={[s.barFill, { width:`${Math.round(Math.max(0, v) * 100)}%` }]} />
+                    </View>
+                    <Text style={s.barVal}>{v.toFixed(2)}</Text>
+                  </View>
+                ))}
+              </>
+            )}
+            {(topEras.length > 0 || topTones.length > 0) && (
+              <Text style={s.subDims}>
+                {topEras.length > 0 ? `Época: ${topEras.map(([e]) => e).join(', ')}` : ''}
+                {topEras.length > 0 && topTones.length > 0 ? '   ·   ' : ''}
+                {topTones.length > 0 ? `Tono: ${topTones[0][0]}` : ''}
+              </Text>
+            )}
           </View>
         )}
 
@@ -273,6 +303,7 @@ const s = StyleSheet.create({
 
   // Profile bars
   profileBox:   { backgroundColor:C.s1, borderRadius:12, borderWidth:1, borderColor:C.border, padding:14, gap:8 },
+  subDims:      { color:C.sub, fontSize:11, marginTop:6 },
   profileTitle: { color:C.faint, fontSize:10, fontWeight:'600', letterSpacing:1.5, marginBottom:4 },
   barRow:       { flexDirection:'row', alignItems:'center', gap:8 },
   barLabel:     { color:C.sub, fontSize:11, width:90 },

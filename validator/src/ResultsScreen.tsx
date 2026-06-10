@@ -58,8 +58,15 @@ export default function ResultsScreen({ ratings, liveProfile, titles, anchorPosi
   const [err, setErr]         = useState('');
   const [showRaw, setShowRaw] = useState(false);
 
-  const sortedProfile = Object.entries(liveProfile).sort(([,a],[,b]) => b-a);
-  const ratedCount    = Object.keys(ratings).length;
+  const byPrefix = (p: string) => Object.entries(liveProfile)
+    .filter(([f]) => f.startsWith(p))
+    .map(([f, v]) => [f.slice(p.length), v] as const)
+    .sort(([, a], [, b]) => b - a);
+  const profGenres = byPrefix('g:');
+  const profPairs  = byPrefix('p:').filter(([, v]) => v > 0.1).slice(0, 5);
+  const profEras   = byPrefix('e:').filter(([, v]) => v > 0.1).slice(0, 3);
+  const profTones  = byPrefix('t:').filter(([, v]) => v > 0.1);
+  const ratedCount = Object.keys(ratings).length;
 
   async function callClaude() {
     setLoading(true);
@@ -89,13 +96,13 @@ export default function ResultsScreen({ ratings, liveProfile, titles, anchorPosi
 
         <View style={s.box}>
           <Text style={s.boxTitle}>GÉNEROS</Text>
-          {sortedProfile.length === 0
+          {profGenres.length === 0
             ? <Text style={s.empty}>Calificá al menos un título.</Text>
-            : sortedProfile.map(([g, v]) => (
+            : profGenres.map(([g, v]) => (
               <View key={g} style={s.barRow}>
                 <Text style={s.barLabel}>{g}</Text>
                 <View style={s.barTrack}>
-                  <View style={[s.barFill, { width:`${Math.round(v * 100)}%` }]} />
+                  <View style={[s.barFill, { width:`${Math.round(Math.max(0, v) * 100)}%` }]} />
                 </View>
                 <Text style={s.barVal}>{v.toFixed(2)}</Text>
               </View>
@@ -103,8 +110,35 @@ export default function ResultsScreen({ ratings, liveProfile, titles, anchorPosi
           }
         </View>
 
+        {profPairs.length > 0 && (
+          <View style={s.box}>
+            <Text style={s.boxTitle}>SABORES (PARES DE GÉNERO)</Text>
+            {profPairs.map(([p, v]) => (
+              <View key={p} style={s.barRow}>
+                <Text style={s.barLabel} numberOfLines={1}>{p.replace('+', ' + ')}</Text>
+                <View style={s.barTrack}>
+                  <View style={[s.barFill, { width:`${Math.round(Math.max(0, v) * 100)}%` }]} />
+                </View>
+                <Text style={s.barVal}>{v.toFixed(2)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {(profEras.length > 0 || profTones.length > 0) && (
+          <View style={s.box}>
+            <Text style={s.boxTitle}>ÉPOCA Y TONO</Text>
+            {profEras.length > 0 && (
+              <Text style={s.anchorRow}>Épocas: {profEras.map(([e, v]) => `${e} (${v.toFixed(2)})`).join('  ·  ')}</Text>
+            )}
+            {profTones.length > 0 && (
+              <Text style={s.anchorRow}>Tono: {profTones.map(([t, v]) => `${t} (${v.toFixed(2)})`).join('  ·  ')}</Text>
+            )}
+          </View>
+        )}
+
         <View style={s.box}>
-          <Text style={s.boxTitle}>⚓ ANCHORS ({anchorPositions.length}/5)</Text>
+          <Text style={s.boxTitle}>⚓ ANCHORS ({anchorPositions.length})</Text>
           {anchorPositions.length === 0
             ? <Text style={s.empty}>Ningún anchor apareció.</Text>
             : anchorPositions.map(a => (

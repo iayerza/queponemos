@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { fetchOnboardingPool, type NormalizedTitle } from './tmdb';
+import {
+  fetchOnboardingPool, fetchDeepeningBatch, franchiseKey,
+  GENRE_NAME_TO_ID, STRONG_GENRES, type NormalizedTitle,
+} from './tmdb';
 
 export type Rating   = 'loved' | 'liked' | 'seen_disliked' | 'not_seen';
 export type AgeRange = 'young' | 'mid' | 'adult' | 'senior';
@@ -25,6 +28,8 @@ export interface OnboardingState {
   pendingDoubts:   string[];
   extend:          () => void;
   declineExtend:   () => void;
+  // Fase 2: tanda de profundización cargada
+  deepened:        boolean;
 }
 
 const BASE_TARGET = 30;
@@ -32,6 +37,9 @@ const EXTEND_STEP = 10;
 const MAX_TARGET  = 50;
 // Candidatos a traer de TMDB: el máximo mostrable + reserva para reemplazos
 const POOL_SIZE   = MAX_TARGET + 10;
+// Gatillo de profundización: carta fija, o antes si los top 2 ya están claros
+const DEEPEN_AT_CARD     = 12;
+const DEEPEN_EARLY_SEEN  = 4;
 
 // Géneros a vigilar para dudas cuando el usuario salteó la selección
 const DEFAULT_WATCH = ['Acción', 'Comedia', 'Drama', 'Thriller', 'Romance', 'Ciencia Ficción'];
@@ -39,6 +47,37 @@ const DEFAULT_WATCH = ['Acción', 'Comedia', 'Drama', 'Thriller', 'Romance', 'Ci
 const RATING_WEIGHTS: Record<Rating, number> = {
   loved: 2.0, liked: 1.0, seen_disliked: -0.8, not_seen: 0,
 };
+
+// ─── Features ─────────────────────────────────────────────────────────────────
+// Cada título enseña más que su género: par de sabor, época y tono.
+//   g:Thriller        género            (peso 1.0)
+//   p:Crimen+Thriller par de sabor      (peso 0.6)
+//   e:90s             época             (peso 0.3)
+//   t:prestigio       tono por rating   (peso 0.3)
+
+const FEATURE_WEIGHTS: Record<string, number> = { g: 1.0, p: 0.6, e: 0.3, t: 0.3 };
+function featWeight(f: string): number { return FEATURE_WEIGHTS[f[0]] ?? 0; }
+
+function eraBucket(year: number): string {
+  if (year < 1980) return '70s-';
+  if (year < 1990) return '80s';
+  if (year < 2000) return '90s';
+  if (year < 2010) return '00s';
+  if (year < 2020) return '10s';
+  return '20s';
+}
+
+export function featuresOf(t: NormalizedTitle): string[] {
+  const fs: string[] = t.genres.map(g => `g:${g}`);
+  const gs = [...t.genres].sort();
+  for (let i = 0; i < gs.length; i++) {
+    for (let j = i + 1; j < gs.length; j++) fs.push(`p:${gs[i]}+${gs[j]}`);
+  }
+  fs.push(`e:${eraBucket(t.year)}`);
+  if (t.rating >= 7.8) fs.push('t:prestigio');
+  else if (t.rating <= 7.0) fs.push('t:palomitera');
+  return fs;
+}
 
 export function computeLocalProfile(
   ratings: Record<number, Rating>,
@@ -49,35 +88,35 @@ export function computeLocalProfile(
   const occurrences:  Record<string, number> = {};
 
   for (const g of seeds) {
-    weightSum[g]   = (weightSum[g]   ?? 0) + 0.8;
-    occurrences[g] = (occurrences[g] ?? 0) + 1;
+    weightSum[`g:${g}`]   = (weightSum[`g:${g}`]   ?? 0) + 0.8;
+    occurrences[`g:${g}`] = (occurrences[`g:${g}`] ?? 0) + 1;
   }
   for (const [idStr, r] of Object.entries(ratings)) {
     const title = pool.find(t => t.tmdbId === Number(idStr) || t.id === Number(idStr));
     if (!title) continue;
     const w = RATING_WEIGHTS[r];
-    for (const genre of title.genres) {
-      weightSum[genre]   = (weightSum[genre]   ?? 0) + w;
-      occurrences[genre] = (occurrences[genre] ?? 0) + 1;
+    for (const f of featuresOf(title)) {
+      weightSum[f]   = (weightSum[f]   ?? 0) + w;
+      occurrences[f] = (occurrences[f] ?? 0) + 1;
     }
   }
 
   const mean: Record<string, number> = {};
-  for (const g of Object.keys(weightSum)) {
-    mean[g] = weightSum[g] / occurrences[g]; // conservar negativos
+  for (const f of Object.keys(weightSum)) {
+    mean[f] = weightSum[f] / occurrences[f]; // conservar negativos
   }
   // Normalizar por el máximo positivo; los negativos quedan como penalización
   const maxPos = Math.max(...Object.values(mean).filter(v => v > 0), 0.001);
-  return Object.fromEntries(Object.entries(mean).map(([g, v]) => [g, v / maxPos]));
+  return Object.fromEntries(Object.entries(mean).map(([f, v]) => [f, v / maxPos]));
 }
 
 function scoreTitle(t: NormalizedTitle, profile: Record<string, number>): number {
-  return t.genres.reduce((s, g) => s + (profile[g] ?? 0), 0);
+  return featuresOf(t).reduce((s, f) => s + (profile[f] ?? 0) * featWeight(f), 0);
 }
 
-// Evidencia por género: cuántas cartas se respondieron y cuántas fueron vistas
+// Evidencia por feature: cuántas cartas se respondieron y cuántas fueron vistas
 export interface GenreEvidence {
-  answered: Record<string, number>; // cartas respondidas que cubren el género
+  answered: Record<string, number>; // cartas respondidas que cubren la feature
   seen:     Record<string, number>; // de esas, cuántas el usuario vio (loved/liked/disliked)
 }
 
@@ -90,25 +129,26 @@ export function computeGenreEvidence(
   for (const [idStr, r] of Object.entries(ratings)) {
     const title = pool.find(t => t.tmdbId === Number(idStr) || t.id === Number(idStr));
     if (!title) continue;
-    for (const g of title.genres) {
-      answered[g] = (answered[g] ?? 0) + 1;
-      if (r !== 'not_seen') seen[g] = (seen[g] ?? 0) + 1;
+    for (const f of featuresOf(title)) {
+      answered[f] = (answered[f] ?? 0) + 1;
+      if (r !== 'not_seen') seen[f] = (seen[f] ?? 0) + 1;
     }
   }
   return { answered, seen };
 }
 
-// Incertidumbre: cuánto aporta este título sobre géneros con poca evidencia
+// Incertidumbre: cuánto aporta este título sobre features con poca evidencia
 function infoScore(t: NormalizedTitle, answered: Record<string, number>): number {
-  return t.genres.reduce((s, g) => s + 1 / (1 + (answered[g] ?? 0)), 0);
+  return featuresOf(t).reduce((s, f) => s + featWeight(f) / (1 + (answered[f] ?? 0)), 0);
 }
 
 // Género frío: 2+ "no la vi" y ninguna vista → dejar de gastar cartas ahí
 function coldGenres(ev: GenreEvidence): Set<string> {
   const cold = new Set<string>();
-  for (const g of Object.keys(ev.answered)) {
-    const notSeen = ev.answered[g] - (ev.seen[g] ?? 0);
-    if (notSeen >= 2 && (ev.seen[g] ?? 0) === 0) cold.add(g);
+  for (const f of Object.keys(ev.answered)) {
+    if (!f.startsWith('g:')) continue;
+    const notSeen = ev.answered[f] - (ev.seen[f] ?? 0);
+    if (notSeen >= 2 && (ev.seen[f] ?? 0) === 0) cold.add(f.slice(2));
   }
   return cold;
 }
@@ -178,6 +218,21 @@ function buildQueue(
   return [...shown, ...take];
 }
 
+// Vistas positivas (loved/liked) por género — para el gatillo temprano de fase 2
+function positiveSeenByGenre(
+  ratings: Record<number, Rating>,
+  pool: NormalizedTitle[],
+): Record<string, number> {
+  const pos: Record<string, number> = {};
+  for (const [idStr, r] of Object.entries(ratings)) {
+    if (r !== 'loved' && r !== 'liked') continue;
+    const title = pool.find(t => t.tmdbId === Number(idStr) || t.id === Number(idStr));
+    if (!title) continue;
+    for (const g of title.genres) pos[g] = (pos[g] ?? 0) + 1;
+  }
+  return pos;
+}
+
 export function useOnboarding(ageRange: AgeRange): OnboardingState {
   const [pool, setPool]       = useState<NormalizedTitle[]>([]);
   const [queue, setQueue]     = useState<NormalizedTitle[]>([]);
@@ -188,6 +243,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
   const [genreStepDone, setGenreStepDone] = useState(false);
   const [target, setTarget]   = useState(BASE_TARGET);
   const [extendDeclined, setExtendDeclined] = useState(false);
+  const [deepened, setDeepened] = useState(false);
 
   const ratingsRef    = useRef(ratings);
   ratingsRef.current  = ratings;
@@ -196,6 +252,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
   const targetRef     = useRef(target);
   targetRef.current   = target;
   const genreSeedsRef = useRef<string[]>([]);
+  const deepenFiredRef = useRef(false);
 
   useEffect(() => {
     if (!genreStepDone) return;
@@ -205,6 +262,8 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     setRatings({});
     setTarget(BASE_TARGET);
     setExtendDeclined(false);
+    setDeepened(false);
+    deepenFiredRef.current = false;
 
     fetchOnboardingPool(ageRange, genreSeedsRef.current, POOL_SIZE)
       .then(fetched => {
@@ -233,6 +292,46 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     setGenreStepDone(true);
   }, []);
 
+  // Fase 2: con los géneros ganadores claros, traer en background candidatos
+  // de sub-gusto (pares de sabor + tono). El motor de reemplazo los integra solo.
+  const maybeDeepen = useCallback((newRatings: Record<number, Rating>, answeredCount: number) => {
+    if (deepenFiredRef.current) return;
+
+    const profile = computeLocalProfile(newRatings, poolRef.current, genreSeedsRef.current);
+    const topGenres = Object.entries(profile)
+      .filter(([f, v]) => f.startsWith('g:') && v > 0)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 2)
+      .map(([f]) => f.slice(2));
+    if (topGenres.length === 0) return;
+
+    const pos = positiveSeenByGenre(newRatings, poolRef.current);
+    const earlyTrigger = topGenres.length === 2 && topGenres.every(g => (pos[g] ?? 0) >= DEEPEN_EARLY_SEEN);
+    if (answeredCount < DEEPEN_AT_CARD && !earlyTrigger) return;
+
+    deepenFiredRef.current = true;
+    const topIds = topGenres
+      .map(g => GENRE_NAME_TO_ID[g])
+      .filter((id): id is number => id !== undefined);
+    const selNames = genreSeedsRef.current.length > 0 ? genreSeedsRef.current : DEFAULT_WATCH;
+    const selIds   = selNames.map(g => GENRE_NAME_TO_ID[g]).filter((id): id is number => id !== undefined);
+    const companions = selIds.filter(id => !topIds.includes(id)).slice(0, 4);
+    const exclude    = STRONG_GENRES.filter(id => !selIds.includes(id));
+
+    fetchDeepeningBatch(topIds, companions, ageRange, exclude)
+      .then(batch => {
+        const ids = new Set(poolRef.current.map(t => t.tmdbId));
+        const fks = new Set(poolRef.current.map(franchiseKey));
+        const fresh = batch.filter(t => !ids.has(t.tmdbId) && !fks.has(franchiseKey(t)));
+        if (fresh.length === 0) return;
+        const merged = [...poolRef.current, ...fresh];
+        poolRef.current = merged;
+        setPool(merged);
+        setDeepened(true);
+      })
+      .catch(() => { /* sin profundización; la fase 1 sigue funcionando */ });
+  }, [ageRange]);
+
   const rate = useCallback((rating: Rating) => {
     const title = queue[currentIndex];
     if (!title) return;
@@ -251,8 +350,9 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
       const ev       = computeGenreEvidence(newRatings, poolRef.current);
       setQueue(buildQueue(shown, candidates, profile, ev, targetRef.current - next));
     }
+    maybeDeepen(newRatings, next);
     setTimeout(() => setIdx(next), 250);
-  }, [queue, currentIndex]);
+  }, [queue, currentIndex, maybeDeepen]);
 
   const liveProfile = useMemo(() =>
     computeLocalProfile(ratings, pool, genreSeedsRef.current),
@@ -265,7 +365,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     const cold = coldGenres(ev);
     const watch = genreSeedsRef.current.length > 0 ? genreSeedsRef.current : DEFAULT_WATCH;
     return watch.filter(g =>
-      !cold.has(g) && (ev.seen[g] ?? 0) < 2 && (liveProfile[g] ?? 0) >= 0,
+      !cold.has(g) && (ev.seen[`g:${g}`] ?? 0) < 2 && (liveProfile[`g:${g}`] ?? 0) >= 0,
     );
   }, [ratings, pool, liveProfile]);
 
@@ -301,5 +401,6 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     isFinished: reachedEnd && !canExtend,
     genreStepDone, confirmGenres, liveProfile, anchorPositions,
     target, canExtend, pendingDoubts, extend, declineExtend,
+    deepened,
   };
 }
