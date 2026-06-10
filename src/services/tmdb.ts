@@ -195,6 +195,16 @@ export async function fetchAnchorTitles(minYear: number): Promise<NormalizedTitl
 
 // ─── Onboarding pool — dynamic, diverse by era × genre ──────────────────────
 
+// Distribuye anchors de forma estratificada: 3 en 0-9, 1 en 10-19, 1 en 20-29
+function placeAnchors(anchors: NormalizedTitle[], disc: NormalizedTitle[]): NormalizedTitle[] {
+  const sa = shuffle(anchors.slice(0, 5));
+  const sd = shuffle(disc.slice(0, 25));
+  const block1 = shuffle([...sa.slice(0, 3), ...sd.slice(0,  7)]);  // 10 cards
+  const block2 = shuffle([...sa.slice(3, 4), ...sd.slice(7,  16)]); // 10 cards
+  const block3 = shuffle([...sa.slice(4, 5), ...sd.slice(16, 25)]); // 10 cards
+  return [...block1, ...block2, ...block3];
+}
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -486,8 +496,7 @@ export async function fetchOnboardingPool(ageRange?: string, tone?: string): Pro
     }
   }
 
-  // Anchors mezclados uniformemente entre los discriminadores (sin front-loading)
-  return shuffle([...anchors.slice(0, 5), ...disc.slice(0, 25)]);
+  return placeAnchors(anchors, disc);
 }
 
 // ─── Search ──────────────────────────────────────────────────────────────────
