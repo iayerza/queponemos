@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Image,
   ScrollView, ActivityIndicator,
@@ -23,6 +23,12 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
   const insets = useSafeAreaInsets();
   const ob     = useOnboarding(ageRange);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (ob.isFinished) {
+      onFinish({ ratings: ob.ratings, liveProfile: ob.liveProfile, titles: ob.titles, anchorPositions: ob.anchorPositions });
+    }
+  }, [ob.isFinished]);
 
   function toggleGenre(g: string) {
     setSelectedGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]);
@@ -91,11 +97,6 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
         <Text style={{ color:'#f55', fontSize:14, textAlign:'center' }}>{ob.error}</Text>
       </View>
     );
-  }
-
-  if (ob.isFinished) {
-    onFinish({ ratings: ob.ratings, liveProfile: ob.liveProfile, titles: ob.titles, anchorPositions: ob.anchorPositions });
-    return null;
   }
 
   // ── Rating step ─────────────────────────────────────────────────────────────
