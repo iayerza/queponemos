@@ -70,10 +70,17 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (ob.isLoading) {
+    const key = process.env.EXPO_PUBLIC_TMDB_API_KEY ?? '';
+    const keyStatus = key.length === 0
+      ? '❌ EXPO_PUBLIC_TMDB_API_KEY no encontrada'
+      : key === 'tu_api_key_de_tmdb'
+        ? '❌ API key sin reemplazar en .env'
+        : `✅ Key presente (${key.slice(0, 6)}…)`;
     return (
       <View style={s.center}>
         <ActivityIndicator color={C.accent} size="large" />
         <Text style={s.loadText}>Cargando pool de TMDB…</Text>
+        <Text style={{ color: C.faint, fontSize: 11, marginTop: 8 }}>{keyStatus}</Text>
       </View>
     );
   }
