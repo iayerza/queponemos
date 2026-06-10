@@ -504,7 +504,32 @@ const DEFAULT_GENRE_IDS = [28, 35, 18, 53, 10749, 878]; // acción, comedia, dra
 
 // Géneros de identidad fuerte: si el usuario no los eligió, se excluyen de
 // todas las queries (un thriller-terror ES terror para quien odia el terror)
-const STRONG_GENRES = [27, 16, 99, 10751]; // terror, animación, documental, familia
+export const STRONG_GENRES = [27, 16, 99, 10751]; // terror, animación, documental, familia
+
+// Era bucket: agrupa el año en un período cultural reconocible
+export function eraBucket(year: number): string {
+  if (year < 1980) return 'clásico';
+  if (year < 1990) return '80s';
+  if (year < 2000) return '90s';
+  if (year < 2010) return '00s';
+  if (year < 2020) return '10s';
+  return '20s';
+}
+
+// Feature extraction: genera tokens multi-dimensionales para el perfil de gusto.
+// g:Genre (peso 1.0), p:A+B pares de géneros (0.6), e:era (0.3), t:tono (0.3)
+export function featuresOf(t: NormalizedTitle): string[] {
+  const feats: string[] = [];
+  for (const g of t.genres) feats.push(`g:${g}`);
+  const sg = [...t.genres].sort();
+  for (let i = 0; i < sg.length; i++) {
+    for (let j = i + 1; j < sg.length; j++) feats.push(`p:${sg[i]}+${sg[j]}`);
+  }
+  if (t.year) feats.push(`e:${eraBucket(t.year)}`);
+  if (t.rating >= 7.8) feats.push('t:prestigio');
+  if (t.rating > 0 && t.rating <= 7.0) feats.push('t:palomitera');
+  return feats;
+}
 
 async function fetchTopVoted(opts: {
   genres?: number[];        // OR entre géneros (pipe)
@@ -739,4 +764,82 @@ export async function fetchLightAnchorTitles(minYear: number, count: number): Pr
     + `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
   const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
   return (data.results ?? []).slice(0, count).map(r => parseDiscoverResult(r, 'movie'));
+}
+
+// ─── Deepening batch ─────────────────────────────────────────────────────────
+// Triggered at card ~12 when top genres are confirmed; fetches sub-genre specific
+// titles via AND joins, prestige tier, and palomitero tier. Merged into the pool
+// so future cards probe confirmed taste more deeply (Phase 2).
+
+export async function fetchDeepeningBatch(
+  topGenreIds: number[],
+  companionIds: number[],
+  ageRange = 'adult',
+  excludeGenreIds: number[] = [],
+  maxSize = 40,
+): Promise<NormalizedTitle[]> {
+  if (topGenreIds.length === 0) return [];
+
+  const seenKeys = new Set<string>();
+  const seenIds  = new Set<number>();
+  const batch: NormalizedTitle[] = [];
+
+  function collect(titles: NormalizedTitle[]) {
+    for (const t of titles) {
+      if (seenIds.has(t.tmdbId)) continue;
+      const fk = franchiseKey(t);
+      if (seenKeys.has(fk)) continue;
+      seenIds.add(t.tmdbId);
+      seenKeys.add(fk);
+      batch.push(t);
+    }
+  }
+
+  const strongExclude = STRONG_GENRES.filter(
+    id => !topGenreIds.includes(id) && !companionIds.includes(id) && !excludeGenreIds.includes(id),
+  );
+
+  const eras = ERAS[ageRange] ?? ERAS.adult;
+  const yearFrom = eras[0][0];
+
+  // Main genre × companion AND joins (specific sub-genres)
+  for (const mainId of topGenreIds.slice(0, 3)) {
+    for (const compId of companionIds.slice(0, 2)) {
+      try {
+        const res = await fetchTopVoted({
+          genres: [mainId, compId],
+          withoutGenres: strongExclude,
+          withoutKeywords: FRANCHISE_KEYWORDS,
+          yearFrom,
+          minVotes: 1000,
+        });
+        collect(res.slice(0, 6));
+      } catch { /* ignore */ }
+    }
+  }
+
+  // Prestige tier (critic-approved, high rating)
+  try {
+    const res = await fetchTopVoted({
+      genres: topGenreIds,
+      withoutGenres: strongExclude,
+      yearFrom,
+      minVotes: 5000,
+    });
+    collect(res.filter(t => t.rating >= 7.8).slice(0, 10));
+  } catch { /* ignore */ }
+
+  // Palomitero tier (crowd-pleasing, accessible)
+  try {
+    const res = await fetchTopVoted({
+      genres: topGenreIds,
+      withoutGenres: strongExclude,
+      withoutKeywords: FRANCHISE_KEYWORDS,
+      yearFrom,
+      minVotes: 10000,
+    });
+    collect(res.filter(t => t.rating > 0 && t.rating <= 7.2).slice(0, 10));
+  } catch { /* ignore */ }
+
+  return batch.slice(0, maxSize);
 }
