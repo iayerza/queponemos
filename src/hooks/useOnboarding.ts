@@ -3,7 +3,7 @@ import { MOCK_TITLES } from '../constants/mockTitles';
 import { fetchOnboardingPool, type NormalizedTitle } from '../services/tmdb';
 import { useAuthStore } from '../store/useAuthStore';
 import type { Rating } from '../services/firebase';
-import type { AgeRange } from '../navigation/types';
+import type { AgeRange, ToneId } from '../navigation/types';
 
 export interface OnboardingState {
   titles: NormalizedTitle[];
@@ -78,7 +78,7 @@ function sortAdaptive(remaining: NormalizedTitle[], profile: Record<string, numb
   return result;
 }
 
-export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): OnboardingState {
+export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep = false): OnboardingState {
   const [pool, setPool]          = useState<NormalizedTitle[]>([]);
   const [queue, setQueue]        = useState<NormalizedTitle[]>([]);
   const [currentIndex, setIndex] = useState(0);
@@ -117,7 +117,7 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
       return () => { cancelled = true; };
     }
 
-    fetchOnboardingPool(ageRange)
+    fetchOnboardingPool(ageRange, tone)
       .then(fetched => {
         if (cancelled) return;
         const ordered = fetched.length >= 10 ? fetched : MOCK_FALLBACK;
@@ -142,7 +142,7 @@ export function useOnboarding(ageRange?: AgeRange, skipGenreStep = false): Onboa
 
     if (user?.ratings) setRatings(user.ratings as Record<number, Rating>);
     return () => { cancelled = true; };
-  }, [genreStepDone, ageRange]);
+  }, [genreStepDone, ageRange, tone]);
 
   const confirmGenres = useCallback((genres: string[]) => {
     genreSeedsRef.current = genres;

@@ -51,7 +51,8 @@ export default function OnboardingScreen() {
   const route = useRoute<Route>();
   const { user, updateRatings, markOnboardingDone, setAgeRange } = useAuthStore();
   const themeColors = useColors();
-  const ageRange   = route.params?.ageRange;
+  const ageRange    = route.params?.ageRange;
+  const tone        = route.params?.tone;
   const fromProfile = route.params?.fromProfile === true;
 
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -59,7 +60,7 @@ export default function OnboardingScreen() {
   const {
     titles, currentIndex, ratings, isLoading, error,
     rate, canSkip, isFinished, genreStepDone, confirmGenres,
-  } = useOnboarding(ageRange, fromProfile);
+  } = useOnboarding(ageRange, tone, fromProfile);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
 

@@ -212,6 +212,8 @@ interface DiscoverSlot {
   minRating?: number;
   minVotes?: number;
   pick: number;
+  sortBy?: 'vote_average.desc' | 'popularity.desc';
+  language?: string;
 }
 
 const MG = { action: 28, adventure: 12, animation: 16, comedy: 35, crime: 80, drama: 18, horror: 27, romance: 10749, scifi: 878, thriller: 53 } as const;
@@ -346,11 +348,11 @@ const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
 async function fetchDiscoverSlot(slot: DiscoverSlot): Promise<NormalizedTitle[]> {
   const page = Math.ceil(Math.random() * 3);
   const p: Record<string, string> = {
-    with_genres:           String(slot.genre),
-    'vote_count.gte':      String(slot.minVotes ?? 500),
-    sort_by:               'vote_average.desc',
-    with_original_language: 'en|es',
-    page:                  String(page),
+    with_genres:            String(slot.genre),
+    'vote_count.gte':       String(slot.minVotes ?? 500),
+    sort_by:                slot.sortBy ?? 'vote_average.desc',
+    with_original_language: slot.language ?? 'en|es',
+    page:                   String(page),
   };
   if (slot.minRating) p['vote_average.gte'] = String(slot.minRating);
   if (slot.yearFrom)  p[slot.media === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte'] = `${slot.yearFrom}-01-01`;
@@ -364,19 +366,128 @@ async function fetchDiscoverSlot(slot: DiscoverSlot): Promise<NormalizedTitle[]>
   ).slice(0, slot.pick);
 }
 
-export async function fetchOnboardingPool(ageRange?: string): Promise<NormalizedTitle[]> {
-  const slots   = ONBOARDING_SLOTS[ageRange ?? 'mid'] ?? ONBOARDING_SLOTS.mid;
-  const results = await Promise.allSettled(slots.map(fetchDiscoverSlot));
+// ─── Anchor slots — títulos ultra-conocidos, mostrados primero ───────────────
+// sort_by=popularity.desc garantiza reconocibilidad regional
+// en: vote_count ≥ 500k (Hollywood global)  es: vote_count ≥ 30k (cine hispanohablante)
+
+const ANCHOR_SLOTS: Record<string, DiscoverSlot[]> = {
+  young: [
+    { media: 'movie', genre: MG.action,    yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.scifi,     yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.animation, yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2000, minVotes: 300000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 2000, minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
+  ],
+  mid: [
+    { media: 'movie', genre: MG.action,    yearFrom: 1995, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 1995, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 1995, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.scifi,     yearFrom: 1995, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,                     minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
+  ],
+  adult: [
+    { media: 'movie', genre: MG.action,    yearFrom: 1990, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 1990, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 1990, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.romance,   yearFrom: 1990, minVotes: 300000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,                     minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
+  ],
+  senior: [
+    { media: 'movie', genre: MG.drama,     yearFrom: 1970, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 1970, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.crime,     yearFrom: 1970, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.romance,   yearFrom: 1970, minVotes: 200000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,                     minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
+  ],
+};
+
+// ─── Tone slots — 25 discriminadores por tono (sin filtro de era) ────────────
+
+const TONE_SLOTS: Record<string, DiscoverSlot[]> = {
+  // Thriller, policial, suspenso
+  tension: [
+    { media: 'movie', genre: MG.thriller,  minRating: 7.5, minVotes: 5000,  pick: 3 },
+    { media: 'movie', genre: MG.crime,     minRating: 7.5, minVotes: 5000,  pick: 3 },
+    { media: 'movie', genre: MG.drama,     minRating: 7.8, minVotes: 5000,  pick: 2 },
+    { media: 'movie', genre: MG.thriller,  minRating: 7.0, minVotes: 20000, pick: 2 },
+    { media: 'movie', genre: MG.action,    minRating: 7.5, minVotes: 20000, pick: 2 },
+    { media: 'movie', genre: MG.scifi,     minRating: 7.5, minVotes: 5000,  pick: 1 },
+    { media: 'movie', genre: MG.horror,    minRating: 7.5, minVotes: 3000,  pick: 2 },
+    { media: 'tv',    genre: TG.crime,     minRating: 8.0, minVotes: 500,   pick: 3 },
+    { media: 'tv',    genre: TG.drama,     minRating: 8.0, minVotes: 500,   pick: 3 },
+    { media: 'tv',    genre: TG.mystery,   minRating: 7.5, minVotes: 300,   pick: 2 },
+    { media: 'tv',    genre: TG.scifiFantasy, minRating: 7.5, minVotes: 300, pick: 2 },
+  ], // 3+3+2+2+2+1+2 + 3+3+2+2 = 25
+
+  // Comedia, romance, aventura
+  light: [
+    { media: 'movie', genre: MG.comedy,    minRating: 7.0, minVotes: 5000,  pick: 4 },
+    { media: 'movie', genre: MG.romance,   minRating: 6.5, minVotes: 5000,  pick: 4 },
+    { media: 'movie', genre: MG.animation, minRating: 7.5, minVotes: 5000,  pick: 3 },
+    { media: 'movie', genre: MG.adventure, minRating: 7.0, minVotes: 10000, pick: 2 },
+    { media: 'movie', genre: MG.comedy,    minRating: 6.5, minVotes: 2000,  pick: 2 },
+    { media: 'tv',    genre: TG.comedy,    minRating: 7.5, minVotes: 300,   pick: 4 },
+    { media: 'tv',    genre: TG.drama,     minRating: 7.5, minVotes: 300,   pick: 4 },
+    { media: 'tv',    genre: TG.mystery,   minRating: 7.5, minVotes: 200,   pick: 2 },
+  ], // 4+4+3+2+2 + 4+4+2 = 25
+
+  // Drama, sci-fi, misterio
+  think: [
+    { media: 'movie', genre: MG.drama,     minRating: 7.8, minVotes: 5000,  pick: 4 },
+    { media: 'movie', genre: MG.scifi,     minRating: 7.5, minVotes: 3000,  pick: 3 },
+    { media: 'movie', genre: MG.thriller,  minRating: 7.8, minVotes: 5000,  pick: 3 },
+    { media: 'movie', genre: MG.crime,     minRating: 7.8, minVotes: 5000,  pick: 2 },
+    { media: 'movie', genre: MG.animation, minRating: 8.0, minVotes: 5000,  pick: 1 },
+    { media: 'movie', genre: MG.horror,    minRating: 7.5, minVotes: 3000,  pick: 2 },
+    { media: 'tv',    genre: TG.drama,     minRating: 8.0, minVotes: 500,   pick: 4 },
+    { media: 'tv',    genre: TG.crime,     minRating: 8.0, minVotes: 300,   pick: 3 },
+    { media: 'tv',    genre: TG.scifiFantasy, minRating: 8.0, minVotes: 300, pick: 2 },
+    { media: 'tv',    genre: TG.mystery,   minRating: 7.5, minVotes: 200,   pick: 1 },
+  ], // 4+3+3+2+1+2 + 4+3+2+1 = 25
+
+  // Terror, acción intensa
+  fear: [
+    { media: 'movie', genre: MG.horror,    minRating: 7.0, minVotes: 3000,  pick: 5 },
+    { media: 'movie', genre: MG.thriller,  minRating: 7.0, minVotes: 5000,  pick: 3 },
+    { media: 'movie', genre: MG.action,    minRating: 7.0, minVotes: 10000, pick: 3 },
+    { media: 'movie', genre: MG.scifi,     minRating: 7.0, minVotes: 5000,  pick: 2 },
+    { media: 'movie', genre: MG.crime,     minRating: 7.0, minVotes: 5000,  pick: 2 },
+    { media: 'tv',    genre: TG.crime,     minRating: 7.5, minVotes: 300,   pick: 3 },
+    { media: 'tv',    genre: TG.scifiFantasy, minRating: 7.5, minVotes: 300, pick: 4 },
+    { media: 'tv',    genre: TG.mystery,   minRating: 7.5, minVotes: 300,   pick: 3 },
+  ], // 5+3+3+2+2 + 3+4+3 = 25
+};
+
+export async function fetchOnboardingPool(ageRange?: string, tone?: string): Promise<NormalizedTitle[]> {
+  const anchorSlots = ANCHOR_SLOTS[ageRange ?? 'mid'] ?? ANCHOR_SLOTS.mid;
+  const discSlots   = tone
+    ? (TONE_SLOTS[tone] ?? TONE_SLOTS.tension)
+    : (ONBOARDING_SLOTS[ageRange ?? 'mid'] ?? ONBOARDING_SLOTS.mid);
+
+  const [anchorRes, discRes] = await Promise.all([
+    Promise.allSettled(anchorSlots.map(fetchDiscoverSlot)),
+    Promise.allSettled(discSlots.map(fetchDiscoverSlot)),
+  ]);
 
   const seen = new Set<number>();
-  const pool: NormalizedTitle[] = [];
-  for (const r of results) {
+  const anchors: NormalizedTitle[] = [];
+  const disc:    NormalizedTitle[] = [];
+
+  for (const r of anchorRes) {
     if (r.status === 'rejected') continue;
     for (const t of r.value) {
-      if (!seen.has(t.tmdbId)) { seen.add(t.tmdbId); pool.push(t); }
+      if (!seen.has(t.tmdbId)) { seen.add(t.tmdbId); anchors.push(t); }
     }
   }
-  return shuffle(pool).slice(0, 30);
+  for (const r of discRes) {
+    if (r.status === 'rejected') continue;
+    for (const t of r.value) {
+      if (!seen.has(t.tmdbId)) { seen.add(t.tmdbId); disc.push(t); }
+    }
+  }
+
+  // Anchors always come first (no shuffle), then shuffled discriminators
+  return [...anchors.slice(0, 5), ...shuffle(disc).slice(0, 25)];
 }
 
 // ─── Search ──────────────────────────────────────────────────────────────────
