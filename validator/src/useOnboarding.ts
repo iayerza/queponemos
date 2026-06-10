@@ -120,6 +120,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
 
   const confirmGenres = useCallback((genres: string[]) => {
     genreSeedsRef.current = genres;
+    setLoading(true);
     setGenreStepDone(true);
   }, []);
 

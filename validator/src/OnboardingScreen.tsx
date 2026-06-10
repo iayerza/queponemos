@@ -93,7 +93,14 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
 
   // ── Rating step ─────────────────────────────────────────────────────────────
   const title = ob.titles[ob.currentIndex];
-  if (!title) return null;
+  if (!title) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator color={C.accent} size="large" />
+        <Text style={s.loadText}>Preparando títulos…</Text>
+      </View>
+    );
+  }
 
   const poster    = getPosterUrl(title.posterPath);
   const topGenres = Object.entries(ob.liveProfile).sort(([,a],[,b]) => b-a).slice(0, 6);
