@@ -111,6 +111,11 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
           setLoading(false);
           return;
         }
+        if (genreSeedsRef.current.length > 0) {
+          const selectedSet = new Set(genreSeedsRef.current);
+          const genreFiltered = fetched.filter(t => t.genres.some(g => selectedSet.has(g)));
+          if (genreFiltered.length >= 15) fetched = genreFiltered;
+        }
         setPool(fetched);
         poolRef.current = fetched;
         if (genreSeedsRef.current.length > 0) {

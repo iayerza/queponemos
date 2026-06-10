@@ -137,7 +137,12 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
     fetchOnboardingPool(ageRange, tone)
       .then(fetched => {
         if (cancelled) return;
-        const ordered = fetched.length >= 10 ? fetched : MOCK_FALLBACK;
+        let ordered = fetched.length >= 10 ? fetched : MOCK_FALLBACK;
+        if (genreSeedsRef.current.length > 0) {
+          const selectedSet = new Set(genreSeedsRef.current);
+          const genreFiltered = ordered.filter(t => t.genres.some(g => selectedSet.has(g)));
+          if (genreFiltered.length >= 15) ordered = genreFiltered;
+        }
         setPool(ordered);
         poolRef.current = ordered;
         if (genreSeedsRef.current.length > 0) {
