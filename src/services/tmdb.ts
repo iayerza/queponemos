@@ -485,7 +485,19 @@ export const GENRE_NAME_TO_ID: Record<string, number> = {
   'Romance': 10749, 'Ciencia Ficción': 878, 'Thriller': 53, 'Bélica': 10752,
 };
 
-const AGE_YEAR_FROM: Record<string, number> = { young: 2005, mid: 1995, adult: 1988, senior: 1975 };
+// Épocas por edad: cada género se muestrea estratificado por época para que
+// un solo ranking (dominado por franquicias recientes) no capture todo el pool
+const ERAS: Record<string, [number, number | null][]> = {
+  young:  [[2005, 2014], [2015, null]],
+  mid:    [[1995, 2007], [2008, 2016], [2017, null]],
+  adult:  [[1988, 1999], [2000, 2012], [2013, null]],
+  senior: [[1975, 1990], [1991, 2005], [2006, null]],
+};
+
+// Keywords TMDB excluidas del relleno por género: universos de superhéroes
+// saturan el top por votos sin aportar información de gusto
+// 180547 = Marvel Cinematic Universe, 229266 = DC Extended Universe, 9715 = superhero
+const FRANCHISE_KEYWORDS = '180547|229266|9715';
 
 // Set amplio para cuando el usuario saltea la selección de géneros
 const DEFAULT_GENRE_IDS = [28, 35, 18, 53, 10749, 878]; // acción, comedia, drama, thriller, romance, sci-fi
@@ -493,74 +505,106 @@ const DEFAULT_GENRE_IDS = [28, 35, 18, 53, 10749, 878]; // acción, comedia, dra
 async function fetchTopVoted(opts: {
   genres?: number[];        // OR entre géneros (pipe)
   yearFrom?: number;
+  yearTo?: number;
   minVotes: number;
-  pages?: number;
   language?: string;        // with_original_language
   originCountry?: string;   // with_origin_country (ej: 'AR')
+  withoutKeywords?: string; // keywords excluidas (pipe)
 }): Promise<NormalizedTitle[]> {
-  const pages = opts.pages ?? 1;
-  const reqs = Array.from({ length: pages }, (_, i) => {
-    const p: Record<string, string> = {
-      'vote_count.gte': String(opts.minVotes),
-      sort_by: 'vote_count.desc',
-      page: String(i + 1),
-    };
-    if (opts.genres?.length)  p.with_genres = opts.genres.join('|');
-    if (opts.language)        p.with_original_language = opts.language;
-    if (opts.originCountry)   p.with_origin_country = opts.originCountry;
-    if (opts.yearFrom)        p['primary_release_date.gte'] = `${opts.yearFrom}-01-01`;
-    const qs = Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
-    return tmdbGet(`/discover/movie?${qs}`) as Promise<{ results: Record<string, unknown>[] }>;
-  });
-  const results = await Promise.all(reqs);
-  return results
-    .flatMap(d => d.results.map(r => parseDiscoverResult(r, 'movie')))
+  const p: Record<string, string> = {
+    'vote_count.gte': String(opts.minVotes),
+    sort_by: 'vote_count.desc',
+    page: '1',
+  };
+  if (opts.genres?.length)   p.with_genres = opts.genres.join('|');
+  if (opts.language)         p.with_original_language = opts.language;
+  if (opts.originCountry)    p.with_origin_country = opts.originCountry;
+  if (opts.withoutKeywords)  p.without_keywords = opts.withoutKeywords;
+  if (opts.yearFrom)         p['primary_release_date.gte'] = `${opts.yearFrom}-01-01`;
+  if (opts.yearTo)           p['primary_release_date.lte'] = `${opts.yearTo}-12-31`;
+  const qs = Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const data = await tmdbGet(`/discover/movie?${qs}`) as { results: Record<string, unknown>[] };
+  return data.results
+    .map(r => parseDiscoverResult(r, 'movie'))
     .filter(t => t.posterPath && t.year > 0);
 }
 
-async function fetchRecognitionPool(ageRange: string, genreIds: number[]): Promise<NormalizedTitle[]> {
-  const yearFrom = AGE_YEAR_FROM[ageRange] ?? 1988;
-  const TARGET = 30;
-  // Con pocos géneros necesitamos más profundidad por género
-  const pages = genreIds.length <= 3 ? 2 : 1;
+// Primera palabra significativa del título original: dos películas que la
+// comparten son casi siempre la misma saga (Avengers, Spider-Man, Harry...)
+const TITLE_STOPWORDS = new Set(['the', 'and', 'los', 'las', 'del', 'una', 'uno']);
+function franchiseKey(t: NormalizedTitle): string {
+  const words = (t.originalTitle ?? t.title)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 3 && !TITLE_STOPWORDS.has(w));
+  return words[0] ?? t.title.toLowerCase();
+}
 
-  const [genreRes, blockbusters, localTop, localGenre] = await Promise.all([
-    Promise.allSettled(genreIds.map(g => fetchTopVoted({ genres: [g], yearFrom, minVotes: 1500, pages, language: 'en' }))),
+async function fetchRecognitionPool(ageRange: string, genreIds: number[]): Promise<NormalizedTitle[]> {
+  const eras = ERAS[ageRange] ?? ERAS.adult;
+  const nE = eras.length;
+  const yearFrom = eras[0][0];
+  const TARGET = 30;
+
+  // Una request por género × época, en paralelo con blockbusters y cine AR
+  const genreEraReqs = genreIds.flatMap(g =>
+    eras.map(([from, to]) =>
+      fetchTopVoted({
+        genres: [g], yearFrom: from, yearTo: to ?? undefined,
+        minVotes: from < 2000 ? 1500 : 3000,
+        language: 'en', withoutKeywords: FRANCHISE_KEYWORDS,
+      }).catch(() => [] as NormalizedTitle[])
+    )
+  );
+
+  const [genreEraLists, blockbusters, localTop, localGenre] = await Promise.all([
+    Promise.all(genreEraReqs),
     fetchTopVoted({ yearFrom, minVotes: 15000, language: 'en' }).catch(() => [] as NormalizedTitle[]),
     fetchTopVoted({ originCountry: 'AR', yearFrom, minVotes: 300 }).catch(() => [] as NormalizedTitle[]),
     fetchTopVoted({ originCountry: 'AR', genres: genreIds, yearFrom, minVotes: 100 }).catch(() => [] as NormalizedTitle[]),
   ]);
 
-  const seen = new Set<number>();
+  const seenIds = new Set<number>();
+  const seenFranchise = new Set<string>();
   const pool: NormalizedTitle[] = [];
+
   const push = (t: NormalizedTitle, isAnchor: boolean): boolean => {
-    if (seen.has(t.tmdbId)) return false;
-    seen.add(t.tmdbId);
+    if (seenIds.has(t.tmdbId)) return false;
+    const fk = franchiseKey(t);
+    if (seenFranchise.has(fk)) return false; // máx 1 por franquicia
+    seenIds.add(t.tmdbId);
+    seenFranchise.add(fk);
     pool.push({ ...t, isAnchor });
     return true;
   };
 
+  // Elige al azar entre los topK más votados (reconocibles igual, varía entre corridas)
+  const pickRandom = (list: NormalizedTitle[], isAnchor: boolean, topK = 6): boolean => {
+    for (const t of shuffle(list.slice(0, topK))) if (push(t, isAnchor)) return true;
+    for (const t of list.slice(topK)) if (push(t, isAnchor)) return true;
+    return false;
+  };
+
   // 2 blockbusters globales: no perfilan, generan "el algoritmo me conoce"
-  for (const t of blockbusters.slice(0, 2)) push(t, true);
+  pickRandom(blockbusters, true);
+  pickRandom(blockbusters, true);
 
-  // 3 argentinas: 1 top general + 2 top dentro de sus géneros
-  for (const t of localTop.slice(0, 1)) push(t, true);
-  let arAdded = 0;
-  for (const t of localGenre) {
-    if (arAdded >= 2) break;
-    if (push(t, true)) arAdded++;
-  }
+  // 3 argentinas: 1 top general + 2 top dentro de los géneros elegidos
+  pickRandom(localTop, true, 3);
+  pickRandom(localGenre, true);
+  pickRandom(localGenre, true);
 
-  // Round-robin entre géneros: ronda 0 = el anchor de cada género
-  const lists = genreRes.map(r => (r.status === 'fulfilled' ? r.value : []));
-  const idx   = lists.map(() => 0);
+  // Géneros × épocas: round-robin alternando época para cada género;
+  // primera pasada por género = anchor de ese género
   let round = 0;
   while (pool.length < TARGET) {
     let added = false;
-    for (let g = 0; g < lists.length && pool.length < TARGET; g++) {
-      while (idx[g] < lists[g].length) {
-        const t = lists[g][idx[g]++];
-        if (push(t, round === 0)) { added = true; break; }
+    for (let g = 0; g < genreIds.length && pool.length < TARGET; g++) {
+      const era = (g + round) % nE;
+      if (pickRandom(genreEraLists[g * nE + era], round === 0)) { added = true; continue; }
+      for (let e2 = 0; e2 < nE; e2++) {
+        if (e2 !== era && pickRandom(genreEraLists[g * nE + e2], round === 0)) { added = true; break; }
       }
     }
     if (!added) break;
@@ -568,10 +612,7 @@ async function fetchRecognitionPool(ageRange: string, genreIds: number[]): Promi
   }
 
   // Si los géneros no alcanzan, completar con más blockbusters
-  for (const t of blockbusters.slice(2)) {
-    if (pool.length >= TARGET) break;
-    push(t, false);
-  }
+  while (pool.length < TARGET && pickRandom(blockbusters, false, 20)) { /* noop */ }
 
   return shuffle(pool);
 }
