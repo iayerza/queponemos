@@ -103,8 +103,9 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
   if (!title) {
     return (
       <View style={s.center}>
-        <ActivityIndicator color={C.accent} size="large" />
-        <Text style={s.loadText}>Preparando títulos…</Text>
+        <Text style={{ color:'#f88', fontSize:13, textAlign:'center', paddingHorizontal:24 }}>
+          No hay títulos para mostrar.{'\n'}Revisá que EXPO_PUBLIC_TMDB_API_KEY esté correcta en .env y reiniciá Expo.
+        </Text>
       </View>
     );
   }

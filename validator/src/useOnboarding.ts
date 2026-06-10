@@ -101,6 +101,11 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     fetchOnboardingPool(ageRange)
       .then(fetched => {
         if (cancelled) return;
+        if (fetched.length === 0) {
+          setError('TMDB devolvió 0 títulos. Revisá la API key y la conexión de red.');
+          setLoading(false);
+          return;
+        }
         setPool(fetched);
         poolRef.current = fetched;
         if (genreSeedsRef.current.length > 0) {
