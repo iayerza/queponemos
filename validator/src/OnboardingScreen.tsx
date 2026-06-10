@@ -99,6 +99,31 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
     );
   }
 
+  // ── Oferta de expansión: llegó al target pero quedan dudas ──────────────────
+  if (ob.canExtend) {
+    return (
+      <View style={[s.center, { gap: 20 }]}>
+        <Text style={{ color: C.text, fontSize: 22, fontWeight: '600', textAlign: 'center' }}>
+          ¿Afinamos más{'\n'}tu perfil?
+        </Text>
+        <Text style={{ color: C.sub, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+          Calificaste {Object.keys(ob.ratings).length} títulos, pero todavía hay géneros con pocas respuestas:
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+          {ob.pendingDoubts.map(g => (
+            <View key={g} style={s.genreChip}><Text style={s.genreChipText}>{g}</Text></View>
+          ))}
+        </View>
+        <TouchableOpacity style={[s.ctaBtn, { alignSelf: 'stretch' }]} onPress={ob.extend} activeOpacity={0.85}>
+          <Text style={s.ctaBtnText}>Calificar 10 más →</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={ob.declineExtend}>
+          <Text style={s.skipText}>No, ver resultados</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   // ── Rating step ─────────────────────────────────────────────────────────────
   const title = ob.titles[ob.currentIndex];
   if (!title) {
@@ -192,7 +217,7 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
         {/* Anchors so far */}
         {anchorsSoFar.length > 0 && (
           <View style={s.anchorBox}>
-            <Text style={s.profileTitle}>⚓ Anchors aparecidos ({anchorsSoFar.length}/5)</Text>
+            <Text style={s.profileTitle}>⚓ Anchors aparecidos ({anchorsSoFar.length}/{ob.anchorPositions.length})</Text>
             {anchorsSoFar.map(a => (
               <Text key={a.idx} style={s.anchorItem}>#{a.idx + 1}  {a.title}</Text>
             ))}

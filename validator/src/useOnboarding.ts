@@ -19,7 +19,20 @@ export interface OnboardingState {
   confirmGenres:   (genres: string[]) => void;
   liveProfile:     Record<string, number>;
   anchorPositions: AnchorInfo[];
+  // Expansión opcional 30 → 40 → 50 cuando quedan géneros con dudas
+  target:          number;
+  canExtend:       boolean;
+  pendingDoubts:   string[];
+  extend:          () => void;
+  declineExtend:   () => void;
 }
+
+const BASE_TARGET = 30;
+const EXTEND_STEP = 10;
+const MAX_TARGET  = 50;
+
+// Géneros a vigilar para dudas cuando el usuario salteó la selección
+const DEFAULT_WATCH = ['Acción', 'Comedia', 'Drama', 'Thriller', 'Romance', 'Ciencia Ficción'];
 
 const RATING_WEIGHTS: Record<Rating, number> = {
   loved: 2.0, liked: 1.0, seen_disliked: -0.8, not_seen: 0,
@@ -98,12 +111,14 @@ function coldGenres(ev: GenreEvidence): Set<string> {
   return cold;
 }
 
-// Intercala 2 cartas de mejor match : 1 carta de sondeo dirigido (la que más
-// reduce incertidumbre). Al final: géneros fríos, y últimos los penalizados.
+// Ordena candidatos: intercala match y sondeo dirigido; fríos y penalizados al
+// final (con pool grande, quedar al final = quedar fuera de la cola visible).
+// probeBias invierte la proporción (1 match : 2 sondeos) para rondas de expansión.
 function sortAdaptive(
   remaining: NormalizedTitle[],
   profile: Record<string, number>,
   ev: GenreEvidence,
+  probeBias = false,
 ): NormalizedTitle[] {
   const cold    = coldGenres(ev);
   const scored  = remaining.map(t => ({ t, score: scoreTitle(t, profile), info: infoScore(t, ev.answered) }));
@@ -115,20 +130,50 @@ function sortAdaptive(
 
   const byMatch = [...active].sort((a, b) => b.score - a.score);
   const byInfo  = [...active].sort((a, b) => b.info - a.info);
+  const nMatch  = probeBias ? 1 : 2;
+  const nInfo   = probeBias ? 2 : 1;
 
   const used = new Set<number>();
   const result: NormalizedTitle[] = [];
   let m = 0, i = 0;
   while (result.length < active.length) {
-    for (let k = 0; k < 2; k++) {
+    for (let k = 0; k < nMatch; k++) {
       while (m < byMatch.length && used.has(byMatch[m].t.tmdbId)) m++;
       if (m < byMatch.length) { used.add(byMatch[m].t.tmdbId); result.push(byMatch[m].t); }
     }
-    while (i < byInfo.length && used.has(byInfo[i].t.tmdbId)) i++;
-    if (i < byInfo.length) { used.add(byInfo[i].t.tmdbId); result.push(byInfo[i].t); }
+    for (let k = 0; k < nInfo; k++) {
+      while (i < byInfo.length && used.has(byInfo[i].t.tmdbId)) i++;
+      if (i < byInfo.length) { used.add(byInfo[i].t.tmdbId); result.push(byInfo[i].t); }
+    }
     if (m >= byMatch.length && i >= byInfo.length) break;
   }
   return [...result, ...demoted, ...penalty];
+}
+
+// Arma la cola visible: cartas ya mostradas + los mejores `slots` candidatos.
+// Los anchors no penalizados tienen lugar garantizado (son las cartas de
+// reconocimiento); fríos y penalizados solo entran si no queda nada mejor.
+function buildQueue(
+  shown: NormalizedTitle[],
+  candidates: NormalizedTitle[],
+  profile: Record<string, number>,
+  ev: GenreEvidence,
+  slots: number,
+  probeBias = false,
+): NormalizedTitle[] {
+  if (slots <= 0) return shown;
+  const ordered = sortAdaptive(candidates, profile, ev, probeBias);
+  const anchorIds = new Set(
+    candidates.filter(t => t.isAnchor && scoreTitle(t, profile) >= 0).map(t => t.tmdbId),
+  );
+  const take: NormalizedTitle[] = [];
+  let nonAnchorBudget = Math.max(0, slots - anchorIds.size);
+  for (const t of ordered) {
+    if (take.length >= slots) break;
+    if (anchorIds.has(t.tmdbId)) take.push(t);
+    else if (nonAnchorBudget > 0) { take.push(t); nonAnchorBudget--; }
+  }
+  return [...shown, ...take];
 }
 
 export function useOnboarding(ageRange: AgeRange): OnboardingState {
@@ -139,11 +184,15 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
   const [isLoading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [genreStepDone, setGenreStepDone] = useState(false);
+  const [target, setTarget]   = useState(BASE_TARGET);
+  const [extendDeclined, setExtendDeclined] = useState(false);
 
   const ratingsRef    = useRef(ratings);
   ratingsRef.current  = ratings;
   const poolRef       = useRef(pool);
   poolRef.current     = pool;
+  const targetRef     = useRef(target);
+  targetRef.current   = target;
   const genreSeedsRef = useRef<string[]>([]);
 
   useEffect(() => {
@@ -152,6 +201,8 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     setLoading(true);
     setIdx(0);
     setRatings({});
+    setTarget(BASE_TARGET);
+    setExtendDeclined(false);
 
     fetchOnboardingPool(ageRange, genreSeedsRef.current)
       .then(fetched => {
@@ -161,20 +212,10 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
           setLoading(false);
           return;
         }
-        if (genreSeedsRef.current.length > 0) {
-          const selectedSet = new Set(genreSeedsRef.current);
-          // Anchors always pass — they're calibration points regardless of genre
-          const genreFiltered = fetched.filter(t => t.isAnchor || t.genres.some(g => selectedSet.has(g)));
-          if (genreFiltered.length >= 15) fetched = genreFiltered;
-        }
         setPool(fetched);
         poolRef.current = fetched;
-        if (genreSeedsRef.current.length > 0) {
-          const profile = computeLocalProfile({}, fetched, genreSeedsRef.current);
-          setQueue(sortAdaptive(fetched, profile, { answered: {}, seen: {} }));
-        } else {
-          setQueue(fetched);
-        }
+        const profile = computeLocalProfile({}, fetched, genreSeedsRef.current);
+        setQueue(buildQueue([], fetched, profile, { answered: {}, seen: {} }, BASE_TARGET));
         setLoading(false);
       })
       .catch(e => {
@@ -198,13 +239,15 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
 
     const next = currentIndex + 1;
     const SEED = 3;
-    // Reordenar después de cada carta a partir de la 3: máxima reactividad
-    if (next >= SEED && next < queue.length) {
-      const shown     = queue.slice(0, next);
-      const remaining = queue.slice(next);
-      const profile   = computeLocalProfile(newRatings, poolRef.current, genreSeedsRef.current);
-      const ev        = computeGenreEvidence(newRatings, poolRef.current);
-      setQueue([...shown, ...sortAdaptive(remaining, profile, ev)]);
+    // Reconstruir la cola desde TODOS los candidatos no respondidos:
+    // fríos/penalizados salen, entran reemplazos frescos
+    if (next >= SEED && next < targetRef.current) {
+      const shown    = queue.slice(0, next);
+      const shownIds = new Set(shown.map(t => t.tmdbId));
+      const candidates = poolRef.current.filter(t => !shownIds.has(t.tmdbId));
+      const profile  = computeLocalProfile(newRatings, poolRef.current, genreSeedsRef.current);
+      const ev       = computeGenreEvidence(newRatings, poolRef.current);
+      setQueue(buildQueue(shown, candidates, profile, ev, targetRef.current - next));
     }
     setTimeout(() => setIdx(next), 250);
   }, [queue, currentIndex]);
@@ -214,6 +257,16 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     [ratings, pool],
   );
 
+  // Géneros vigilados con menos de 2 vistas, ni fríos ni rechazados
+  const pendingDoubts = useMemo(() => {
+    const ev = computeGenreEvidence(ratings, pool);
+    const cold = coldGenres(ev);
+    const watch = genreSeedsRef.current.length > 0 ? genreSeedsRef.current : DEFAULT_WATCH;
+    return watch.filter(g =>
+      !cold.has(g) && (ev.seen[g] ?? 0) < 2 && (liveProfile[g] ?? 0) >= 0,
+    );
+  }, [ratings, pool, liveProfile]);
+
   const anchorPositions = useMemo<AnchorInfo[]>(() =>
     queue
       .map((t, idx) => t.isAnchor ? { idx, title: t.title } : null)
@@ -221,10 +274,30 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     [queue],
   );
 
+  const reachedEnd = queue.length > 0 && currentIndex >= queue.length;
+  const hasReserve = pool.length > Object.keys(ratings).length;
+  const canExtend  = reachedEnd && !extendDeclined && target < MAX_TARGET
+    && pendingDoubts.length > 0 && hasReserve;
+
+  const extend = useCallback(() => {
+    const newTarget = Math.min(targetRef.current + EXTEND_STEP, MAX_TARGET);
+    setTarget(newTarget);
+    const shown    = queue;
+    const shownIds = new Set(shown.map(t => t.tmdbId));
+    const candidates = poolRef.current.filter(t => !shownIds.has(t.tmdbId));
+    const profile  = computeLocalProfile(ratingsRef.current, poolRef.current, genreSeedsRef.current);
+    const ev       = computeGenreEvidence(ratingsRef.current, poolRef.current);
+    // probeBias: las cartas extra van mayormente a despejar dudas
+    setQueue(buildQueue(shown, candidates, profile, ev, newTarget - shown.length, true));
+  }, [queue]);
+
+  const declineExtend = useCallback(() => setExtendDeclined(true), []);
+
   return {
     titles: queue, currentIndex, ratings, isLoading, error,
     rate, canSkip: currentIndex >= 12,
-    isFinished: queue.length > 0 && currentIndex >= queue.length,
+    isFinished: reachedEnd && !canExtend,
     genreStepDone, confirmGenres, liveProfile, anchorPositions,
+    target, canExtend, pendingDoubts, extend, declineExtend,
   };
 }

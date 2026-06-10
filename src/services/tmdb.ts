@@ -551,7 +551,9 @@ async function fetchRecognitionPool(ageRange: string, genreIds: number[]): Promi
   const eras = ERAS[ageRange] ?? ERAS.adult;
   const nE = eras.length;
   const yearFrom = eras[0][0];
-  const TARGET = 30;
+  // Pool de candidatos: el doble de lo que se muestra (30). El hook arma la
+  // cola visible y usa el resto como reserva para reemplazos y expansión a 40/50
+  const TARGET = 60;
   // Excluir géneros fuertes no elegidos de TODAS las queries
   const withoutGenres = STRONG_GENRES.filter(g => !genreIds.includes(g));
 

@@ -60,6 +60,7 @@ export default function OnboardingScreen() {
   const {
     titles, currentIndex, ratings, isLoading, error,
     rate, canSkip, isFinished, genreStepDone, confirmGenres,
+    canExtend, pendingDoubts, extend, declineExtend,
   } = useOnboarding(ageRange, tone, fromProfile);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -195,6 +196,34 @@ export default function OnboardingScreen() {
     );
   }
 
+  // ── Oferta de expansión: llegó al final pero quedan géneros con dudas ───────
+  if (canExtend) {
+    return (
+      <View style={[styles.center, { backgroundColor: themeColors.bg }]}>
+        <Text style={styles.extendTitle}>
+          {'¿Afinamos más\n'}
+          <Text style={{ color: Colors.accent }}>tu perfil?</Text>
+        </Text>
+        <Text style={styles.extendSub}>
+          Calificaste {Object.keys(ratings).length} títulos, pero todavía hay géneros con pocas respuestas:
+        </Text>
+        <View style={styles.extendChips}>
+          {pendingDoubts.map(g => (
+            <View key={g} style={styles.extendChip}>
+              <Text style={styles.extendChipText}>{g}</Text>
+            </View>
+          ))}
+        </View>
+        <TouchableOpacity style={[styles.confirmBtn, { alignSelf: 'stretch' }]} onPress={extend} activeOpacity={0.85}>
+          <Text style={styles.confirmBtnText}>Calificar 10 más →</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={declineExtend} style={styles.skipGenreBtn}>
+          <Text style={styles.skipGenreText}>No, terminar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   // ── Title rating step ────────────────────────────────────────────────────────
   const current = titles[currentIndex];
   const progressPct  = titles.length > 0 ? (currentIndex / titles.length) * 100 : 0;
@@ -296,4 +325,11 @@ const styles = StyleSheet.create({
   skipGenreText: { color: Colors.faint, fontSize: Typography.small, textDecorationLine: 'underline' },
   confirmBtn:     { backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   confirmBtnText: { color: '#fff', fontSize: Typography.body, fontWeight: Typography.medium },
+
+  // Extension offer
+  extendTitle: { color: Colors.text, fontSize: 28, fontWeight: Typography.medium, lineHeight: 38, textAlign: 'center', letterSpacing: -0.5 },
+  extendSub:   { color: Colors.sub, fontSize: Typography.body, lineHeight: 22, textAlign: 'center' },
+  extendChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+  extendChip:  { backgroundColor: Colors.s2, borderRadius: 20, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 8 },
+  extendChipText: { color: Colors.sub, fontSize: Typography.small, fontWeight: Typography.medium },
 });
