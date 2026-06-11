@@ -98,7 +98,7 @@ export const GENRE_NAME_TO_ID: Record<string, number> = {
 const ERAS: Record<string, [number, number | null][]> = {
   young:  [[2005, 2014], [2015, null]],
   mid:    [[1995, 2007], [2008, 2016], [2017, null]],
-  adult:  [[1988, 1999], [2000, 2012], [2013, null]],
+  adult:  [[2001, 2012], [2013, null]],
   senior: [[1975, 1990], [1991, 2005], [2006, null]],
 };
 

@@ -294,36 +294,30 @@ const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
 
   // 36–50 — nacidos ~1976-1990
   adult: [
-    // 1990–1999 (5)
-    { media: 'movie', genre: MG.drama,     yearFrom: 1990, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 1990, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.comedy,    yearFrom: 1990, yearTo: 1999, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.romance,   yearFrom: 1990, yearTo: 1999, minRating: 7.0, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.adventure, yearFrom: 1990, yearTo: 1999, minRating: 7.0, minVotes: 5000, pick: 1 },
-    // 2000–2012 (9)
-    { media: 'movie', genre: MG.drama,     yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 2000,  pick: 2 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 2 },
-    { media: 'movie', genre: MG.crime,     yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 1000,  pick: 1 },
-    { media: 'movie', genre: MG.comedy,    yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 1 },
-    { media: 'movie', genre: MG.action,    yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 30000, pick: 1 },
-    { media: 'movie', genre: MG.animation, yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 5000,  pick: 1 },
-    { media: 'movie', genre: MG.scifi,     yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 1 },
-    // 2013–2021 (7)
+    // 2001–2012 (14)
+    { media: 'movie', genre: MG.drama,     yearFrom: 2001, yearTo: 2012, minRating: 7.5, minVotes: 2000,  pick: 3 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2001, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 3 },
+    { media: 'movie', genre: MG.crime,     yearFrom: 2001, yearTo: 2012, minRating: 7.5, minVotes: 1000,  pick: 2 },
+    { media: 'movie', genre: MG.comedy,    yearFrom: 2001, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 2 },
+    { media: 'movie', genre: MG.action,    yearFrom: 2001, yearTo: 2012, minRating: 7.5, minVotes: 30000, pick: 2 },
+    { media: 'movie', genre: MG.animation, yearFrom: 2001, yearTo: 2012, minRating: 7.5, minVotes: 5000,  pick: 1 },
+    { media: 'movie', genre: MG.scifi,     yearFrom: 2001, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 1 },
+    // 2013–2021 (9)
     { media: 'movie', genre: MG.drama,     yearFrom: 2013, yearTo: 2021, minRating: 7.5, minVotes: 2000, pick: 2 },
     { media: 'movie', genre: MG.thriller,  yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 2000, pick: 2 },
     { media: 'movie', genre: MG.comedy,    yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.romance,   yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.romance,   yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 1000, pick: 2 },
     { media: 'movie', genre: MG.crime,     yearFrom: 2013, yearTo: 2021, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.action,    yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 2000, pick: 1 },
     // 2022+ (2)
     { media: 'movie', genre: MG.drama,     yearFrom: 2022, minRating: 7.0, minVotes: 500, pick: 1 },
     { media: 'movie', genre: MG.thriller,  yearFrom: 2022, minRating: 7.0, minVotes: 500, pick: 1 },
-    // Series (7)
+    // Series (5)
     { media: 'tv', genre: TG.drama,        minRating: 8.0, minVotes: 500, pick: 2 },
-    { media: 'tv', genre: TG.crime,        minRating: 8.0, minVotes: 300, pick: 2 },
+    { media: 'tv', genre: TG.crime,        minRating: 8.0, minVotes: 300, pick: 1 },
     { media: 'tv', genre: TG.comedy,       minRating: 7.5, minVotes: 300, pick: 1 },
     { media: 'tv', genre: TG.scifiFantasy, minRating: 7.5, minVotes: 300, pick: 1 },
-    { media: 'tv', genre: TG.mystery,      minRating: 7.5, minVotes: 300, pick: 1 },
-  ], // 5+9+7+2+7 = 30
+  ], // 14+9+2+5 = 30
 
   // 50+ — clásicos, period drama, cine de autor
   senior: [
@@ -397,11 +391,11 @@ const ANCHOR_SLOTS: Record<string, DiscoverSlot[]> = {
     { media: 'movie', genre: MG.drama,                     minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
   ],
   adult: [
-    { media: 'movie', genre: MG.action,    yearFrom: 1990, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.drama,     yearFrom: 1990, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 1990, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.romance,   yearFrom: 1990, minVotes: 300000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.drama,                     minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
+    { media: 'movie', genre: MG.action,    yearFrom: 2001, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 2001, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2001, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.romance,   yearFrom: 2001, minVotes: 300000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 2001, minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
   ],
   senior: [
     { media: 'movie', genre: MG.drama,     yearFrom: 1970, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
@@ -490,7 +484,7 @@ export const GENRE_NAME_TO_ID: Record<string, number> = {
 const ERAS: Record<string, [number, number | null][]> = {
   young:  [[2005, 2014], [2015, null]],
   mid:    [[1995, 2007], [2008, 2016], [2017, null]],
-  adult:  [[1988, 1999], [2000, 2012], [2013, null]],
+  adult:  [[2001, 2012], [2013, null]],
   senior: [[1975, 1990], [1991, 2005], [2006, null]],
 };
 
