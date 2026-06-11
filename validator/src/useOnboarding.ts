@@ -110,22 +110,27 @@ export function computeLocalProfile(
   return Object.fromEntries(Object.entries(mean).map(([f, v]) => [f, v / maxPos]));
 }
 
+// ERA FIX: exclude e:* from match score to break the era feedback loop
 function scoreTitle(t: NormalizedTitle, profile: Record<string, number>): number {
-  return featuresOf(t).reduce((s, f) => s + (profile[f] ?? 0) * featWeight(f), 0);
+  return featuresOf(t)
+    .filter(f => !f.startsWith('e:'))
+    .reduce((s, f) => s + (profile[f] ?? 0) * featWeight(f), 0);
 }
 
 // Evidencia por feature: cuántas cartas se respondieron y cuántas fueron vistas
 export interface GenreEvidence {
-  answered: Record<string, number>; // cartas respondidas que cubren la feature
-  seen:     Record<string, number>; // de esas, cuántas el usuario vio (loved/liked/disliked)
+  answered:     Record<string, number>; // cartas respondidas que cubren la feature
+  seen:         Record<string, number>; // de esas, cuántas el usuario vio (loved/liked/disliked)
+  answeredEras: Record<string, number>; // ERA FIX: cuántas cartas respondidas por era
 }
 
 export function computeGenreEvidence(
   ratings: Record<number, Rating>,
   pool: NormalizedTitle[],
 ): GenreEvidence {
-  const answered: Record<string, number> = {};
-  const seen:     Record<string, number> = {};
+  const answered:     Record<string, number> = {};
+  const seen:         Record<string, number> = {};
+  const answeredEras: Record<string, number> = {};
   for (const [idStr, r] of Object.entries(ratings)) {
     const title = pool.find(t => t.tmdbId === Number(idStr) || t.id === Number(idStr));
     if (!title) continue;
@@ -133,13 +138,25 @@ export function computeGenreEvidence(
       answered[f] = (answered[f] ?? 0) + 1;
       if (r !== 'not_seen') seen[f] = (seen[f] ?? 0) + 1;
     }
+    // ERA FIX: track era coverage separately for diversity bonus
+    const eraFeature = featuresOf(title).find(f => f.startsWith('e:'));
+    if (eraFeature) answeredEras[eraFeature] = (answeredEras[eraFeature] ?? 0) + 1;
   }
-  return { answered, seen };
+  return { answered, seen, answeredEras };
 }
 
-// Incertidumbre: cuánto aporta este título sobre features con poca evidencia
-function infoScore(t: NormalizedTitle, answered: Record<string, number>): number {
-  return featuresOf(t).reduce((s, f) => s + featWeight(f) / (1 + (answered[f] ?? 0)), 0);
+// ERA FIX: infoScore adds era diversity bonus so under-represented eras get probed more
+function infoScore(
+  t: NormalizedTitle,
+  answered: Record<string, number>,
+  answeredEras: Record<string, number>,
+): number {
+  const featureInfo = featuresOf(t)
+    .filter(f => !f.startsWith('e:'))
+    .reduce((s, f) => s + featWeight(f) / (1 + (answered[f] ?? 0)), 0);
+  const eraFeature = featuresOf(t).find(f => f.startsWith('e:'));
+  const eraBonus = eraFeature ? 0.5 / (1 + (answeredEras[eraFeature] ?? 0)) : 0;
+  return featureInfo + eraBonus;
 }
 
 // Género frío: 2+ "no la vi" y ninguna vista → dejar de gastar cartas ahí
@@ -163,7 +180,7 @@ function sortAdaptive(
   probeBias = false,
 ): NormalizedTitle[] {
   const cold    = coldGenres(ev);
-  const scored  = remaining.map(t => ({ t, score: scoreTitle(t, profile), info: infoScore(t, ev.answered) }));
+  const scored  = remaining.map(t => ({ t, score: scoreTitle(t, profile), info: infoScore(t, ev.answered, ev.answeredEras) }));
   const penalty = scored.filter(s => s.score < 0).sort((a, b) => b.score - a.score).map(s => s.t);
   // Frío sin evidencia positiva: el usuario no conoce ese género, no insistir
   const demoted = scored.filter(s => s.score >= 0 && s.score <= 0.001 && s.t.genres.some(g => cold.has(g))).map(s => s.t);
@@ -276,7 +293,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
         setPool(fetched);
         poolRef.current = fetched;
         const profile = computeLocalProfile({}, fetched, genreSeedsRef.current);
-        setQueue(buildQueue([], fetched, profile, { answered: {}, seen: {} }, BASE_TARGET));
+        setQueue(buildQueue([], fetched, profile, { answered: {}, seen: {}, answeredEras: {} }, BASE_TARGET));
         setLoading(false);
       })
       .catch(e => {
