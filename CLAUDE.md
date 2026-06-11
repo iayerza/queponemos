@@ -1,5 +1,8 @@
 @AGENTS.md
 
+## Branch de trabajo
+Siempre trabajar directamente en `develop`. Nunca crear branches separadas ni usar branches de sesión automáticas. Hacer push a `develop` directamente.
+
 # Queponemos — Contexto del proyecto
 
 App mobile (React Native + Expo 52) para recomendaciones de streaming en grupo, impulsada por Claude AI.
