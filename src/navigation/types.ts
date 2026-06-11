@@ -1,12 +1,13 @@
-export type AgeRange = 'young' | 'mid' | 'adult' | 'senior';
-export type ToneId   = 'mix' | 'prestige' | 'fun';
+export type AgeRange  = 'young' | 'mid' | 'adult' | 'senior';
+export type ToneId    = 'tension' | 'light' | 'think' | 'fear';
+export type FormatPref = 'movie' | 'series' | 'both';
 
 export type RootStackParamList = {
   Login: undefined;
   OnboardingIntro: undefined;
-  AgeSelect: { fromProfile?: true };
-  ToneSelect: { ageRange: AgeRange; fromProfile?: true };
-  Onboarding: { fromProfile?: true; ageRange?: AgeRange; toneId?: ToneId };
+  AgeSelect:   { fromProfile?: true };
+  ToneSelect:  { ageRange: AgeRange; fromProfile?: true };
+  Onboarding:  { fromProfile?: true; ageRange?: AgeRange; tone?: ToneId; format?: FormatPref };
   App: undefined;
   Group: { groupId: string };
   Mood: { groupId?: string; solo?: true };

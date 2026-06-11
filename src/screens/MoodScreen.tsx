@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Animated, Alert, ActivityIndicator,
 } from 'react-native';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,7 +12,7 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useColors } from '../context/ThemeContext';
 import { useAuthStore } from '../store/useAuthStore';
 import { useGroupStore } from '../store/useGroupStore';
-import { setSessionMood, onGroupChange } from '../services/firebase';
+import { setSessionMood, onGroupChange, startGroupSession } from '../services/firebase';
 import { sendMoodSelectedNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
 import type { MoodId } from '../services/claude';
@@ -32,7 +32,10 @@ const MOODS: { id: MoodId; icon: FeatherName; label: string; desc: string }[] = 
 
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
-// ─── Pulsing dots animation ───────────────────────────────────────────────────
+function moodLabel(ids: MoodId[]): string {
+  return ids.map(id => MOODS.find(m => m.id === id)?.label).filter(Boolean).join(' + ');
+}
+
 function PulsingDots() {
   const [count, setCount] = useState(1);
   useEffect(() => {
@@ -45,11 +48,10 @@ const dotStyles = StyleSheet.create({
   dots: { color: Colors.accent, fontSize: 28, letterSpacing: 4, minWidth: 32 },
 });
 
-// ─── Mood card (shown in waiting view) ───────────────────────────────────────
 function MoodCard({
-  label, iconName, moodLabel, waiting,
+  label, iconName, moods, waiting,
 }: {
-  label: string; iconName: FeatherName; moodLabel: string; waiting?: boolean;
+  label: string; iconName: FeatherName; moods: string; waiting?: boolean;
 }) {
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -68,13 +70,9 @@ function MoodCard({
     <View style={[cardStyles.card, waiting && cardStyles.cardWaiting]}>
       <Text style={cardStyles.who}>{label}</Text>
       <Animated.View style={[{ marginBottom: 10 }, waiting && { opacity: pulse }]}>
-        <Feather
-          name={iconName}
-          size={36}
-          color={waiting ? Colors.sub : Colors.accent}
-        />
+        <Feather name={iconName} size={36} color={waiting ? Colors.sub : Colors.accent} />
       </Animated.View>
-      <Text style={[cardStyles.mood, waiting && cardStyles.moodWaiting]}>{moodLabel}</Text>
+      <Text style={[cardStyles.mood, waiting && cardStyles.moodWaiting]}>{moods}</Text>
     </View>
   );
 }
@@ -95,7 +93,6 @@ const cardStyles = StyleSheet.create({
   moodWaiting: { color: Colors.sub },
 });
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
 export default function MoodScreen() {
   const insets = useSafeAreaInsets();
   const nav    = useNavigation<Nav>();
@@ -107,11 +104,8 @@ export default function MoodScreen() {
 
   const isSoloRoute = route.params.solo === true;
   const groupId = route.params.groupId ?? `solo-${user?.uid ?? 'anon'}`;
-  // Cuando Person B llega via notificación, currentGroup puede ser null.
-  // Buscamos el grupo por groupId en el store para no caer en modo solo accidentalmente.
   const group = isSoloRoute ? null : (groups.find(g => g.id === groupId) ?? currentGroup ?? null);
 
-  // Cold-start guard: if group not yet loaded in store, show spinner instead of falling into solo mode
   if (!isSoloRoute && !group && !USE_MOCK) {
     return (
       <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -120,40 +114,67 @@ export default function MoodScreen() {
     );
   }
 
-  const members = isSoloRoute ? (user ? [user.uid] : []) : (group?.members ?? []);
-  const partnerUid = isSoloRoute ? null : (members.find(uid => uid !== user?.uid) ?? null);
-  const isSolo = isSoloRoute || members.length <= 1;
+  const members  = isSoloRoute ? (user ? [user.uid] : []) : (group?.members ?? []);
+  const partners = members.filter(uid => uid !== user?.uid);
+  const isSolo   = isSoloRoute || members.length <= 1;
+  const is2User  = members.length === 2;
 
-  const [myMood,       setMyMood]       = useState<MoodId | null>(null);
-  const [sessionMoods, setSessionMoods] = useState<Record<string, MoodId>>({});
+  // Multi-mood local state: up to 2 moods
+  const [myMoods,      setMyMoods]      = useState<MoodId[]>([]);
+  const [confirmed,    setConfirmed]    = useState(false);
+  const [sessionMoods, setSessionMoods] = useState<Record<string, MoodId[]>>({});
   const [navigating,   setNavigating]   = useState(false);
   const navigatingRef                   = useRef(false);
   const [showSkip,     setShowSkip]     = useState(false);
   const [showContinue, setShowContinue] = useState(false);
 
-  const myStoredMood  = user ? (sessionMoods[user.uid] ?? null) : null;
-  const partnerMood   = partnerUid ? (sessionMoods[partnerUid] ?? null) : null;
-  // allReady requires myMood (local pick this session) to avoid stale Firestore data
-  // from a previous session triggering navigation before the user picks.
-  const allReady      = isSolo ? !!myMood : !!(myMood && partnerMood);
+  // Derived display values
+  const myMoodsLabel  = moodLabel(myMoods);
+  const myMoodsIcon: FeatherName = MOODS.find(m => m.id === myMoods[0])?.icon ?? 'smile';
 
-  const myMoodData      = (myMood ?? myStoredMood) ? MOODS.find(m => m.id === (myMood ?? myStoredMood)) : null;
-  const partnerMoodData = partnerMood ? MOODS.find(m => m.id === partnerMood) : null;
+  // For 2-user display
+  const partnerUid      = is2User ? (partners[0] ?? null) : null;
+  const partnerMoodsArr = partnerUid ? (sessionMoods[partnerUid] ?? []) : [];
+  const partnerMoodsLabel = moodLabel(partnerMoodsArr);
+  const partnerIcon: FeatherName = partnerMoodsArr[0]
+    ? (MOODS.find(m => m.id === partnerMoodsArr[0])?.icon ?? 'clock')
+    : 'clock';
+  const partnerReady = partnerMoodsArr.length > 0;
 
-  // Limpiar estado local al entrar a esta pantalla
-  // (startGroupSession se llama desde GroupScreen antes de navegar — limpia moods/matchId y fija leaderUid)
+  // For 3+ users
+  const partnersPicked    = partners.filter(uid => (sessionMoods[uid]?.length ?? 0) > 0).length;
+  const allPartnersPicked = partners.length > 0 && partnersPicked === partners.length;
+
+  const allReady = isSolo
+    ? confirmed
+    : confirmed && members.every(uid => (sessionMoods[uid]?.length ?? 0) > 0);
+
+  // Group card props
+  const groupCardIcon: FeatherName = is2User
+    ? (partnerReady ? partnerIcon : 'clock')
+    : allPartnersPicked ? 'check-circle' : 'users';
+  const groupCardLabel = is2User
+    ? (partnerReady ? partnerMoodsLabel : 'Eligiendo…')
+    : `${partnersPicked} de ${partners.length} eligieron`;
+  const groupCardWaiting = is2User ? !partnerReady : !allPartnersPicked;
+
+  const readyMoodsLabel = is2User
+    ? `${myMoodsLabel}  ×  ${partnerMoodsLabel}`
+    : members
+        .map(uid => moodLabel(sessionMoods[uid] ?? []))
+        .filter(Boolean)
+        .join('  ×  ');
+
   useEffect(() => {
     const { clearMoods } = useMatchStore.getState();
     clearMoods();
     setSoloMode(isSoloRoute);
     setSessionMoods({});
-    // Si llegamos via notificación y currentGroup no está seteado, lo seteamos ahora
     if (!isSoloRoute && group && group.id !== currentGroup?.id) {
       setCurrentGroup(group);
     }
   }, []);
 
-  // Listen to Firestore session moods (solo mode skips this)
   useEffect(() => {
     if (USE_MOCK || isSoloRoute) return;
     const unsub = onGroupChange(groupId, g => {
@@ -162,18 +183,36 @@ export default function MoodScreen() {
         nav.navigate('App');
         return;
       }
-      const moods = g.currentSession?.moods ?? {};
-      setSessionMoods(moods);
+      // Normalize: Firestore may return string (old data) or array
+      const raw = g.currentSession?.moods ?? {};
+      const normalized: Record<string, MoodId[]> = {};
+      for (const [uid, val] of Object.entries(raw)) {
+        normalized[uid] = Array.isArray(val) ? (val as MoodId[]) : [val as MoodId];
+      }
+      setSessionMoods(normalized);
     });
     return unsub;
   }, [groupId, isSoloRoute]);
 
-  // Show skip button after 30s of waiting for partner
+  // Reset when Firestore clears moods (e.g., new session started)
   useEffect(() => {
-    if (!myMood || isSolo) return;
+    if (!user || !confirmed || isSoloRoute || navigatingRef.current) return;
+    if (!sessionMoods[user.uid]) {
+      setMyMoods([]);
+      setConfirmed(false);
+      setNavigating(false);
+      setShowSkip(false);
+      setShowContinue(false);
+      navigatingRef.current = false;
+    }
+  }, [sessionMoods]);
+
+  // Show skip button after 30s of waiting for partners
+  useEffect(() => {
+    if (!confirmed || isSolo) return;
     const timer = setTimeout(() => setShowSkip(true), 30_000);
     return () => clearTimeout(timer);
-  }, [myMood, isSolo]);
+  }, [confirmed, isSolo]);
 
   // Show manual continue button after 8s if allReady but navigation hasn't fired
   useEffect(() => {
@@ -182,42 +221,51 @@ export default function MoodScreen() {
     return () => clearTimeout(timer);
   }, [allReady, navigating, isSoloRoute]);
 
-  // When both moods ready → sync to MatchStore and navigate.
-  // sessionMoods and navigating excluded from deps: Firestore updates to sessionMoods
-  // would cancel the timer via cleanup; navigatingRef guards re-entry without re-rendering.
+  // When all moods ready → sync to MatchStore and navigate
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!allReady || navigatingRef.current || !myMood) return;
+    if (!allReady || navigatingRef.current || !confirmed) return;
     navigatingRef.current = true;
     setNavigating(true);
-    Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
+    Object.entries(sessionMoods).forEach(([uid, moods]) => setMood(uid, moods));
     const timer = setTimeout(() => {
       nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
     }, 1400);
     return () => clearTimeout(timer);
-  }, [allReady, myMood]);
+  }, [allReady, confirmed]);
 
-  async function handleSelect(id: MoodId) {
-    if (myMood || !user) return;
-    setMyMood(id);
-    setMood(user.uid, id);
+  // Toggle a mood on/off (FIFO: replaces oldest when already 2 selected)
+  function handleToggle(id: MoodId) {
+    if (confirmed) return;
+    setMyMoods(prev => {
+      if (prev.includes(id)) return prev.filter(m => m !== id);
+      if (prev.length >= 2) return [prev[1], id];
+      return [...prev, id];
+    });
+  }
+
+  async function handleConfirm() {
+    if (myMoods.length === 0 || !user || confirmed) return;
+    setConfirmed(true);
+    setMood(user.uid, myMoods);
 
     if (USE_MOCK) {
-      setSessionMoods({ [user.uid]: id });
-      if (partnerUid) {
-        const mockMoods: MoodId[] = ['chill', 'laugh', 'intense', 'think', 'scared', 'cry'];
-        const partnerMock = mockMoods[Math.floor(Math.random() * mockMoods.length)];
-        setTimeout(() => {
-          setSessionMoods({ [user.uid]: id, [partnerUid]: partnerMock });
-        }, 2200);
+      const mockIds: MoodId[] = ['chill', 'laugh', 'intense', 'think', 'scared', 'cry'];
+      const allMoods: Record<string, MoodId[]> = { [user.uid]: myMoods };
+      partners.forEach(uid => {
+        allMoods[uid] = [mockIds[Math.floor(Math.random() * mockIds.length)]];
+      });
+      setSessionMoods({ [user.uid]: myMoods });
+      if (partners.length > 0) {
+        setTimeout(() => setSessionMoods(allMoods), 2200);
       }
       return;
     }
     if (isSoloRoute) {
-      setSessionMoods({ [user.uid]: id });
+      setSessionMoods({ [user.uid]: myMoods });
     } else {
       try {
-        await setSessionMood(groupId, user.uid, id);
+        await setSessionMood(groupId, user.uid, myMoods);
         const targets = await getGroupMemberTokens(members, user.uid);
         if (targets.length > 0) {
           sendMoodSelectedNotification(targets, user.displayName ?? 'Tu compañero', groupId).catch(() => {});
@@ -226,15 +274,15 @@ export default function MoodScreen() {
     }
   }
 
-  // ── Waiting view (after mood picked) ───────────────────────────────────────
-  if (myMood) {
+  // ── Waiting view ─────────────────────────────────────────────────────────────
+  if (confirmed) {
     if (isSoloRoute) {
       return (
         <View style={[styles.root, { paddingTop: insets.top + 20, backgroundColor: themeColors.bg, alignItems: 'center', justifyContent: 'center' }]}>
           <Text style={styles.waitTitle}>Perfecto</Text>
           <Text style={styles.waitSub}>Queponemos está buscando algo para vos…</Text>
           <View style={[styles.readyBadge, { marginTop: 0, alignSelf: 'stretch' }]}>
-            <Text style={styles.readyText}>{myMoodData?.label}</Text>
+            <Text style={styles.readyText}>{myMoodsLabel}</Text>
             <Text style={styles.readySub}>Modo solo · tus plataformas</Text>
           </View>
         </View>
@@ -244,21 +292,22 @@ export default function MoodScreen() {
     return (
       <View style={[styles.root, { paddingTop: insets.top + 20, backgroundColor: themeColors.bg }]}>
         <Text style={styles.waitTitle}>
-          {allReady ? '¡Listos!' : '¿Cómo está\ntu compañero?'}
+          {allReady ? '¡Listos!' : is2User ? '¿Cómo está\ntu compañero?' : '¿Cómo está\nel grupo?'}
         </Text>
         <Text style={styles.waitSub}>
           {allReady
-            ? 'Queponemos está analizando los dos moods…'
-            : 'Esperá que elija su mood esta noche'}
+            ? 'Queponemos está analizando los moods…'
+            : is2User
+              ? 'Esperá que elija su mood esta noche'
+              : `Faltan ${partners.length - partnersPicked} de ${partners.length} personas`}
         </Text>
 
         <View style={styles.cards}>
           <MoodCard
             label="VOS"
-            iconName={myMoodData?.icon ?? 'smile'}
-            moodLabel={myMoodData?.label ?? ''}
+            iconName={myMoodsIcon}
+            moods={myMoodsLabel}
           />
-
           <View style={styles.vsCol}>
             {allReady ? (
               <Feather name="star" size={22} color={Colors.accent} />
@@ -266,20 +315,22 @@ export default function MoodScreen() {
               <PulsingDots />
             )}
           </View>
-
           <MoodCard
             label="EL GRUPO"
-            iconName={partnerMoodData?.icon ?? 'clock'}
-            moodLabel={partnerMoodData?.label ?? 'Eligiendo…'}
-            waiting={!partnerMood}
+            iconName={groupCardIcon}
+            moods={groupCardLabel}
+            waiting={groupCardWaiting}
           />
         </View>
 
         {showSkip && !allReady && (
           <TouchableOpacity
             style={styles.skipBtn}
-            onPress={() => {
+            onPress={async () => {
               setNavigating(true);
+              if (!USE_MOCK && !isSoloRoute && user) {
+                await startGroupSession(groupId, user.uid).catch(() => {});
+              }
               nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
             }}
           >
@@ -289,10 +340,12 @@ export default function MoodScreen() {
 
         {allReady && (
           <View style={styles.readyBadge}>
-            <Text style={styles.readyText}>
-              {myMoodData?.label}  ×  {partnerMoodData?.label}
+            <Text style={styles.readyText}>{readyMoodsLabel}</Text>
+            <Text style={styles.readySub}>
+              {is2User
+                ? 'Queponemos va a encontrar algo perfecto para los dos'
+                : 'Queponemos va a encontrar algo perfecto para el grupo'}
             </Text>
-            <Text style={styles.readySub}>Queponemos va a encontrar algo perfecto para los dos</Text>
           </View>
         )}
 
@@ -301,7 +354,7 @@ export default function MoodScreen() {
             style={styles.continueBtn}
             onPress={() => {
               setNavigating(true);
-              Object.entries(sessionMoods).forEach(([uid, mood]) => setMood(uid, mood));
+              Object.entries(sessionMoods).forEach(([uid, moods]) => setMood(uid, moods));
               nav.navigate('Matching', isSoloRoute ? { groupId, solo: true } : { groupId });
             }}
           >
@@ -312,7 +365,7 @@ export default function MoodScreen() {
     );
   }
 
-  // ── Picking view ────────────────────────────────────────────────────────────
+  // ── Picking view ─────────────────────────────────────────────────────────────
   return (
     <View style={[styles.root, { paddingTop: insets.top, backgroundColor: themeColors.bg }]}>
       <TouchableOpacity
@@ -332,24 +385,43 @@ export default function MoodScreen() {
         </Text>
         <Text style={styles.sub}>
           {isSoloRoute
-            ? 'Queponemos va a encontrar algo perfecto para vos en tus plataformas.'
-            : 'Tu compañero también va a elegir. Queponemos va a encontrar algo que les funcione a los dos.'}
+            ? 'Elegí hasta 2 moods. Queponemos va a encontrar algo perfecto para vos.'
+            : is2User
+              ? 'Elegí hasta 2 moods. Tu compañero también va a elegir.'
+              : 'Elegí hasta 2 moods. Todos van a elegir su mood.'}
         </Text>
 
         <View style={styles.grid}>
-          {MOODS.map(m => (
-            <TouchableOpacity
-              key={m.id}
-              style={styles.moodBtn}
-              onPress={() => handleSelect(m.id)}
-              activeOpacity={0.8}
-            >
-              <Feather name={m.icon} size={28} color={Colors.sub} style={styles.moodIcon} />
-              <Text style={styles.moodLabel}>{m.label}</Text>
-              <Text style={styles.moodDesc}>{m.desc}</Text>
-            </TouchableOpacity>
-          ))}
+          {MOODS.map(m => {
+            const idx     = myMoods.indexOf(m.id);
+            const selected = idx !== -1;
+            return (
+              <TouchableOpacity
+                key={m.id}
+                style={[styles.moodBtn, selected && styles.moodBtnSelected]}
+                onPress={() => handleToggle(m.id)}
+                activeOpacity={0.8}
+              >
+                {selected && (
+                  <View style={styles.selBadge}>
+                    <Text style={styles.selBadgeText}>{idx + 1}</Text>
+                  </View>
+                )}
+                <Feather name={m.icon} size={32} color={selected ? Colors.accent : Colors.sub} style={styles.moodIcon} />
+                <Text style={[styles.moodLabel, selected && styles.moodLabelSelected]}>{m.label}</Text>
+                <Text style={styles.moodDesc}>{m.desc}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
+
+        {myMoods.length > 0 && (
+          <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
+            <Text style={styles.confirmBtnText}>
+              {myMoods.length === 1 ? 'Confirmar mood' : `Confirmar: ${myMoodsLabel}`}
+            </Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </View>
   );
@@ -357,33 +429,56 @@ export default function MoodScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bg },
-
-  // Picking
   back: { paddingHorizontal: 24, paddingVertical: 12, alignSelf: 'flex-start' },
   scroll:   { paddingHorizontal: 24, paddingBottom: 40 },
   title: {
     color: Colors.text,
-    fontSize: Typography.hero,
-    fontWeight: Typography.black,
-    lineHeight: 40,
-    marginBottom: 10,
+    fontSize: 32,
+    fontWeight: Typography.medium,
+    lineHeight: 42,
+    marginBottom: 12,
     marginTop: 4,
+    letterSpacing: -0.5,
   },
   sub: { color: Colors.sub, fontSize: Typography.body, marginBottom: 28, lineHeight: 22 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 28 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   moodBtn: {
     width: '47%',
     backgroundColor: Colors.s1,
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 14,
+    padding: 22,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  moodIcon: { marginBottom: 8 },
-  moodLabel: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body, marginBottom: 4 },
+  moodBtnSelected: {
+    borderColor: Colors.accentBorder,
+    backgroundColor: Colors.accentFaint,
+  },
+  moodIcon: { marginBottom: 10 },
+  moodLabel: { color: Colors.text, fontWeight: Typography.medium, fontSize: 16, marginBottom: 5 },
+  moodLabelSelected: { color: Colors.accent },
   moodDesc:  { color: Colors.sub, fontSize: Typography.tiny, lineHeight: 16 },
-
-  // Waiting
+  selBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selBadgeText: { color: '#fff', fontSize: 10, fontWeight: Typography.medium },
+  confirmBtn: {
+    marginTop: 8,
+    marginBottom: 16,
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  confirmBtnText: { color: '#fff', fontWeight: Typography.medium, fontSize: Typography.body },
   waitTitle: {
     color: Colors.text,
     fontSize: Typography.h1,
@@ -400,17 +495,8 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     lineHeight: 22,
   },
-  cards: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    gap: 0,
-    alignItems: 'center',
-  },
-  vsCol: {
-    width: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  cards: { flexDirection: 'row', paddingHorizontal: 24, gap: 0, alignItems: 'center' },
+  vsCol: { width: 36, alignItems: 'center', justifyContent: 'center' },
   readyBadge: {
     marginTop: 36,
     marginHorizontal: 24,
@@ -422,12 +508,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
   },
-  readyText: {
-    color: Colors.accent,
-    fontSize: Typography.body,
-    fontWeight: Typography.bold,
-    marginBottom: 6,
-  },
+  readyText: { color: Colors.accent, fontSize: Typography.body, fontWeight: Typography.bold, marginBottom: 6 },
   readySub: { color: Colors.sub, fontSize: Typography.small, textAlign: 'center', lineHeight: 18 },
   skipBtn: { marginTop: 24, alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 20 },
   skipText: { color: Colors.faint, fontSize: Typography.small, textDecorationLine: 'underline' },

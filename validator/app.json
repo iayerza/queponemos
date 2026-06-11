@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "QP Validator",
+    "slug": "qp-validator",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "newArchEnabled": true,
+    "android": { "package": "com.queponemos.validator" },
+    "ios": { "bundleIdentifier": "com.queponemos.validator" }
+  }
+}

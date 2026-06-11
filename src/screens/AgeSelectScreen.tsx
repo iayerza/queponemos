@@ -11,11 +11,11 @@ import type { RootStackParamList, AgeRange } from '../navigation/types';
 type Nav   = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'AgeSelect'>;
 
-const AGE_OPTIONS: { range: AgeRange; label: string; sub: string }[] = [
-  { range: 'young',  label: 'Menos de 25', sub: 'Estrenos, series del momento' },
-  { range: 'mid',    label: '25 a 35',     sub: 'Cine de autor, drama, thriller' },
-  { range: 'adult',  label: '36 a 50',     sub: 'Clásicos modernos, prestige TV' },
-  { range: 'senior', label: 'Más de 50',   sub: 'Grandes clásicos, period drama' },
+const AGE_OPTIONS: { range: AgeRange; label: string }[] = [
+  { range: 'young',  label: 'Menos de 25' },
+  { range: 'mid',    label: '25 a 35'     },
+  { range: 'adult',  label: '36 a 50'     },
+  { range: 'senior', label: 'Más de 50'   },
 ];
 
 export default function AgeSelectScreen() {
@@ -48,7 +48,6 @@ export default function AgeSelectScreen() {
               <Text style={[styles.optionLabel, selected === opt.range && styles.optionLabelActive]}>
                 {opt.label}
               </Text>
-              <Text style={styles.optionSub}>{opt.sub}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -82,9 +81,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   optionCardActive: { borderColor: Colors.accentBorder, backgroundColor: Colors.accentFaint },
-  optionLabel: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.bold, marginBottom: 2 },
+  optionLabel: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.bold },
   optionLabelActive: { color: Colors.accent },
-  optionSub: { color: Colors.sub, fontSize: Typography.small },
   actions: { paddingHorizontal: 24 },
   nextBtn: { backgroundColor: Colors.accent, borderRadius: 12, paddingVertical: 16, alignItems: 'center' },
   nextBtnDisabled: { opacity: 0.4 },

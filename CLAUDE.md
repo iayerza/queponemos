@@ -1,7 +1,7 @@
 @AGENTS.md
 
 ## Branch de trabajo
-Siempre trabajar directamente en `develop`. Nunca crear branches separadas. Hacer push a `develop` directamente.
+Siempre trabajar directamente en `develop`. Nunca crear branches separadas ni usar branches de sesión automáticas. Hacer push a `develop` directamente.
 
 # Queponemos — Contexto del proyecto
 
@@ -143,7 +143,7 @@ const { addToHistory } = useMatchStore.getState();
 
 ### Logo
 
-**LogoMark** — ícono cuadrado con bordes redondeados rojo (`#C8302A`), diagrama de Venn SVG blanco en el interior:
+**LogoMark** — ícono cuadrado con bordes redondeados, gradiente azul diagonal (`#0F2EA8` → `#2660EA`), diagrama de Venn SVG blanco en el interior:
 - Dos círculos solapados (fillOpacity 0.2)
 - Elipse central de intersección (fillOpacity 0.55)
 - Punto central sólido blanco

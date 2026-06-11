@@ -101,6 +101,7 @@ export async function sendMoodSelectedNotification(
 export async function sendGroupVoteNotification(
   targets: PushTarget[],
   groupName: string,
+  groupId: string,
 ): Promise<void> {
   if (targets.length === 0) return;
   try {
@@ -109,7 +110,7 @@ export async function sendGroupVoteNotification(
       sound: 'default' as const,
       title: '¡Es hora de elegir!',
       body: `${groupName} quiere saber tu mood para esta noche`,
-      data: { type: 'vote_request' },
+      data: { type: 'vote_request', groupId },
     }));
     const tickets = await postExpoPush(messages);
     purgeDeadTokens(targets, tickets).catch(() => {});

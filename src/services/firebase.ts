@@ -35,7 +35,7 @@ import type { TasteProfile } from '../utils/tasteProfile';
 import type { PlatformId } from '../constants/platforms';
 import type { Recommendation, MoodId } from './claude';
 import { generateInviteCode } from '../utils/inviteCode';
-import { recalculateTasteProfile } from '../utils/tasteProfile';
+import { recalculateTasteProfile, rebuildProfileFromCatalog } from '../utils/tasteProfile';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -62,6 +62,7 @@ export interface UserProfile {
   displayName: string;
   photoURL: string | null;
   ratings: Record<number, Rating>;
+  ratingTimestamps?: Record<number, number>; // tmdbId → epoch ms; enables time-decay weighting
   tasteProfile: TasteProfile;
   onboardingDone: boolean;
   platforms: PlatformId[];
@@ -78,7 +79,7 @@ export interface GroupDoc {
   country: string;
   turnIndex?: number;
   currentSession?: {
-    moods: Record<string, MoodId>;
+    moods: Record<string, MoodId[]>;
     matchId?: string;
     leaderUid?: string;
   };
@@ -89,7 +90,7 @@ export interface MatchDoc {
   groupId: string;
   members: string[];
   recommendations: Recommendation[];
-  moods: Record<string, MoodId>;
+  moods: Record<string, MoodId[]>;
   createdAt: { seconds: number };
   groupInsight?: string;
 }
@@ -223,16 +224,41 @@ export async function rateTitleAndUpdateProfile(
   const profile = await getUserProfile(uid);
   if (!profile) throw new Error('Usuario no encontrado');
 
-  const newRatings = { ...profile.ratings, [titleId]: rating };
-  const allTitles  = [titleMeta];
-  const newProfile = recalculateTasteProfile(newRatings, allTitles, profile.tasteProfile);
+  // One-time migration: rebuild raw scores from catalog for users without genreRawScores
+  let prevProfile = profile.tasteProfile;
+  if (!prevProfile.genreRawScores) {
+    prevProfile = rebuildProfileFromCatalog(profile.ratings, prevProfile);
+  }
+
+  // Incremental update: pass only the delta (new rating + its metadata)
+  const ts = { ...(profile.ratingTimestamps ?? {}), [titleId]: Date.now() };
+  const newProfile = recalculateTasteProfile({ [titleId]: rating }, [titleMeta], prevProfile, ts);
 
   await updateDoc(doc(db(), 'users', uid), {
     [`ratings.${titleId}`]: rating,
+    [`ratingTimestamps.${titleId}`]: Date.now(),
     tasteProfile: newProfile,
     updatedAt: serverTimestamp(),
   });
   return newProfile;
+}
+
+// Called in background after fetchKeywords() resolves. Merges keyword weights into the
+// stored taste profile without blocking the rating UX.
+export async function updateTasteKeywords(
+  uid: string,
+  keywords: string[],
+  rating: Rating,
+): Promise<void> {
+  if (keywords.length === 0) return;
+  const profile = await getUserProfile(uid);
+  if (!profile) return;
+  const { mergeKeywords } = await import('../utils/tasteProfile');
+  const updated = mergeKeywords(keywords, rating, profile.tasteProfile);
+  await updateDoc(doc(db(), 'users', uid), {
+    'tasteProfile.keywordWeights': updated.keywordWeights,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function completeOnboarding(
@@ -243,6 +269,19 @@ export async function completeOnboarding(
     onboardingDone: true,
     ...(ageRange ? { ageRange } : {}),
     updatedAt: serverTimestamp(),
+  });
+}
+
+// Seeds the taste profile with genre preferences selected in the genre step.
+// Called immediately when the user confirms genres, before any title ratings.
+export async function saveInitialGenrePreferences(uid: string, genres: string[]): Promise<void> {
+  if (genres.length === 0) return;
+  // Use a raw score of 1.0 per genre (equivalent to one "liked" title at IDF=1.0).
+  // recalculateTasteProfile will accumulate on top of these when title ratings come in.
+  const rawScores: Record<string, number> = {};
+  for (const g of genres) rawScores[g] = 1.0;
+  await updateDoc(doc(db(), 'users', uid), {
+    'tasteProfile.genreRawScores': rawScores,
   });
 }
 
@@ -346,9 +385,9 @@ export async function updateGroupPlatforms(
   await updateDoc(doc(db(), 'groups', groupId), { platforms });
 }
 
-export async function setSessionMood(groupId: string, uid: string, mood: MoodId): Promise<void> {
+export async function setSessionMood(groupId: string, uid: string, moods: MoodId[]): Promise<void> {
   await updateDoc(doc(db(), 'groups', groupId), {
-    [`currentSession.moods.${uid}`]: mood,
+    [`currentSession.moods.${uid}`]: moods,
   });
 }
 
@@ -365,18 +404,29 @@ export async function getMatchById(matchId: string): Promise<MatchDoc | null> {
 }
 
 /** Listen via onSnapshot until the leader writes a matchId (max 45s).
- *  Pass an AbortSignal to cancel early (e.g. when the user navigates back). */
+ *  Pass an AbortSignal to cancel early (e.g. when the user navigates back).
+ *
+ *  Edge case: if the leader finishes before the follower even starts polling
+ *  (staleMatchId is already set), we resolve immediately with that matchId.
+ *  After startGroupSession the matchId is always null, so a non-null staleMatchId
+ *  means the leader was extremely fast — the new match is already there. */
 export function pollForMatchId(groupId: string, signal?: AbortSignal): Promise<string | null> {
   return new Promise(async resolve => {
     const initial = await getDoc(doc(db(), 'groups', groupId));
     const staleMatchId = initial.data()?.currentSession?.matchId as string | undefined;
+
+    // Leader finished before we called pollForMatchId — no need to wait
+    if (staleMatchId) {
+      resolve(staleMatchId);
+      return;
+    }
 
     const cleanup = () => { clearTimeout(timeout); unsub(); };
     const timeout = setTimeout(() => { cleanup(); resolve(null); }, 45_000);
 
     const unsub = onSnapshot(doc(db(), 'groups', groupId), snap => {
       const matchId = snap.data()?.currentSession?.matchId as string | undefined;
-      if (matchId && matchId !== staleMatchId) {
+      if (matchId) {
         cleanup();
         resolve(matchId);
       }
@@ -412,7 +462,7 @@ export async function saveMatch(
   groupId: string,
   members: string[],
   recs: Recommendation[],
-  moods: Record<string, MoodId>,
+  moods: Record<string, MoodId[]>,
   groupInsight?: string,
 ): Promise<string> {
   const ref = await addDoc(collection(db(), 'matches'), {
@@ -432,7 +482,7 @@ export async function saveMatchAndBroadcast(
   groupId: string,
   members: string[],
   recs: Recommendation[],
-  moods: Record<string, MoodId>,
+  moods: Record<string, MoodId[]>,
   groupInsight?: string,
 ): Promise<string> {
   const matchRef = doc(collection(db(), 'matches'));
@@ -480,7 +530,7 @@ export interface HistoryEntry {
   groupName: string;
   createdAt: number;
   recommendations: Recommendation[];
-  moods: Record<string, MoodId>;
+  moods: Record<string, MoodId[]>;
 }
 
 export async function addMatchToUserHistory(
