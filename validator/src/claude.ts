@@ -20,6 +20,7 @@ function section(profile: Record<string, number>, prefix: string) {
 export async function generateRecommendations(
   profile: Record<string, number>,
   mood: string,
+  exclude: string[] = [],
 ): Promise<{ recs: ValidatorRec[]; rawJson: string; ms: number }> {
   const genres = section(profile, 'g:');
   const pairs  = section(profile, 'p:');
@@ -51,11 +52,17 @@ export async function generateRecommendations(
       : 'cine palomitero y entretenido'}\n`;
   }
 
+  const excludeBlock = exclude.length > 0
+    ? `\nTítulos ya recomendados anteriormente — NO los repitas bajo ninguna circunstancia:\n` +
+      exclude.map(t => `  - ${t}`).join('\n') + '\n'
+    : '';
+
   const prompt =
     `Sos un recomendador de películas para Argentina. ` +
     `Dado el perfil de gustos del usuario y su estado de ánimo, ` +
     `recomendá exactamente 3 PELÍCULAS (no series) disponibles en streaming.\n\n` +
     profileText +
+    excludeBlock +
     `\nEstado de ánimo: ${mood}\n\n` +
     `Respondé SOLO con JSON válido, sin texto extra:\n` +
     `{\n` +

@@ -48,15 +48,16 @@ interface Props {
 
 export default function ResultsScreen({ ratings, liveProfile, titles, anchorPositions, onRepeat }: Props) {
   const insets = useSafeAreaInsets();
-  const [step, setStep]       = useState<Step>('profile');
-  const [mood, setMood]       = useState('');
-  const [tone, setTone]       = useState('');
-  const [loading, setLoading] = useState(false);
-  const [recs, setRecs]       = useState<ValidatorRec[] | null>(null);
-  const [rawJson, setRawJson] = useState('');
-  const [ms, setMs]           = useState(0);
-  const [err, setErr]         = useState('');
-  const [showRaw, setShowRaw] = useState(false);
+  const [step, setStep]             = useState<Step>('profile');
+  const [mood, setMood]             = useState('');
+  const [tone, setTone]             = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [recs, setRecs]             = useState<ValidatorRec[] | null>(null);
+  const [rawJson, setRawJson]       = useState('');
+  const [ms, setMs]                 = useState(0);
+  const [err, setErr]               = useState('');
+  const [showRaw, setShowRaw]       = useState(false);
+  const [shownTitles, setShownTitles] = useState<string[]>([]);
 
   const byPrefix = (p: string) => Object.entries(liveProfile)
     .filter(([f]) => f.startsWith(p))
@@ -74,10 +75,11 @@ export default function ResultsScreen({ ratings, liveProfile, titles, anchorPosi
     try {
       const moodLabel = MOODS.find(m => m.id === mood)?.label ?? mood;
       const toneLabel = TONES.find(t => t.id === tone)?.label ?? tone;
-      const result = await generateRecommendations(liveProfile, `${moodLabel} / ${toneLabel}`);
+      const result = await generateRecommendations(liveProfile, `${moodLabel} / ${toneLabel}`, shownTitles);
       setRecs(result.recs);
       setRawJson(result.rawJson);
       setMs(result.ms);
+      setShownTitles(prev => [...prev, ...result.recs.map(r => `${r.title} (${r.year})`)]);
       setStep('result');
     } catch (e) {
       setErr(String(e));
