@@ -42,13 +42,15 @@ const GENRE_MAP: Record<number, string> = {
 };
 
 async function tmdbGet(path: string): Promise<unknown> {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 15_000);
+  const url = tmdbUrl(path);
   try {
-    const res = await fetch(tmdbUrl(path), { headers: tmdbHeaders(), signal: ctrl.signal });
+    const res = await fetch(url, { headers: tmdbHeaders(), mode: 'cors' });
     if (!res.ok) throw new Error(`TMDB ${res.status}: ${path}`);
     return res.json();
-  } finally { clearTimeout(t); }
+  } catch (e) {
+    console.error('[tmdb] fetch failed:', url.slice(0, 80), e);
+    throw e;
+  }
 }
 
 function parseDiscoverResult(r: Record<string, unknown>, type: 'movie' | 'tv'): NormalizedTitle {
