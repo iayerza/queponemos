@@ -277,8 +277,8 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
         const wanted = normalizeTitle(rec.title);
         const altMediaType = mediaType === 'movie' ? 'tv' : 'movie';
 
-        function titleMatches(r: { title: string; originalTitle: string }): boolean {
-          return normalizeTitle(r.title) === wanted || normalizeTitle(r.originalTitle) === wanted;
+        function titleMatches(r: { title: string; originalTitle?: string }): boolean {
+          return normalizeTitle(r.title) === wanted || normalizeTitle(r.originalTitle ?? '') === wanted;
         }
 
         // 1st pass: title match (localized or original) + type + year
