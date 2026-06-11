@@ -6,6 +6,8 @@
     "orientation": "portrait",
     "newArchEnabled": true,
     "android": { "package": "com.queponemos.validator" },
-    "ios": { "bundleIdentifier": "com.queponemos.validator" }
+    "ios": { "bundleIdentifier": "com.queponemos.validator" },
+    "web": { "bundler": "metro", "output": "single" }
   }
 }
+

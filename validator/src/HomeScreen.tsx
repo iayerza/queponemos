@@ -8,7 +8,7 @@ const C = { bg:'#0D0D0F', s1:'#1C1C20', border:'#2A2A2E', accent:'#C8302A', acce
 const AGE_OPTIONS: { range: AgeRange; label: string; hint: string }[] = [
   { range:'young',  label:'Menos de 25', hint:'2000s+' },
   { range:'mid',    label:'25 a 35',     hint:'95–2015' },
-  { range:'adult',  label:'36 a 50',     hint:'90–2022' },
+  { range:'adult',  label:'36 a 50',     hint:'2001–hoy' },
   { range:'senior', label:'Más de 50',   hint:'70s–hoy' },
 ];
 
