@@ -231,45 +231,43 @@ const MG = { action: 28, adventure: 12, animation: 16, comedy: 35, crime: 80, dr
 const TG = { comedy: 35, crime: 80, drama: 18, scifiFantasy: 10765, mystery: 9648 } as const;
 
 const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
-  // <25 — acción, sci-fi, animación, horror, series del momento
+  // <25 — nacidos 2001+, no conocen el cine pre-2000
   young: [
-    // Clásicos pre-1990 (3)
-    { media: 'movie', genre: MG.action,     yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
-    { media: 'movie', genre: MG.scifi,      yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
-    { media: 'movie', genre: MG.animation,  yearTo: 2010, minRating: 7.5, minVotes: 2000, pick: 1 },
-    // 1990–2009 (5)
-    { media: 'movie', genre: MG.action,     yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.scifi,      yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.comedy,     yearFrom: 1990, yearTo: 2009, minRating: 6.8, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.horror,     yearFrom: 1990, yearTo: 2009, minRating: 6.8, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.thriller,   yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
-    // 2010–2019 (7)
+    // 2000–2009 (4)
+    { media: 'movie', genre: MG.action,     yearFrom: 2000, yearTo: 2009, minRating: 7.0, minVotes: 50000, pick: 1 },
+    { media: 'movie', genre: MG.animation,  yearFrom: 2000, yearTo: 2009, minRating: 7.5, minVotes: 10000, pick: 1 },
+    { media: 'movie', genre: MG.scifi,      yearFrom: 2000, yearTo: 2009, minRating: 7.0, minVotes: 20000, pick: 1 },
+    { media: 'movie', genre: MG.comedy,     yearFrom: 2000, yearTo: 2009, minRating: 7.0, minVotes: 10000, pick: 1 },
+    // 2010–2019 (9)
     { media: 'movie', genre: MG.action,     yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 10000, pick: 2 },
     { media: 'movie', genre: MG.drama,      yearFrom: 2010, yearTo: 2019, minRating: 7.5, minVotes: 1000,  pick: 1 },
     { media: 'movie', genre: MG.horror,     yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 1000,  pick: 2 },
     { media: 'movie', genre: MG.romance,    yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 1000,  pick: 1 },
-    { media: 'movie', genre: MG.animation,  yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 1000,  pick: 1 },
-    // 2020+ (4)
+    { media: 'movie', genre: MG.animation,  yearFrom: 2010, yearTo: 2019, minRating: 7.5, minVotes: 1000,  pick: 1 },
+    { media: 'movie', genre: MG.scifi,      yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 5000,  pick: 1 },
+    { media: 'movie', genre: MG.thriller,   yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 5000,  pick: 1 },
+    // 2020+ (6)
     { media: 'movie', genre: MG.action,     yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 2 },
     { media: 'movie', genre: MG.drama,      yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 1 },
     { media: 'movie', genre: MG.horror,     yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 1 },
+    { media: 'movie', genre: MG.scifi,      yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 1 },
+    { media: 'movie', genre: MG.comedy,     yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 1 },
     // Series (11)
     { media: 'tv', genre: TG.drama,         minRating: 8.0, minVotes: 500, pick: 3 },
     { media: 'tv', genre: TG.scifiFantasy,  minRating: 7.5, minVotes: 300, pick: 3 },
     { media: 'tv', genre: TG.comedy,        minRating: 7.5, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.crime,         minRating: 7.5, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.mystery,       minRating: 7.5, minVotes: 300, pick: 1 },
-  ], // 3+5+7+4+11 = 30
+  ], // 4+9+6+11 = 30
 
-  // 25–35 — calidad cinematográfica, drama, thriller, prestige TV
+  // 25–35 — nacidos ~1991-2001, conocen los 90s de chicos
   mid: [
-    // Pre-1990 (3)
+    // Pre-1990 (2) — algunos clásicos que quizás vieron en casa
     { media: 'movie', genre: MG.drama,     yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
     { media: 'movie', genre: MG.crime,     yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
-    // 1990–2009 (8)
+    // 1990–2009 (9)
     { media: 'movie', genre: MG.drama,     yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
     { media: 'movie', genre: MG.crime,     yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
     { media: 'movie', genre: MG.comedy,    yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 1 },
     { media: 'movie', genre: MG.romance,   yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
@@ -290,55 +288,58 @@ const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
     { media: 'tv', genre: TG.comedy,       minRating: 7.5, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.scifiFantasy, minRating: 7.5, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.mystery,      minRating: 7.5, minVotes: 300, pick: 1 },
-  ], // 3+8+6+3+10 = 30
+  ], // 2+9+6+3+10 = 30
 
-  // 36–50 — nacidos ~1976-1990
+  // 36–50 — nacidos ~1976-1990, crecieron con los 80s/90s
   adult: [
-    // 2001–2012 (14)
-    { media: 'movie', genre: MG.drama,     yearFrom: 2001, yearTo: 2012, minRating: 7.5, minVotes: 2000,  pick: 3 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 2001, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 3 },
-    { media: 'movie', genre: MG.crime,     yearFrom: 2001, yearTo: 2012, minRating: 7.5, minVotes: 1000,  pick: 2 },
-    { media: 'movie', genre: MG.comedy,    yearFrom: 2001, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 2 },
-    { media: 'movie', genre: MG.action,    yearFrom: 2001, yearTo: 2012, minRating: 7.5, minVotes: 30000, pick: 2 },
-    { media: 'movie', genre: MG.animation, yearFrom: 2001, yearTo: 2012, minRating: 7.5, minVotes: 5000,  pick: 1 },
-    { media: 'movie', genre: MG.scifi,     yearFrom: 2001, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 1 },
-    // 2013–2021 (9)
+    // 1980–1999 (7) — su era de formación
+    { media: 'movie', genre: MG.drama,     yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.crime,     yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.comedy,    yearFrom: 1980, yearTo: 1999, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.scifi,     yearFrom: 1980, yearTo: 1999, minRating: 7.0, minVotes: 2000, pick: 1 },
+    // 2000–2012 (8)
+    { media: 'movie', genre: MG.drama,     yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 2000,  pick: 2 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 2 },
+    { media: 'movie', genre: MG.crime,     yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 1000,  pick: 1 },
+    { media: 'movie', genre: MG.comedy,    yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 1 },
+    { media: 'movie', genre: MG.action,    yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 30000, pick: 1 },
+    { media: 'movie', genre: MG.animation, yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 5000,  pick: 1 },
+    // 2013–2021 (6)
     { media: 'movie', genre: MG.drama,     yearFrom: 2013, yearTo: 2021, minRating: 7.5, minVotes: 2000, pick: 2 },
     { media: 'movie', genre: MG.thriller,  yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.comedy,    yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.romance,   yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 1000, pick: 2 },
-    { media: 'movie', genre: MG.crime,     yearFrom: 2013, yearTo: 2021, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.romance,   yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 1000, pick: 1 },
     { media: 'movie', genre: MG.action,    yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 2000, pick: 1 },
     // 2022+ (2)
     { media: 'movie', genre: MG.drama,     yearFrom: 2022, minRating: 7.0, minVotes: 500, pick: 1 },
     { media: 'movie', genre: MG.thriller,  yearFrom: 2022, minRating: 7.0, minVotes: 500, pick: 1 },
-    // Series (5)
+    // Series (7)
     { media: 'tv', genre: TG.drama,        minRating: 8.0, minVotes: 500, pick: 2 },
-    { media: 'tv', genre: TG.crime,        minRating: 8.0, minVotes: 300, pick: 1 },
+    { media: 'tv', genre: TG.crime,        minRating: 8.0, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.comedy,       minRating: 7.5, minVotes: 300, pick: 1 },
     { media: 'tv', genre: TG.scifiFantasy, minRating: 7.5, minVotes: 300, pick: 1 },
-  ], // 14+9+2+5 = 30
+    { media: 'tv', genre: TG.mystery,      minRating: 7.5, minVotes: 300, pick: 1 },
+  ], // 7+8+6+2+7 = 30
 
-  // 50+ — clásicos, period drama, cine de autor
+  // 50+ — vieron todo: clásicos, 80s/90s, 2000s y cine de hoy
   senior: [
     // Pre-1970 (3)
     { media: 'movie', genre: MG.drama,    yearTo: 1969, minRating: 7.5, minVotes: 2000, pick: 1 },
     { media: 'movie', genre: MG.crime,    yearTo: 1969, minRating: 7.5, minVotes: 2000, pick: 1 },
     { media: 'movie', genre: MG.comedy,   yearTo: 1969, minRating: 7.5, minVotes: 1000, pick: 1 },
-    // 1970–1989 (8)
+    // 1970–1989 (7)
     { media: 'movie', genre: MG.drama,    yearFrom: 1970, yearTo: 1989, minRating: 7.5, minVotes: 2000, pick: 3 },
     { media: 'movie', genre: MG.thriller, yearFrom: 1970, yearTo: 1989, minRating: 7.5, minVotes: 2000, pick: 2 },
     { media: 'movie', genre: MG.crime,    yearFrom: 1970, yearTo: 1989, minRating: 7.5, minVotes: 2000, pick: 1 },
     { media: 'movie', genre: MG.comedy,   yearFrom: 1970, yearTo: 1989, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.romance,  yearFrom: 1970, yearTo: 1989, minRating: 7.0, minVotes: 1000, pick: 1 },
-    // 1990–2010 (6)
-    { media: 'movie', genre: MG.drama,    yearFrom: 1990, yearTo: 2010, minRating: 7.5, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.thriller, yearFrom: 1990, yearTo: 2010, minRating: 7.5, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.comedy,   yearFrom: 1990, yearTo: 2010, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.romance,  yearFrom: 1990, yearTo: 2010, minRating: 7.0, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.crime,    yearFrom: 1990, yearTo: 2010, minRating: 7.5, minVotes: 2000, pick: 1 },
-    // 2010+ (3)
-    { media: 'movie', genre: MG.drama,    yearFrom: 2010, minRating: 7.5, minVotes: 1000, pick: 1 },
+    // 1990–2009 (6)
+    { media: 'movie', genre: MG.drama,    yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.romance,  yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.crime,    yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
+    // 2010–2024 (4)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2010, minRating: 7.5, minVotes: 1000, pick: 2 },
     { media: 'movie', genre: MG.thriller, yearFrom: 2010, minRating: 7.5, minVotes: 1000, pick: 1 },
     { media: 'movie', genre: MG.comedy,   yearFrom: 2010, minRating: 7.0, minVotes: 1000, pick: 1 },
     // Series (10)
@@ -347,7 +348,7 @@ const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
     { media: 'tv', genre: TG.comedy,      minRating: 7.5, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.mystery,     minRating: 7.5, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.drama,       yearFrom: 1980, yearTo: 2005, minRating: 8.0, minVotes: 200, pick: 1 },
-  ], // 3+8+6+3+10 = 30
+  ], // 3+7+6+4+10 = 30
 };
 
 async function fetchDiscoverSlot(slot: DiscoverSlot): Promise<NormalizedTitle[]> {
@@ -377,25 +378,25 @@ async function fetchDiscoverSlot(slot: DiscoverSlot): Promise<NormalizedTitle[]>
 
 const ANCHOR_SLOTS: Record<string, DiscoverSlot[]> = {
   young: [
-    { media: 'movie', genre: MG.action,    yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.scifi,     yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.animation, yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 2000, minVotes: 300000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.drama,     yearFrom: 2000, minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
+    { media: 'movie', genre: MG.action,    yearFrom: 2005, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.scifi,     yearFrom: 2005, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.animation, yearFrom: 2005, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2005, minVotes: 300000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 2005, minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
   ],
   mid: [
-    { media: 'movie', genre: MG.action,    yearFrom: 1995, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.drama,     yearFrom: 1995, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 1995, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.scifi,     yearFrom: 1995, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.action,    yearFrom: 1993, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 1993, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 1993, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.scifi,     yearFrom: 1993, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
     { media: 'movie', genre: MG.drama,                     minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
   ],
   adult: [
-    { media: 'movie', genre: MG.action,    yearFrom: 2001, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.drama,     yearFrom: 2001, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 2001, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.romance,   yearFrom: 2001, minVotes: 300000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.drama,     yearFrom: 2001, minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
+    { media: 'movie', genre: MG.action,    yearFrom: 1985, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 1985, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 1985, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.romance,   yearFrom: 1985, minVotes: 300000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 1985, minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
   ],
   senior: [
     { media: 'movie', genre: MG.drama,     yearFrom: 1970, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
@@ -482,9 +483,9 @@ export const GENRE_NAME_TO_ID: Record<string, number> = {
 // Épocas por edad: cada género se muestrea estratificado por época para que
 // un solo ranking (dominado por franquicias recientes) no capture todo el pool
 const ERAS: Record<string, [number, number | null][]> = {
-  young:  [[2005, 2014], [2015, null]],
-  mid:    [[1995, 2007], [2008, 2016], [2017, null]],
-  adult:  [[2001, 2012], [2013, null]],
+  young:  [[2003, 2012], [2013, null]],
+  mid:    [[1993, 2007], [2008, 2016], [2017, null]],
+  adult:  [[1982, 1999], [2000, 2012], [2013, null]],
   senior: [[1975, 1990], [1991, 2005], [2006, null]],
 };
 

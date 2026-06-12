@@ -98,9 +98,9 @@ export const GENRE_NAME_TO_ID: Record<string, number> = {
 // Épocas por edad: cada género se muestrea estratificado por época para que
 // un solo ranking (dominado por franquicias recientes) no capture todo el pool
 const ERAS: Record<string, [number, number | null][]> = {
-  young:  [[2005, 2014], [2015, null]],
-  mid:    [[1995, 2007], [2008, 2016], [2017, null]],
-  adult:  [[2001, 2012], [2013, null]],
+  young:  [[2003, 2012], [2013, null]],
+  mid:    [[1993, 2007], [2008, 2016], [2017, null]],
+  adult:  [[1982, 1999], [2000, 2012], [2013, null]],
   senior: [[1975, 1990], [1991, 2005], [2006, null]],
 };
 
