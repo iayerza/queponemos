@@ -16,6 +16,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   collection,
   query,
   where,
@@ -25,13 +26,16 @@ import {
   addDoc,
   serverTimestamp,
   arrayUnion,
+  arrayRemove,
+  writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 import type { NormalizedTitle } from './tmdb';
 import type { TasteProfile } from '../utils/tasteProfile';
 import type { PlatformId } from '../constants/platforms';
 import type { Recommendation, MoodId } from './claude';
 import { generateInviteCode } from '../utils/inviteCode';
-import { recalculateTasteProfile } from '../utils/tasteProfile';
+import { recalculateTasteProfile, rebuildProfileFromCatalog } from '../utils/tasteProfile';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -49,6 +53,7 @@ export interface PersonalWatchlistItem {
   synopsis: string;
   rating: number;
   addedAt: number;
+  matchId?: string;
 }
 
 export interface UserProfile {
@@ -57,9 +62,11 @@ export interface UserProfile {
   displayName: string;
   photoURL: string | null;
   ratings: Record<number, Rating>;
+  ratingTimestamps?: Record<number, number>; // tmdbId → epoch ms; enables time-decay weighting
   tasteProfile: TasteProfile;
   onboardingDone: boolean;
   platforms: PlatformId[];
+  ageRange?: 'young' | 'mid' | 'adult' | 'senior';
 }
 
 export interface GroupDoc {
@@ -72,8 +79,9 @@ export interface GroupDoc {
   country: string;
   turnIndex?: number;
   currentSession?: {
-    moods: Record<string, MoodId>;
+    moods: Record<string, MoodId[]>;
     matchId?: string;
+    leaderUid?: string;
   };
 }
 
@@ -82,7 +90,7 @@ export interface MatchDoc {
   groupId: string;
   members: string[];
   recommendations: Recommendation[];
-  moods: Record<string, MoodId>;
+  moods: Record<string, MoodId[]>;
   createdAt: { seconds: number };
   groupInsight?: string;
 }
@@ -216,22 +224,64 @@ export async function rateTitleAndUpdateProfile(
   const profile = await getUserProfile(uid);
   if (!profile) throw new Error('Usuario no encontrado');
 
-  const newRatings = { ...profile.ratings, [titleId]: rating };
-  const allTitles  = [titleMeta];
-  const newProfile = recalculateTasteProfile(newRatings, allTitles, profile.tasteProfile);
+  // One-time migration: rebuild raw scores from catalog for users without genreRawScores
+  let prevProfile = profile.tasteProfile;
+  if (!prevProfile.genreRawScores) {
+    prevProfile = rebuildProfileFromCatalog(profile.ratings, prevProfile);
+  }
+
+  // Incremental update: pass only the delta (new rating + its metadata)
+  const ts = { ...(profile.ratingTimestamps ?? {}), [titleId]: Date.now() };
+  const newProfile = recalculateTasteProfile({ [titleId]: rating }, [titleMeta], prevProfile, ts);
 
   await updateDoc(doc(db(), 'users', uid), {
     [`ratings.${titleId}`]: rating,
+    [`ratingTimestamps.${titleId}`]: Date.now(),
     tasteProfile: newProfile,
     updatedAt: serverTimestamp(),
   });
   return newProfile;
 }
 
-export async function completeOnboarding(uid: string): Promise<void> {
+// Called in background after fetchKeywords() resolves. Merges keyword weights into the
+// stored taste profile without blocking the rating UX.
+export async function updateTasteKeywords(
+  uid: string,
+  keywords: string[],
+  rating: Rating,
+): Promise<void> {
+  if (keywords.length === 0) return;
+  const profile = await getUserProfile(uid);
+  if (!profile) return;
+  const { mergeKeywords } = await import('../utils/tasteProfile');
+  const updated = mergeKeywords(keywords, rating, profile.tasteProfile);
+  await updateDoc(doc(db(), 'users', uid), {
+    'tasteProfile.keywordWeights': updated.keywordWeights,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function completeOnboarding(
+  uid: string,
+  ageRange?: UserProfile['ageRange'],
+): Promise<void> {
   await updateDoc(doc(db(), 'users', uid), {
     onboardingDone: true,
+    ...(ageRange ? { ageRange } : {}),
     updatedAt: serverTimestamp(),
+  });
+}
+
+// Seeds the taste profile with genre preferences selected in the genre step.
+// Called immediately when the user confirms genres, before any title ratings.
+export async function saveInitialGenrePreferences(uid: string, genres: string[]): Promise<void> {
+  if (genres.length === 0) return;
+  // Use a raw score of 1.0 per genre (equivalent to one "liked" title at IDF=1.0).
+  // recalculateTasteProfile will accumulate on top of these when title ratings come in.
+  const rawScores: Record<string, number> = {};
+  for (const g of genres) rawScores[g] = 1.0;
+  await updateDoc(doc(db(), 'users', uid), {
+    'tasteProfile.genreRawScores': rawScores,
   });
 }
 
@@ -283,6 +333,24 @@ export async function clearGroupSession(groupId: string): Promise<void> {
   });
 }
 
+export async function startGroupSession(groupId: string, leaderUid: string): Promise<void> {
+  await updateDoc(doc(db(), 'groups', groupId), {
+    'currentSession.moods': {},
+    'currentSession.matchId': null,
+    'currentSession.leaderUid': leaderUid,
+  });
+}
+
+export async function getGroupById(groupId: string): Promise<GroupDoc | null> {
+  const snap = await getDoc(doc(db(), 'groups', groupId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as GroupDoc;
+}
+
+export async function leaveGroup(groupId: string, uid: string): Promise<void> {
+  await updateDoc(doc(db(), 'groups', groupId), { members: arrayRemove(uid) });
+}
+
 export async function reAuthenticateUser(email: string, password: string): Promise<void> {
   const { EmailAuthProvider, reauthenticateWithCredential } = await import('firebase/auth');
   const currentUser = auth().currentUser;
@@ -317,9 +385,9 @@ export async function updateGroupPlatforms(
   await updateDoc(doc(db(), 'groups', groupId), { platforms });
 }
 
-export async function setSessionMood(groupId: string, uid: string, mood: MoodId): Promise<void> {
+export async function setSessionMood(groupId: string, uid: string, moods: MoodId[]): Promise<void> {
   await updateDoc(doc(db(), 'groups', groupId), {
-    [`currentSession.moods.${uid}`]: mood,
+    [`currentSession.moods.${uid}`]: moods,
   });
 }
 
@@ -335,21 +403,37 @@ export async function getMatchById(matchId: string): Promise<MatchDoc | null> {
   return { id: snap.id, ...snap.data() } as MatchDoc;
 }
 
-/** Poll Firestore until the leader writes a matchId into the session (max 45s). */
-export async function pollForMatchId(groupId: string): Promise<string | null> {
-  // Snapshot the matchId that exists RIGHT NOW — could be stale from a previous session.
-  // We only accept a matchId that is different from this one.
-  const initial = await getDoc(doc(db(), 'groups', groupId));
-  const staleMatchId = initial.data()?.currentSession?.matchId as string | undefined;
+/** Listen via onSnapshot until the leader writes a matchId (max 45s).
+ *  Pass an AbortSignal to cancel early (e.g. when the user navigates back).
+ *
+ *  Edge case: if the leader finishes before the follower even starts polling
+ *  (staleMatchId is already set), we resolve immediately with that matchId.
+ *  After startGroupSession the matchId is always null, so a non-null staleMatchId
+ *  means the leader was extremely fast — the new match is already there. */
+export function pollForMatchId(groupId: string, signal?: AbortSignal): Promise<string | null> {
+  return new Promise(async resolve => {
+    const initial = await getDoc(doc(db(), 'groups', groupId));
+    const staleMatchId = initial.data()?.currentSession?.matchId as string | undefined;
 
-  const deadline = Date.now() + 45_000;
-  while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 1500));
-    const snap = await getDoc(doc(db(), 'groups', groupId));
-    const matchId = snap.data()?.currentSession?.matchId as string | undefined;
-    if (matchId && matchId !== staleMatchId) return matchId;
-  }
-  return null;
+    // Leader finished before we called pollForMatchId — no need to wait
+    if (staleMatchId) {
+      resolve(staleMatchId);
+      return;
+    }
+
+    const cleanup = () => { clearTimeout(timeout); unsub(); };
+    const timeout = setTimeout(() => { cleanup(); resolve(null); }, 45_000);
+
+    const unsub = onSnapshot(doc(db(), 'groups', groupId), snap => {
+      const matchId = snap.data()?.currentSession?.matchId as string | undefined;
+      if (matchId) {
+        cleanup();
+        resolve(matchId);
+      }
+    });
+
+    signal?.addEventListener('abort', () => { cleanup(); resolve(null); });
+  });
 }
 
 export async function getUserGroups(uid: string): Promise<GroupDoc[]> {
@@ -369,22 +453,53 @@ export function onGroupChange(
 
 // ─── Matches ────────────────────────────────────────────────────────────────
 
+// Strips undefined values so Firestore doesn't reject the document.
+function toFirestore<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data));
+}
+
 export async function saveMatch(
   groupId: string,
   members: string[],
   recs: Recommendation[],
-  moods: Record<string, MoodId>,
+  moods: Record<string, MoodId[]>,
   groupInsight?: string,
 ): Promise<string> {
   const ref = await addDoc(collection(db(), 'matches'), {
     groupId,
     members,
-    recommendations: recs,
+    recommendations: toFirestore(recs),
     moods,
     groupInsight: groupInsight ?? '',
     createdAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+// Atomic: saves match doc + writes matchId to group in a single batch.
+// Followers polling currentSession.matchId will see it immediately after.
+export async function saveMatchAndBroadcast(
+  groupId: string,
+  members: string[],
+  recs: Recommendation[],
+  moods: Record<string, MoodId[]>,
+  groupInsight?: string,
+): Promise<string> {
+  const matchRef = doc(collection(db(), 'matches'));
+  const batch = writeBatch(db());
+  batch.set(matchRef, {
+    groupId,
+    members,
+    recommendations: toFirestore(recs),
+    moods,
+    groupInsight: groupInsight ?? '',
+    createdAt: serverTimestamp(),
+  });
+  batch.update(doc(db(), 'groups', groupId), {
+    'currentSession.matchId': matchRef.id,
+  });
+  await batch.commit();
+  return matchRef.id;
 }
 
 export async function getGroupMatches(groupId: string): Promise<MatchDoc[]> {
@@ -415,14 +530,22 @@ export interface HistoryEntry {
   groupName: string;
   createdAt: number;
   recommendations: Recommendation[];
-  moods: Record<string, MoodId>;
+  moods: Record<string, MoodId[]>;
 }
 
 export async function addMatchToUserHistory(
   uid: string,
   entry: HistoryEntry,
 ): Promise<void> {
-  await setDoc(doc(db(), 'users', uid, 'history', entry.matchId), entry);
+  await setDoc(doc(db(), 'users', uid, 'history', entry.matchId), toFirestore(entry));
+}
+
+export async function updateUserHistoryRecommendations(
+  uid: string,
+  matchId: string,
+  recommendations: Recommendation[],
+): Promise<void> {
+  await updateDoc(doc(db(), 'users', uid, 'history', matchId), { recommendations });
 }
 
 export async function getUserHistory(uid: string): Promise<HistoryEntry[]> {
@@ -487,7 +610,12 @@ export async function getGroupWatchlist(groupId: string): Promise<WatchlistItem[
 
 export async function registerUsername(username: string, email: string, uid: string): Promise<void> {
   const key = username.toLowerCase().trim();
-  await setDoc(doc(db(), 'usernames', key), { uid, email });
+  const ref = doc(db(), 'usernames', key);
+  await runTransaction(db(), async tx => {
+    const snap = await tx.get(ref);
+    if (snap.exists()) throw new Error('username_taken');
+    tx.set(ref, { uid, email });
+  });
 }
 
 export async function getEmailByUsername(username: string): Promise<string | null> {
@@ -497,25 +625,41 @@ export async function getEmailByUsername(username: string): Promise<string | nul
   return (snap.data() as { email: string }).email;
 }
 
+export async function addToPendingRatings(
+  uid: string,
+  matchId: string,
+  groupName: string,
+  rec: Recommendation,
+): Promise<void> {
+  const key = `${matchId}-${rec.tmdbId ?? rec.title}`;
+  await setDoc(doc(db(), 'users', uid, 'pending', key), {
+    matchId,
+    groupName,
+    rec,
+    addedAt: Date.now(),
+  });
+}
+
+export async function removeFromPendingRatings(
+  uid: string,
+  matchId: string,
+  tmdbId?: number,
+): Promise<void> {
+  if (!tmdbId) return;
+  const key = `${matchId}-${tmdbId}`;
+  await deleteDoc(doc(db(), 'users', uid, 'pending', key));
+}
+
 export interface PendingRatingItem {
   matchId: string;
-  groupId: string;
+  groupId?: string;
   groupName: string;
   rec: import('../services/claude').Recommendation;
+  addedAt?: number;
 }
 
 export async function getPendingRatingsForUser(uid: string): Promise<PendingRatingItem[]> {
-  const groups = await getUserGroups(uid);
-  const items: PendingRatingItem[] = [];
-  for (const group of groups) {
-    const matches = await getGroupMatches(group.id);
-    for (const match of matches) {
-      for (const rec of match.recommendations) {
-        if (rec.groupStatus === 'chosen') {
-          items.push({ matchId: match.id, groupId: group.id, groupName: group.name, rec });
-        }
-      }
-    }
-  }
-  return items;
+  const q = query(collection(db(), 'users', uid, 'pending'), orderBy('addedAt', 'desc'));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => d.data() as PendingRatingItem);
 }

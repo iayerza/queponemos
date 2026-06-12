@@ -1,6 +1,92 @@
 import type { PlatformId } from '../constants/platforms';
+import { PLATFORMS } from '../constants/platforms';
 import type { UserProfile } from './firebase';
 import { fetchTitle, searchTitles } from './tmdb';
+import { topKeywordLabels } from '../utils/tasteProfile';
+
+const VALID_PLATFORMS = new Set(PLATFORMS.map(p => p.id));
+
+const PLATFORM_ALIASES: Record<string, PlatformId> = {
+  'netflix': 'netflix',
+  'disney': 'disney', 'disney+': 'disney', 'disney plus': 'disney',
+  'hbo': 'hbo', 'max': 'hbo', 'hbo max': 'hbo', 'hbomax': 'hbo', 'max (hbo)': 'hbo',
+  'prime': 'prime', 'amazon': 'prime', 'prime video': 'prime', 'amazon prime': 'prime', 'amazon prime video': 'prime',
+  'apple': 'apple', 'apple tv': 'apple', 'apple tv+': 'apple', 'appletv': 'apple', 'apple tv plus': 'apple',
+};
+
+/** Strip accents + punctuation + lowercase for robust TMDB title matching. */
+function normalizeTitle(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')   // combining diacritics (accents)
+    .replace(/[^\w\s]/g, '')           // punctuation
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function toNumber(v: unknown, fallback: number): number {
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n));
+}
+
+interface ClaudeResponse {
+  content: { text: string }[];
+  stop_reason?: string;
+}
+
+/** Call Anthropic with a 45s timeout and exponential backoff for 429/500/529. */
+async function callClaudeWithRetry(body: object, apiKey: string, maxRetries = 3): Promise<ClaudeResponse> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45_000);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (res.ok) return await res.json() as ClaudeResponse;
+
+      // Retry on rate-limit / overload / transient server errors
+      if ((res.status === 429 || res.status === 500 || res.status === 529) && attempt < maxRetries) {
+        const retryAfter = parseFloat(res.headers.get('retry-after') ?? '');
+        const waitMs = Number.isFinite(retryAfter)
+          ? retryAfter * 1000
+          : Math.min(8000, 1000 * 2 ** attempt);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+
+      const err = await res.text();
+      throw new Error(`Claude API ${res.status}: ${err}`);
+    } catch (e) {
+      lastErr = e;
+      const name = (e as { name?: string })?.name;
+      // Retry on abort/network only if attempts remain
+      if (attempt < maxRetries && (name === 'AbortError' || name === 'TypeError')) {
+        await new Promise(r => setTimeout(r, Math.min(8000, 1000 * 2 ** attempt)));
+        continue;
+      }
+      throw e;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastErr ?? new Error('Claude API: error desconocido');
+}
 
 export type MoodId = 'chill' | 'intense' | 'laugh' | 'think' | 'cry' | 'scared';
 
@@ -13,6 +99,7 @@ export interface Recommendation {
   genres: string[];
   synopsis: string;
   rating: number;
+  runtime?: number;
   platform: PlatformId;
   compatibilityScore: number;
   whyUs: string;
@@ -21,8 +108,11 @@ export interface Recommendation {
 
 export interface MatchingInput {
   users: UserProfile[];
-  moods: Record<string, MoodId>;
+  moods: Record<string, MoodId[]>;
   platforms: PlatformId[];
+  titleMap?: Record<number, string>; // tmdbId → "Título (año)" para historial
+  ratedTitleNames?: Record<number, string>; // tmdbId → nombre; enriquece el prompt con nombres reales
+  recentlyRecommended?: string[]; // títulos recomendados en las últimas sesiones (NO repetir)
 }
 
 export interface MatchingOutput {
@@ -39,42 +129,132 @@ const MOOD_LABELS: Record<MoodId, string> = {
   scared:  'Asustarse — terror o suspenso',
 };
 
+const AGE_RANGE_LABELS: Record<string, string> = {
+  young:  'menos de 25 años',
+  mid:    '25 a 35 años',
+  adult:  '36 a 50 años',
+  senior: 'más de 50 años',
+};
+
+// Merges titleMap (from history) with ratedTitleNames (from onboarding/results ratings)
+function resolveName(id: number, input: MatchingInput): string {
+  return input.ratedTitleNames?.[id] ?? input.titleMap?.[id] ?? '';
+}
+
+function eraLabel(era?: number): string {
+  if (era === undefined) return '';
+  if (era < 0.25) return 'clásicos (80s-90s)';
+  if (era < 0.5)  return 'títulos de los 90s-2000s';
+  if (era < 0.75) return 'títulos de los 2000s-2010s';
+  return 'cine contemporáneo (2010s-hoy)';
+}
+
+function toneLabel(tone?: number): string {
+  if (tone === undefined) return '';
+  if (tone < -0.5) return 'prefiere oscuro y tenso';
+  if (tone < -0.1) return 'prefiere tonos serios con algo de tensión';
+  if (tone <  0.1) return 'equilibrado entre oscuro y ligero';
+  if (tone <  0.5) return 'prefiere algo más liviano y optimista';
+  return 'prefiere ligero y entretenido, evita el oscurantismo';
+}
+
 function buildPrompt(input: MatchingInput): string {
   const userBlocks = input.users.map(u => {
-    const loved = Object.entries(u.ratings ?? {})
-      .filter(([, r]) => r === 'loved')
-      .map(([id]) => `ID:${id}`)
-      .join(', ') || 'ninguno aún';
-    const disliked = Object.entries(u.ratings ?? {})
-      .filter(([, r]) => r === 'seen_disliked')
-      .map(([id]) => `ID:${id}`)
-      .join(', ') || 'ninguno';
-    const mood = MOOD_LABELS[input.moods[u.uid] ?? 'chill'];
-    const genres = Object.entries(u.tasteProfile?.genres ?? {})
-      .filter(([, s]) => s > 0.5)
+    const entries = Object.entries(u.ratings ?? {});
+    const moodArr = input.moods[u.uid] ?? ['chill'];
+    const mood = moodArr.map(m => MOOD_LABELS[m] ?? m).join(' + ');
+
+    // Top genres by score
+    const topGenres = Object.entries(u.tasteProfile?.genres ?? {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
       .map(([g]) => g)
       .join(', ') || 'variado';
-    return `- ${u.displayName}: géneros favoritos [${genres}], le encantó [${loved}], no le gustó [${disliked}], mood esta noche: ${mood}`;
+
+    // Era and tone descriptors from new TasteProfile fields
+    const era  = eraLabel(u.tasteProfile?.eraPreference);
+    const tone = toneLabel(u.tasteProfile?.toneScore);
+
+    // Format preference
+    const formatPref = u.tasteProfile?.seriesVsMovies ?? 0.5;
+    const formatLabel = formatPref < 0.3 ? 'prefiere películas' : formatPref > 0.7 ? 'prefiere series' : 'películas y series';
+
+    // Loved titles — use real names, limit to 8 most recent
+    const lovedIds = entries
+      .filter(([, r]) => r === 'loved')
+      .map(([id]) => Number(id));
+    const likedIds = entries
+      .filter(([, r]) => r === 'liked')
+      .map(([id]) => Number(id));
+    const dislikedIds = entries
+      .filter(([, r]) => r === 'seen_disliked')
+      .map(([id]) => Number(id));
+
+    const lovedNames  = lovedIds.map(id => resolveName(id, input)).filter(Boolean).slice(0, 8);
+    const likedNames  = likedIds.map(id => resolveName(id, input)).filter(Boolean).slice(0, 6);
+    const dislikedNames = dislikedIds.map(id => resolveName(id, input)).filter(Boolean).slice(0, 4);
+
+    // All seen titles (tmdbId or name) to block from recommendations
+    const allSeenIds = [...lovedIds, ...likedIds, ...dislikedIds];
+    const seenBlock = allSeenIds.length > 0
+      ? `\n  NO recomendar (ya visto): ${allSeenIds.map(id => resolveName(id, input) || `tmdbId:${id}`).join(', ')}`
+      : '';
+
+    const age = u.ageRange ? ` (${AGE_RANGE_LABELS[u.ageRange]})` : '';
+
+    const keywords = topKeywordLabels(u.tasteProfile ?? { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] });
+    const profileLines = [
+      `géneros dominantes: ${topGenres}`,
+      era  ? `época preferida: ${era}`  : '',
+      tone ? `tono: ${tone}` : '',
+      `formato: ${formatLabel}`,
+      keywords.length ? `afinidades estilísticas: ${keywords.join(', ')}` : '',
+    ].filter(Boolean).join('; ');
+
+    const lovedBlock   = lovedNames.length   ? `\n  le encantó: ${lovedNames.join(', ')}`   : '';
+    const likedBlock   = likedNames.length   ? `\n  le gustó: ${likedNames.join(', ')}`     : '';
+    const dislikBlock  = dislikedNames.length? `\n  no le gustó: ${dislikedNames.join(', ')}` : '';
+
+    return `- ${u.displayName}${age}: ${profileLines}${lovedBlock}${likedBlock}${dislikBlock}\n  mood esta noche: ${mood}${seenBlock}`;
   }).join('\n');
 
-  return `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.
+  const isSolo = input.users.length === 1;
+  const openingLine = isSolo
+    ? `Sos el motor de recomendación de Queponemos. Analizá el perfil y recomendá exactamente 3 títulos para ver esta noche.`
+    : `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.`;
+
+  const recentBlock = (input.recentlyRecommended?.length ?? 0) > 0
+    ? `\nTÍTULOS YA RECOMENDADOS RECIENTEMENTE (NO repetir estos): ${input.recentlyRecommended!.join(', ')}\n`
+    : '';
+
+  return `${openingLine}
 
 PERFILES:
 ${userBlocks}
-
-PLATAFORMAS DISPONIBLES: ${input.platforms.join(', ')}
+${recentBlock}
+PLATAFORMAS DISPONIBLES — usá exactamente estos IDs en el campo "platform":
+${input.platforms.map(id => {
+  const p = PLATFORMS.find(pl => pl.id === id);
+  return `  "${id}" → ${p?.name ?? id}`;
+}).join('\n')}
+REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar en alguna de las plataformas listadas. El campo "platform" debe ser uno de los IDs entre comillas de arriba. Si hay más de una plataforma disponible, distribuí los títulos entre ellas (no pongas los 3 en la misma plataforma).
 
 REGLAS:
-1. VARIEDAD DE ERA: uno anterior a 2010, uno entre 2010-2019, uno de 2020 en adelante.
-2. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos.
-3. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
-4. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
+1. NUNCA recomendés títulos marcados como "ya visto" en los perfiles.
+2. ÉPOCA DEL USUARIO: si el perfil indica "época preferida", priorizá títulos de esa era como primera o segunda opción. Podés incluir un título de otra era, pero que sea la excepción, no la norma. No cambies la era solo por dar "variedad".
+3. TONO: respetá el tono del perfil. Si el usuario prefiere "oscuro y tenso", no pongas una comedia liviana como primera opción. Si prefiere "ligero y entretenido", evitá el terror y el drama pesado como primera opción. El mood de esta noche puede flexibilizar el tono, pero no lo ignorés.
+4. AFINIDADES ESTILÍSTICAS: si el perfil incluye "afinidades estilísticas" (ej: "psychological thriller", "dark humor", "coming of age"), priorizá títulos que compartan esos rasgos. Esos keywords son más específicos que los géneros: usalos.
+5. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos entre sí.
+6. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
+7. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
    - 60-70: buena opción, aunque no es un match perfecto
    - 71-82: muy buena opción, varios puntos de coincidencia
    - 83-91: match excelente, coincidencia clara en gustos y mood
    - 92-100: solo para coincidencia casi perfecta y evidente
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
-5. No repetir siempre los mismos títulos populares del momento.
+8. No repetir siempre los mismos títulos populares del momento.
+9. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
+10. Considerá la edad de los usuarios al elegir referencias culturales y títulos.
 
 Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
 {
@@ -82,15 +262,15 @@ Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de c
     "tmdbId": 12345,
     "title": "string",
     "year": 2015,
-    "type": "movie",
+    "type": "movie o series",
     "genres": ["Drama"],
     "rating": 8.2,
     "synopsis": "string en español, 2-3 oraciones",
     "platform": "netflix",
     "compatibilityScore": 78,
-    "whyUs": "2-3 oraciones mencionando a los usuarios por nombre y explicando por qué es buena para ellos esta noche"
+    "whyUs": "2-3 oraciones: mencioná a los usuarios por nombre y explicá qué del perfil coincide (era, tono, géneros, afinidades estilísticas) y por qué es la elección para esta noche"
   }],
-  "groupInsight": "observación breve y específica sobre el grupo basada en sus perfiles"
+  "groupInsight": "${isSolo ? 'observación breve sobre el perfil del usuario: qué lo define (géneros, era, tono) y por qué estas 3 recomendaciones encajan esta noche' : 'observación concreta y específica sobre el grupo: qué tienen en común (era, tono, géneros, afinidades) y dónde difieren. Mencioná algo del perfil que lo justifique.'}"
 }`;
 }
 
@@ -99,28 +279,17 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
   if (!apiKey) throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY no configurada');
   if (!apiKey.startsWith('sk-ant-')) throw new Error(`API key inválida (debe empezar con sk-ant-). Verificá EXPO_PUBLIC_ANTHROPIC_API_KEY.`);
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: buildPrompt(input) }],
-    }),
-  });
+  const data = await callClaudeWithRetry({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4096,
+    messages: [{ role: 'user', content: buildPrompt(input) }],
+  }, apiKey);
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Claude API ${res.status}: ${err}`);
-  }
-
-  const data = await res.json() as { content: { text: string }[] };
   const raw = data.content[0]?.text ?? '{}';
+
+  if (data.stop_reason === 'max_tokens') {
+    throw new Error('La respuesta se cortó (max_tokens). Volvé a intentar.');
+  }
 
   // Strip markdown code fences if present
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
@@ -133,28 +302,82 @@ export async function runMatching(input: MatchingInput): Promise<MatchingOutput>
     throw new Error('Claude devolvió JSON inválido: ' + raw.slice(0, 200));
   }
 
-  const baseRecs: Recommendation[] = (parsed.recommendations ?? []).map(r => ({
-    ...r,
-    posterPath: null,
-    groupStatus: 'pending' as const,
-    platform: (r.platform ?? input.platforms[0]) as PlatformId,
-  }));
+  const fallbackPlatform = input.platforms[0] ?? 'netflix';
+  const allowedPlatforms = new Set(input.platforms);
+  const baseRecs: Recommendation[] = (parsed.recommendations ?? []).map(r => {
+    const raw = String(r.platform ?? '').toLowerCase().trim();
+    const normalized = PLATFORM_ALIASES[raw] ?? raw as PlatformId;
+    const platform = (VALID_PLATFORMS.has(normalized) && allowedPlatforms.has(normalized))
+      ? normalized
+      : fallbackPlatform;
+    return {
+      ...r,
+      title: String(r.title ?? '').trim() || 'Título',
+      year: Math.round(toNumber(r.year, 0)),
+      type: (r.type === 'series' ? 'series' : 'movie') as 'movie' | 'series',
+      genres: Array.isArray(r.genres) ? r.genres : [],
+      synopsis: String(r.synopsis ?? ''),
+      rating: clamp(toNumber(r.rating, 0), 0, 10),
+      compatibilityScore: Math.round(clamp(toNumber(r.compatibilityScore, 70), 0, 100)),
+      whyUs: String(r.whyUs ?? ''),
+      posterPath: null,
+      groupStatus: 'pending' as const,
+      platform,
+    };
+  }).filter(r => r.title !== 'Título' || r.year > 0);
 
-  // Enriquecer con pósters de TMDB: buscar por título (confiable) y usar tmdbId de Claude solo como desempate
+  if (baseRecs.length === 0) {
+    throw new Error('Claude no devolvió recomendaciones válidas. Intentá de nuevo.');
+  }
+
+  // Enriquecer con pósters de TMDB: buscar por título y validar antes de usar tmdbId de Claude
   const recommendations = await Promise.all(
     baseRecs.map(async rec => {
       try {
         const mediaType = rec.type === 'series' ? 'tv' : 'movie';
-        // Buscar por título primero — más confiable que el tmdbId de Claude
         const results = await searchTitles(rec.title);
-        const byYear = results.find(r => r.type === mediaType && Math.abs(r.year - rec.year) <= 1);
-        const byType = results.find(r => r.type === mediaType);
-        const match = byYear ?? byType;
-        if (match) return { ...rec, tmdbId: match.tmdbId, posterPath: match.posterPath };
-        // Último recurso: ID de Claude (puede ser incorrecto)
+        const wanted = normalizeTitle(rec.title);
+        const altMediaType = mediaType === 'movie' ? 'tv' : 'movie';
+
+        function titleMatches(r: { title: string; originalTitle?: string }): boolean {
+          return normalizeTitle(r.title) === wanted || (r.originalTitle ? normalizeTitle(r.originalTitle) === wanted : false);
+        }
+
+        // 1st pass: title match (localized or original) + type + year
+        const pass1 = results.find(r => r.type === mediaType && titleMatches(r) && Math.abs(r.year - rec.year) <= 1);
+        // 2nd pass: title match + type (any year)
+        const pass2 = results.find(r => r.type === mediaType && titleMatches(r));
+        let match = pass1 ?? pass2;
+        let resolvedType = rec.type;
+
+        // 3rd pass: try opposite type (handles Claude misclassifications)
+        if (!match) {
+          const altYear = results.find(r => r.type === altMediaType && titleMatches(r) && Math.abs(r.year - rec.year) <= 1);
+          const altAny  = results.find(r => r.type === altMediaType && titleMatches(r));
+          const altMatch = altYear ?? altAny;
+          if (altMatch) {
+            match = altMatch;
+            resolvedType = altMediaType === 'tv' ? 'series' : 'movie';
+          }
+        }
+
+        if (match) {
+          const fetchType = resolvedType === 'series' ? 'tv' : 'movie';
+          try {
+            const full = await fetchTitle(match.tmdbId, fetchType);
+            return { ...rec, type: resolvedType, tmdbId: match.tmdbId, posterPath: match.posterPath, runtime: full.runtime };
+          } catch {
+            return { ...rec, type: resolvedType, tmdbId: match.tmdbId, posterPath: match.posterPath };
+          }
+        }
+
+        // Fallback: ID de Claude — verificar que el año coincida para evitar póster incorrecto
         if (rec.tmdbId) {
           const tmdbData = await fetchTitle(rec.tmdbId, mediaType);
-          return { ...rec, posterPath: tmdbData.posterPath };
+          if (Math.abs(tmdbData.year - rec.year) <= 2) {
+            return { ...rec, posterPath: tmdbData.posterPath, runtime: tmdbData.runtime };
+          }
+          // Año no coincide → tmdbId de Claude es incorrecto, omitir póster
         }
       } catch { /* ignore */ }
       return rec;

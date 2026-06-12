@@ -7,6 +7,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Colors, Typography } from '../constants/colors';
+import { useColors } from '../context/ThemeContext';
 import Feather from '@expo/vector-icons/Feather';
 import MemberChip from '../components/MemberChip';
 import InviteModal from '../components/InviteModal';
@@ -14,7 +15,7 @@ import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { PLATFORMS, getPlatform, type PlatformId } from '../constants/platforms';
 import PlatformLogo from '../components/PlatformLogo';
-import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange, clearGroupSession, incrementGroupTurn, getGroupWatchlist } from '../services/firebase';
+import { updateGroupPlatforms, deleteGroup, fetchMemberNames, onGroupChange, getGroupWatchlist, leaveGroup, startGroupSession, getGroupById } from '../services/firebase';
 import type { WatchlistItem } from '../services/firebase';
 import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { RootStackParamList } from '../navigation/types';
@@ -30,6 +31,7 @@ export default function GroupScreen() {
   const nav    = useNavigation<Nav>();
   const route  = useRoute<Route>();
   const { user } = useAuthStore();
+  const themeColors = useColors();
   const { groups, setCurrentGroup, pendingInvites, updateGroup, removeGroup } = useGroupStore();
 
   const baseGroup = groups.find(g => g.id === route.params.groupId) ?? MOCK_GROUP;
@@ -89,19 +91,45 @@ export default function GroupScreen() {
 
   async function handleFindMatch() {
     setCurrentGroup(group);
-    // Limpiar sesión anterior ANTES de navegar para que ningún miembro
-    // escriba su mood sobre datos stale — evita la race condition con clearGroupSession en MoodScreen
-    if (!USE_MOCK) {
-      clearGroupSession(group.id).catch(() => {});
-      incrementGroupTurn(group.id).catch(() => {});
+    if (!USE_MOCK && user) {
+      const freshGroup = await getGroupById(group.id).catch(() => null);
+      const leaderUid = freshGroup?.currentSession?.leaderUid;
+      const matchId   = freshGroup?.currentSession?.matchId;
+      const sessionInProgress = leaderUid && !matchId;
+      if (!sessionInProgress) {
+        await startGroupSession(group.id, user.uid).catch(() => {});
+      }
     }
     nav.navigate('Mood', { groupId: group.id });
     if (!USE_MOCK && user) {
       try {
-        const tokens = await getGroupMemberTokens(group.members, user.uid);
-        if (tokens.length > 0) await sendGroupVoteNotification(tokens, group.name);
+        const targets = await getGroupMemberTokens(group.members, user.uid);
+        if (targets.length > 0) await sendGroupVoteNotification(targets, group.name, group.id);
       } catch { /* non-blocking */ }
     }
+  }
+
+  async function handleLeaveGroup() {
+    Alert.alert(
+      'Salir del grupo',
+      `¿Seguro que querés salir de "${group.name}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Salir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (!USE_MOCK && user) await leaveGroup(group.id, user.uid);
+              removeGroup(group.id);
+              nav.navigate('App');
+            } catch {
+              Alert.alert('Error', 'No se pudo salir del grupo');
+            }
+          },
+        },
+      ],
+    );
   }
 
   function togglePlatform(id: PlatformId) {
@@ -159,11 +187,17 @@ export default function GroupScreen() {
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: themeColors.bg }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}
       showsVerticalScrollIndicator={false}
     >
-      <TouchableOpacity style={styles.back} onPress={() => nav.goBack()}>
+      <TouchableOpacity
+        style={styles.back}
+        onPress={() => nav.goBack()}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel="Volver"
+      >
         <Feather name="arrow-left" size={18} color={Colors.sub} />
       </TouchableOpacity>
 
@@ -259,8 +293,7 @@ export default function GroupScreen() {
         </View>
       </View>
 
-      {/* Eliminar grupo — solo para el creador */}
-      {isOwner && (
+      {isOwner ? (
         <TouchableOpacity
           style={[styles.deleteBtn, deleting && { opacity: 0.5 }]}
           onPress={handleDeleteGroup}
@@ -270,6 +303,14 @@ export default function GroupScreen() {
           <Text style={styles.deleteBtnText}>
             {deleting ? 'Eliminando…' : 'Eliminar grupo'}
           </Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={styles.leaveBtn}
+          onPress={handleLeaveGroup}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.leaveBtnText}>Salir del grupo</Text>
         </TouchableOpacity>
       )}
 
@@ -353,6 +394,8 @@ const styles = StyleSheet.create({
   platformName: { fontSize: Typography.body, fontWeight: Typography.medium },
   deleteBtn: { marginTop: 8, borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.danger },
   deleteBtnText: { color: Colors.danger, fontSize: Typography.body, fontWeight: Typography.medium },
+  leaveBtn: { marginTop: 8, borderRadius: 12, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  leaveBtnText: { color: Colors.sub, fontSize: Typography.body },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: Colors.s1, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24 },
@@ -362,7 +405,7 @@ const styles = StyleSheet.create({
   platformOption: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 10, borderWidth: 1.5, paddingHorizontal: 16, paddingVertical: 14 },
   platformOptionEmoji: { fontSize: 28 },
   platformOptionName: { flex: 1, color: Colors.sub, fontSize: Typography.body, fontWeight: Typography.medium },
-  checkmark: { fontSize: 16, fontWeight: '700' },
+  checkmark: { fontSize: 16, fontWeight: Typography.medium },
   cancelBtn: { alignItems: 'center', paddingVertical: 12 },
   cancelBtnText: { color: Colors.sub, fontSize: Typography.body },
 });

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,7 +10,9 @@ import { useMatchStore } from '../store/useMatchStore';
 import { useGroupStore } from '../store/useGroupStore';
 import { useAuthStore } from '../store/useAuthStore';
 import WatchedRatingSheet from '../components/WatchedRatingSheet';
-import { updateTitleStatus, addToPersonalWatchlist, rateTitleAndUpdateProfile } from '../services/firebase';
+import { updateTitleStatus, addToPersonalWatchlist, addToPendingRatings, rateTitleAndUpdateProfile, updateTasteKeywords, updateUserHistoryRecommendations, startGroupSession, getGroupById } from '../services/firebase';
+import { fetchKeywords } from '../services/tmdb';
+import { sendGroupVoteNotification, getGroupMemberTokens } from '../services/notifications';
 import type { Rating } from '../services/firebase';
 import type { RootStackParamList } from '../navigation/types';
 import type { Recommendation } from '../services/claude';
@@ -23,24 +25,70 @@ export default function ResultsScreen() {
   const nav    = useNavigation<Nav>();
   const { currentMatch, currentMatchId, updateTitleAction, isSolo } = useMatchStore();
   const { currentGroup } = useGroupStore();
-  const { user } = useAuthStore();
+  const { user, updateRatings } = useAuthStore();
   const themeColors = useColors();
-  const fadeAnims = useRef(
-    Array.from({ length: 3 }, () => new Animated.Value(1))
-  ).current;
+  const fadeAnimsRef = useRef<Animated.Value[]>([]);
+  function getFadeAnim(i: number): Animated.Value {
+    if (!fadeAnimsRef.current[i]) fadeAnimsRef.current[i] = new Animated.Value(1);
+    return fadeAnimsRef.current[i];
+  }
 
   const [ratingTarget, setRatingTarget] = useState<{ rec: Recommendation; idx: number } | null>(null);
+  const [startingNew, setStartingNew] = useState(false);
+
+  async function handleNewSearch() {
+    if (isSolo || !currentGroup || !user) {
+      nav.push('Mood', { solo: true });
+      return;
+    }
+    setStartingNew(true);
+    try {
+      if (!USE_MOCK) {
+        const freshGroup = await getGroupById(currentGroup.id).catch(() => null);
+        const leaderUid = freshGroup?.currentSession?.leaderUid;
+        const matchId   = freshGroup?.currentSession?.matchId;
+        const sessionInProgress = leaderUid && !matchId;
+        if (!sessionInProgress) {
+          await startGroupSession(currentGroup.id, user.uid).catch(() => {});
+        }
+      }
+      nav.push('Mood', { groupId: currentGroup.id });
+      if (!USE_MOCK) {
+        getGroupMemberTokens(currentGroup.members, user.uid)
+          .then(targets => { if (targets.length > 0) sendGroupVoteNotification(targets, currentGroup.name, currentGroup.id).catch(() => {}); })
+          .catch(() => {});
+      }
+    } finally {
+      setStartingNew(false);
+    }
+  }
+
+  function celebrateAndGoHome() {
+    Alert.alert(
+      '¡Encontraste queponemos! 🍿',
+      'Acordate de puntuar el título después de verlo.',
+      [{ text: '¡Vamos!', onPress: () => nav.navigate('App') }],
+    );
+  }
 
   async function handleAction(idx: number, status: Recommendation['groupStatus']) {
-    const anim = fadeAnims[idx];
+    const anim = getFadeAnim(idx);
     if (anim) {
       Animated.timing(anim, { toValue: 0.3, duration: 200, useNativeDriver: true }).start();
     }
     updateTitleAction(0, idx, status);
+    // Persist updated statuses to Firestore so HistoryScreen survives app restarts
+    if (!USE_MOCK && currentMatchId && user) {
+      const updatedRecs = useMatchStore.getState().currentMatch?.recommendations;
+      if (updatedRecs) {
+        updateUserHistoryRecommendations(user.uid, currentMatchId, updatedRecs).catch(() => {});
+      }
+    }
     if (!USE_MOCK && currentMatchId) {
       const rec = currentMatch?.recommendations[idx];
       if (rec) {
-        if (status === 'watchlist' && isSolo && user) {
+        if (status === 'watchlist' && user) {
+          // Always add to personal watchlist regardless of solo/group mode
           try {
             await addToPersonalWatchlist(user.uid, {
               tmdbId: rec.tmdbId ?? 0,
@@ -53,8 +101,20 @@ export default function ResultsScreen() {
               synopsis: rec.synopsis,
               rating: rec.rating,
               addedAt: Date.now(),
+              matchId: currentMatchId,
             });
           } catch { /* silenciar */ }
+          // Also update match doc for group mode
+          if (!isSolo && rec.tmdbId) {
+            try { await updateTitleStatus(currentMatchId, rec.tmdbId, 'watchlist'); }
+            catch { /* silenciar */ }
+          }
+        } else if (status === 'chosen' && user && rec.tmdbId) {
+          try {
+            const groupName = isSolo ? 'Solo' : (currentGroup?.name ?? 'Grupo');
+            await addToPendingRatings(user.uid, currentMatchId, groupName, rec);
+          } catch { /* silenciar */ }
+          celebrateAndGoHome();
         } else if (rec.tmdbId) {
           try { await updateTitleStatus(currentMatchId, rec.tmdbId, status as import('../services/firebase').TitleStatus); }
           catch { /* silenciar */ }
@@ -72,20 +132,26 @@ export default function ResultsScreen() {
     const { rec, idx } = ratingTarget;
     setRatingTarget(null);
     handleAction(idx, 'watched');
+    if (rec.tmdbId) updateRatings(rec.tmdbId, rating, rec.title);
     if (!USE_MOCK && rec.tmdbId) {
+      const type = rec.type === 'series' ? 'tv' : 'movie';
       try {
         await rateTitleAndUpdateProfile(user.uid, rec.tmdbId, rating, {
           id: rec.tmdbId, tmdbId: rec.tmdbId, title: rec.title, year: rec.year,
-          type: rec.type === 'series' ? 'tv' : 'movie',
-          genres: rec.genres, rating: rec.rating, posterPath: rec.posterPath, synopsis: rec.synopsis,
+          type, genres: rec.genres, rating: rec.rating, posterPath: rec.posterPath, synopsis: rec.synopsis,
         });
       } catch { /* silenciar */ }
+      if (rating !== 'not_seen') {
+        fetchKeywords(rec.tmdbId, type)
+          .then(kws => { if (kws.length > 0) updateTasteKeywords(user.uid, kws, rating).catch(() => {}); })
+          .catch(() => {});
+      }
     }
   }
 
   if (!currentMatch) {
     return (
-      <View style={styles.empty}>
+      <View style={[styles.empty, { backgroundColor: themeColors.bg }]}>
         <Text style={styles.emptyText}>No hay resultados</Text>
         <TouchableOpacity onPress={() => nav.goBack()}>
           <Text style={styles.backLink}>← Volver</Text>
@@ -113,8 +179,8 @@ export default function ResultsScreen() {
         </View>
       ) : null}
 
-      {currentMatch.recommendations.map((rec, i) => (
-        <Animated.View key={`${rec.title}-${i}`} style={{ opacity: fadeAnims[i] }}>
+      {(currentMatch.recommendations ?? []).map((rec, i) => (
+        <Animated.View key={`${rec.title}-${i}`} style={{ opacity: getFadeAnim(i) }}>
           <ResultCard
             rec={rec}
             onAction={status => handleAction(i, status)}
@@ -124,16 +190,19 @@ export default function ResultsScreen() {
       ))}
 
       <TouchableOpacity
-        style={styles.newSearchBtn}
-        onPress={() => isSolo ? nav.navigate('Mood', { solo: true }) : currentGroup ? nav.navigate('Mood', { groupId: currentGroup.id }) : nav.navigate('App')}
+        style={[styles.newSearchBtn, startingNew && { opacity: 0.7 }]}
+        onPress={handleNewSearch}
+        disabled={startingNew}
         activeOpacity={0.85}
       >
-        <Text style={styles.newSearchBtnText}>Nueva búsqueda</Text>
+        {startingNew
+          ? <ActivityIndicator color="#fff" size="small" />
+          : <Text style={styles.newSearchBtnText}>Nueva búsqueda</Text>}
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.backBtn}
-        onPress={() => nav.navigate('App')}
+        onPress={() => !isSolo && currentGroup ? nav.navigate('Group', { groupId: currentGroup.id }) : nav.navigate('App')}
         activeOpacity={0.8}
       >
         <Text style={styles.backBtnText}>{isSolo ? 'Volver al inicio' : 'Volver al grupo'}</Text>
@@ -156,14 +225,15 @@ const styles = StyleSheet.create({
   emptyText: { color: Colors.sub, fontSize: Typography.body },
   backLink: { color: Colors.accent, fontSize: Typography.body },
   eyebrow: {
-    color: Colors.sub,
+    color: Colors.faint,
     fontSize: Typography.tiny,
-    fontWeight: Typography.semibold,
-    letterSpacing: 2,
-    marginBottom: 6,
+    fontWeight: Typography.medium,
+    letterSpacing: 1.8,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
-  title: { color: Colors.text, fontSize: Typography.hero, fontWeight: Typography.black, marginBottom: 4 },
-  sub: { color: Colors.sub, fontSize: Typography.small, marginBottom: 20 },
+  title: { color: Colors.text, fontSize: 30, fontWeight: Typography.medium, letterSpacing: -0.5, marginBottom: 4 },
+  sub: { color: Colors.sub, fontSize: Typography.body, marginBottom: 20 },
   insight: {
     backgroundColor: Colors.s2,
     borderRadius: 10,

@@ -2,14 +2,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors, Typography } from '../constants/colors';
 import { useColors } from '../context/ThemeContext';
 import { useMatchStore } from '../store/useMatchStore';
+import type { MatchEntry } from '../store/useMatchStore';
 import { useAuthStore } from '../store/useAuthStore';
+import type { RootStackParamList } from '../navigation/types';
 import { getPosterUrl } from '../services/tmdb';
 import {
-  getPersonalWatchlist, removeFromPersonalWatchlist,
+  getPersonalWatchlist, removeFromPersonalWatchlist, removeFromPendingRatings,
   getPendingRatingsForUser, rateTitleAndUpdateProfile, updateTitleStatus,
+  updateUserHistoryRecommendations,
   type PersonalWatchlistItem,
   type PendingRatingItem,
   type Rating,
@@ -21,19 +26,29 @@ import PlatformLogo from '../components/PlatformLogo';
 const USE_MOCK = process.env.EXPO_PUBLIC_USE_MOCK === 'true';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  watched:   { label: 'Vista',     color: Colors.accent },
-  watchlist: { label: 'Pendiente', color: Colors.warning },
-  skipped:   { label: 'Pasada',    color: Colors.danger },
-  pending:   { label: 'Pendiente', color: Colors.sub },
+  watched:   { label: 'Vista',       color: Colors.accent },
+  watchlist: { label: 'Para después', color: Colors.warning },
+  chosen:    { label: 'Elegida',     color: Colors.accent },
+  skipped:   { label: 'Pasada',      color: Colors.danger },
+  pending:   { label: 'Sin acción',  color: Colors.sub },
 };
 
 type Tab = 'history' | 'watchlist' | 'pending';
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
-  const { history } = useMatchStore();
-  const { user } = useAuthStore();
+  const nav = useNavigation<Nav>();
+  const { history, setCurrentMatch, setSoloMode } = useMatchStore();
+  const { user, updateRatings } = useAuthStore();
   const themeColors = useColors();
+
+  function handleViewMatch(entry: MatchEntry) {
+    const isSolo = entry.groupId.startsWith('solo-');
+    setSoloMode(isSolo);
+    setCurrentMatch({ recommendations: entry.recommendations, groupInsight: '' }, entry.matchId);
+    nav.navigate('Results', { matchId: entry.matchId });
+  }
 
   const [activeTab, setActiveTab] = useState<Tab>('history');
   const [watchlist, setWatchlist] = useState<PersonalWatchlistItem[]>([]);
@@ -41,6 +56,7 @@ export default function HistoryScreen() {
   const [pendingItems, setPendingItems] = useState<PendingRatingItem[]>([]);
   const [loadingPending, setLoadingPending] = useState(false);
   const [ratingPending, setRatingPending] = useState<PendingRatingItem | null>(null);
+  const [ratingWatchlist, setRatingWatchlist] = useState<PersonalWatchlistItem | null>(null);
 
   const loadWatchlist = useCallback(async () => {
     if (!user || USE_MOCK) return;
@@ -70,11 +86,32 @@ export default function HistoryScreen() {
     if (activeTab === 'pending') loadPending();
   }, [activeTab, loadPending]);
 
+  function syncHistoryStatus(matchId: string, tmdbId: number, status: 'watched' | 'watchlist' | 'skipped' | 'chosen') {
+    if (!user) return;
+    const store = useMatchStore.getState();
+    const updatedHistory = store.history.map(e => {
+      if (e.matchId !== matchId) return e;
+      return {
+        ...e,
+        recommendations: e.recommendations.map(r =>
+          r.tmdbId === tmdbId ? { ...r, groupStatus: status } : r
+        ),
+      };
+    });
+    store.setHistory(updatedHistory);
+    const updatedEntry = updatedHistory.find(e => e.matchId === matchId);
+    if (updatedEntry && !USE_MOCK) {
+      updateUserHistoryRecommendations(user.uid, matchId, updatedEntry.recommendations).catch(() => {});
+    }
+  }
+
   async function handleRatePending(rating: Rating) {
     if (!ratingPending || !user) return;
     const { matchId, rec } = ratingPending;
     setRatingPending(null);
     setPendingItems(prev => prev.filter(i => !(i.matchId === matchId && i.rec.tmdbId === rec.tmdbId)));
+    if (rec.tmdbId) updateRatings(rec.tmdbId, rating);
+    if (rec.tmdbId) syncHistoryStatus(matchId, rec.tmdbId, 'watched');
     if (!USE_MOCK && rec.tmdbId) {
       try {
         await Promise.all([
@@ -84,6 +121,7 @@ export default function HistoryScreen() {
             genres: rec.genres, rating: rec.rating, posterPath: rec.posterPath, synopsis: rec.synopsis,
           }),
           updateTitleStatus(matchId, rec.tmdbId, 'watched'),
+          removeFromPendingRatings(user.uid, matchId, rec.tmdbId),
         ]);
       } catch { /* silenciar */ }
     }
@@ -104,6 +142,27 @@ export default function HistoryScreen() {
         },
       },
     ]);
+  }
+
+  async function handleRateWatchlist(rating: Rating) {
+    if (!ratingWatchlist || !user) return;
+    const item = ratingWatchlist;
+    setRatingWatchlist(null);
+    setWatchlist(prev => prev.filter(i => i.tmdbId !== item.tmdbId));
+    if (item.tmdbId) updateRatings(item.tmdbId, rating);
+    if (item.matchId && item.tmdbId) syncHistoryStatus(item.matchId, item.tmdbId, 'watched');
+    if (!USE_MOCK && item.tmdbId) {
+      try {
+        await Promise.all([
+          rateTitleAndUpdateProfile(user.uid, item.tmdbId, rating, {
+            id: item.tmdbId, tmdbId: item.tmdbId, title: item.title, year: item.year,
+            type: item.type === 'series' ? 'tv' : 'movie',
+            genres: item.genres, rating: item.rating, posterPath: item.posterPath, synopsis: item.synopsis,
+          }),
+          removeFromPersonalWatchlist(user.uid, item.tmdbId),
+        ]);
+      } catch { /* silenciar */ }
+    }
   }
 
   return (
@@ -131,7 +190,7 @@ export default function HistoryScreen() {
             onPress={() => setActiveTab('pending')}
             activeOpacity={0.8}
           >
-            <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>Pendiente</Text>
+            <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>Por puntuar</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -152,14 +211,17 @@ export default function HistoryScreen() {
             </View>
           ) : (
             history.map(entry => (
-              <View key={entry.matchId} style={styles.card}>
+              <TouchableOpacity key={entry.matchId} style={styles.card} onPress={() => handleViewMatch(entry)} activeOpacity={0.75}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardDate}>
-                    {new Date(entry.createdAt).toLocaleDateString('es-AR', {
-                      day: 'numeric', month: 'long',
-                    })}
-                  </Text>
-                  <Text style={styles.cardGroup}>{entry.groupName}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardDate}>
+                      {new Date(entry.createdAt).toLocaleDateString('es-AR', {
+                        day: 'numeric', month: 'long',
+                      })}
+                    </Text>
+                    <Text style={styles.cardGroup}>{entry.groupName}</Text>
+                  </View>
+                  <Feather name="chevron-right" size={18} color={Colors.faint} />
                 </View>
                 {entry.recommendations.map(r => {
                   const st = STATUS_LABELS[r.groupStatus] ?? STATUS_LABELS.pending;
@@ -183,7 +245,7 @@ export default function HistoryScreen() {
                     </View>
                   );
                 })}
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </ScrollView>
@@ -227,9 +289,22 @@ export default function HistoryScreen() {
                     </View>
                     <Text style={styles.watchlistSynopsis} numberOfLines={2}>{item.synopsis}</Text>
                   </View>
-                  <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemove(item.tmdbId)} hitSlop={8}>
-                    <Text style={styles.removeText}>✕</Text>
-                  </TouchableOpacity>
+                  <View style={styles.watchlistActions}>
+                    <TouchableOpacity
+                      style={styles.rateBtn}
+                      onPress={() => setRatingWatchlist(item)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.rateBtnText}>La vi</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.removeBtn}
+                      onPress={() => handleRemove(item.tmdbId)}
+                      hitSlop={12}
+                    >
+                      <Text style={styles.removeText}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })
@@ -290,6 +365,12 @@ export default function HistoryScreen() {
         onClose={() => setRatingPending(null)}
         onRate={handleRatePending}
       />
+      <WatchedRatingSheet
+        visible={ratingWatchlist !== null}
+        title={ratingWatchlist?.title ?? ''}
+        onClose={() => setRatingWatchlist(null)}
+        onRate={handleRateWatchlist}
+      />
     </View>
   );
 }
@@ -302,7 +383,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  screenTitle: { color: Colors.text, fontSize: Typography.hero, fontWeight: Typography.black, marginBottom: 14 },
+  screenTitle: { color: Colors.text, fontSize: 30, fontWeight: Typography.medium, marginBottom: 14, letterSpacing: -0.4 },
   tabs: { flexDirection: 'row', gap: 8 },
   tab: {
     paddingVertical: 8,
@@ -331,28 +412,28 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     paddingBottom: 10,
+    gap: 8,
   },
-  cardDate: { color: Colors.text, fontWeight: Typography.bold, fontSize: Typography.body },
-  cardGroup: { color: Colors.sub, fontSize: Typography.small },
+  cardDate: { color: Colors.text, fontWeight: Typography.medium, fontSize: Typography.h3 },
+  cardGroup: { color: Colors.sub, fontSize: Typography.body, marginTop: 2 },
   recRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    gap: 10,
+    gap: 12,
   },
-  recPoster: { width: 36, height: 52, borderRadius: 4 },
-  recPosterPlaceholder: { width: 36, height: 52, borderRadius: 4, backgroundColor: Colors.s2, alignItems: 'center', justifyContent: 'center' },
-  recInfo: { flex: 1, gap: 2 },
-  recTitle: { color: Colors.text, fontSize: Typography.small },
-  recMeta: { color: Colors.faint, fontSize: Typography.tiny },
+  recPoster: { width: 44, height: 66, borderRadius: 6 },
+  recPosterPlaceholder: { width: 44, height: 66, borderRadius: 6, backgroundColor: Colors.s2, alignItems: 'center', justifyContent: 'center' },
+  recInfo: { flex: 1, gap: 3 },
+  recTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: Typography.medium },
+  recMeta: { color: Colors.faint, fontSize: Typography.small },
   badge: {
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -371,16 +452,17 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: 'flex-start',
   },
-  watchlistPoster: { width: 72, height: 104, borderRadius: 8 },
+  watchlistPoster: { width: 84, height: 126, borderRadius: 10 },
   watchlistPosterPlaceholder: { backgroundColor: Colors.s2, alignItems: 'center', justifyContent: 'center' },
-  watchlistInfo: { flex: 1, gap: 4 },
-  watchlistTitle: { color: Colors.text, fontSize: Typography.body, fontWeight: Typography.bold, lineHeight: 20 },
-  watchlistMeta: { color: Colors.faint, fontSize: Typography.tiny },
+  watchlistInfo: { flex: 1, gap: 5 },
+  watchlistTitle: { color: Colors.text, fontSize: Typography.h3, fontWeight: Typography.medium, lineHeight: 22 },
+  watchlistMeta: { color: Colors.faint, fontSize: Typography.small },
   platformRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   platformName: { color: Colors.sub, fontSize: Typography.tiny },
   watchlistSynopsis: { color: Colors.sub, fontSize: Typography.tiny, lineHeight: 16, marginTop: 4 },
-  removeBtn: { padding: 4 },
-  removeText: { color: Colors.faint, fontSize: 14 },
+  watchlistActions: { alignItems: 'center', gap: 8, justifyContent: 'center' },
+  removeBtn: { padding: 4, alignItems: 'center' },
+  removeText: { color: Colors.faint, fontSize: Typography.body },
   rateBtn: {
     backgroundColor: Colors.accent,
     borderRadius: 8,

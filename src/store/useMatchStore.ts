@@ -7,22 +7,23 @@ export interface MatchEntry {
   groupName: string;
   createdAt: number;
   recommendations: Recommendation[];
-  moods: Record<string, MoodId>;
+  moods: Record<string, MoodId[]>;
 }
 
 interface MatchStore {
   currentMatch: MatchingOutput | null;
   currentMatchId: string | null;
   history: MatchEntry[];
-  moods: Record<string, MoodId>;
+  moods: Record<string, MoodId[]>;
   isSolo: boolean;
-  setMood: (uid: string, mood: MoodId) => void;
+  setMood: (uid: string, moods: MoodId[]) => void;
   setCurrentMatch: (match: MatchingOutput, matchId: string) => void;
   addToHistory: (entry: MatchEntry) => void;
   setHistory: (entries: MatchEntry[]) => void;
   updateTitleAction: (matchIdx: number, titleIdx: number, status: Recommendation['groupStatus']) => void;
   clearMoods: () => void;
   setSoloMode: (v: boolean) => void;
+  reset: () => void;
 }
 
 export const useMatchStore = create<MatchStore>(set => ({
@@ -31,7 +32,7 @@ export const useMatchStore = create<MatchStore>(set => ({
   history: [],
   moods: {},
   isSolo: false,
-  setMood: (uid, mood) => set(s => ({ moods: { ...s.moods, [uid]: mood } })),
+  setMood: (uid, moods) => set(s => ({ moods: { ...s.moods, [uid]: moods } })),
   setCurrentMatch: (match, matchId) => set({ currentMatch: match, currentMatchId: matchId }),
   addToHistory: entry => set(s => ({ history: [entry, ...s.history.filter(e => e.matchId !== entry.matchId)] })),
   setHistory: entries => set({ history: entries }),
@@ -52,4 +53,5 @@ export const useMatchStore = create<MatchStore>(set => ({
     }),
   clearMoods: () => set({ moods: {} }),
   setSoloMode: v => set({ isSolo: v }),
+  reset: () => set({ currentMatch: null, currentMatchId: null, history: [], moods: {}, isSolo: false }),
 }));

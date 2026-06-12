@@ -14,6 +14,9 @@ import AppTabs from './AppTabs';
 import SplashScreen   from '../screens/SplashScreen';
 import LoginScreen    from '../screens/LoginScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import OnboardingIntroScreen from '../screens/OnboardingIntroScreen';
+import AgeSelectScreen       from '../screens/AgeSelectScreen';
+import ToneSelectScreen      from '../screens/ToneSelectScreen';
 import GroupScreen    from '../screens/GroupScreen';
 import MoodScreen     from '../screens/MoodScreen';
 import MatchingScreen from '../screens/MatchingScreen';
@@ -34,9 +37,10 @@ export default function RootNavigator() {
   useEffect(() => {
     function handleNotificationResponse(response: ExpoNotifications.NotificationResponse) {
       const data = response.notification.request.content.data as Record<string, unknown>;
-      if (data?.type === 'mood_selected' && typeof data.groupId === 'string') {
+      const groupId = typeof data.groupId === 'string' ? data.groupId : null;
+      if (groupId && (data?.type === 'mood_selected' || data?.type === 'vote_request')) {
         if (navigationRef.isReady()) {
-          navigationRef.navigate('Mood', { groupId: data.groupId });
+          navigationRef.navigate('Mood', { groupId });
         }
       }
     }
@@ -79,6 +83,11 @@ export default function RootNavigator() {
 
     setLoading(true);
     const unsub = onAuthChange(async u => {
+      if (!u) {
+        // Limpiar stores al cerrar sesión para que no queden datos del usuario anterior
+        useGroupStore.getState().reset();
+        useMatchStore.getState().reset();
+      }
       setUser(u);
       if (u) {
         try {
@@ -87,9 +96,12 @@ export default function RootNavigator() {
             getUserHistory(u.uid),
           ]);
           setGroups(groups);
-          if (history.length > 0) setHistory(history);
+          setHistory(history);
           registerPushToken(u.uid).catch(() => {});
         } catch { /* silenciar */ }
+      } else {
+        useGroupStore.getState().reset();
+        useMatchStore.getState().reset();
       }
     });
     return unsub;
@@ -105,12 +117,20 @@ export default function RootNavigator() {
       {!user ? (
         <Stack.Screen name="Login" component={LoginScreen} />
       ) : !user.onboardingDone ? (
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <>
+          <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
+          <Stack.Screen name="AgeSelect"   component={AgeSelectScreen} />
+          <Stack.Screen name="ToneSelect"  component={ToneSelectScreen} />
+          <Stack.Screen name="Onboarding"  component={OnboardingScreen} />
+        </>
       ) : (
         <>
-          <Stack.Screen name="App"        component={AppTabs} />
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          <Stack.Screen name="Group"      component={GroupScreen} />
+          <Stack.Screen name="App"             component={AppTabs} />
+          <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
+          <Stack.Screen name="AgeSelect"   component={AgeSelectScreen} />
+          <Stack.Screen name="ToneSelect"  component={ToneSelectScreen} />
+          <Stack.Screen name="Onboarding"  component={OnboardingScreen} />
+          <Stack.Screen name="Group"           component={GroupScreen} />
           <Stack.Screen name="Mood"       component={MoodScreen} />
           <Stack.Screen name="Matching"   component={MatchingScreen} />
           <Stack.Screen name="Results"    component={ResultsScreen} />
