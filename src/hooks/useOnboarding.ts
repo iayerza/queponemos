@@ -37,6 +37,13 @@ const RATING_WEIGHTS: Record<Rating, number> = {
   loved: 2.0, liked: 1.0, seen_disliked: -0.8, not_seen: 0,
 };
 
+const CONFIG = {
+  COLD_THRESHOLD:    2,    // dislikes/skips consecutivos para congelar género
+  COLD_COOLDOWN:     15,   // cartas hasta que el género se descongela
+  FATIGUE_WINDOW:    12,   // últimos N géneros en historial (≈ 4 cartas)
+  FATIGUE_PENALTY:   0.2,  // penalización por cada aparición reciente del género
+};
+
 const hasTmdbKey = Boolean(process.env.EXPO_PUBLIC_TMDB_API_KEY);
 
 const BASE_TARGET  = 30;
@@ -136,32 +143,48 @@ function infoScore(
   return genreInfo + eraBonus;
 }
 
-// Género frío: 2+ "no la vi" y ninguna vista → no gastar más cartas ahí
-function coldGenres(ev: GenreEvidence): Set<string> {
+// Género frío: 2+ "no la vi" y ninguna vista, O congelado por consecutivos negativos
+function coldGenres(ev: GenreEvidence, activeCooldown: Record<string, number> = {}): Set<string> {
   const cold = new Set<string>();
   for (const g of Object.keys(ev.answered)) {
     const notSeen = ev.answered[g] - (ev.seen[g] ?? 0);
     if (notSeen >= 2 && (ev.seen[g] ?? 0) === 0) cold.add(g);
   }
+  for (const g of Object.keys(activeCooldown)) cold.add(g);
   return cold;
 }
 
 // Ordena candidatos: intercala match y sondeo dirigido; fríos y penalizados al final.
+// recentHistory: últimos N géneros vistos (≈ últimas 4 cartas) para penalizar fatiga.
 function sortAdaptive(
   remaining: NormalizedTitle[],
   profile: Record<string, number>,
   ev: GenreEvidence,
   probeBias = false,
+  activeCooldown: Record<string, number> = {},
+  recentHistory: string[] = [],
 ): NormalizedTitle[] {
-  const cold    = coldGenres(ev);
-  const scored  = remaining.map(t => ({ t, score: scoreTitle(t, profile), info: infoScore(t, ev.answered, ev.answeredEras) }));
+  const cold = coldGenres(ev, activeCooldown);
+
+  const scored = remaining.map(t => {
+    const fatigue = t.genres.reduce(
+      (acc, g) => acc + recentHistory.filter(h => h === g).length * CONFIG.FATIGUE_PENALTY,
+      0,
+    );
+    return {
+      t,
+      score: scoreTitle(t, profile) - fatigue,
+      info:  infoScore(t, ev.answered, ev.answeredEras) - fatigue * 0.5,
+    };
+  });
+
   const penalty = scored.filter(s => s.score < 0).sort((a, b) => b.score - a.score).map(s => s.t);
   const demoted = scored.filter(s => s.score >= 0 && s.score <= 0.001 && s.t.genres.some(g => cold.has(g))).map(s => s.t);
   const demotedIds = new Set(demoted.map(t => t.tmdbId));
   const active  = scored.filter(s => s.score >= 0 && !demotedIds.has(s.t.tmdbId));
 
   const byMatch = [...active].sort((a, b) => b.score - a.score);
-  const byInfo  = [...active].sort((a, b) => b.info - a.info);
+  const byInfo  = [...active].sort((a, b) => b.info  - a.info);
   const nMatch  = probeBias ? 1 : 2;
   const nInfo   = probeBias ? 2 : 1;
 
@@ -190,9 +213,11 @@ function buildQueue(
   ev: GenreEvidence,
   slots: number,
   probeBias = false,
+  activeCooldown: Record<string, number> = {},
+  recentHistory: string[] = [],
 ): NormalizedTitle[] {
   if (slots <= 0) return shown;
-  const ordered = sortAdaptive(candidates, profile, ev, probeBias);
+  const ordered = sortAdaptive(candidates, profile, ev, probeBias, activeCooldown, recentHistory);
   const anchorIds = new Set(
     candidates.filter(t => t.isAnchor && scoreTitle(t, profile) >= 0).map(t => t.tmdbId),
   );
@@ -216,20 +241,30 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
   const [genreStepDone, setGenreStepDone] = useState(skipGenreStep);
   const [target, setTarget]      = useState(BASE_TARGET);
   const [extendDeclined, setExtendDeclined] = useState(false);
+  // Cooldown activo: género → cartas restantes hasta descongelar
+  const [coldCooldown, setColdCooldown]     = useState<Record<string, number>>({});
+  // Historial reciente de géneros vistos (últimas FATIGUE_WINDOW apariciones ≈ 4 cartas)
+  const [recentHistory, setRecentHistory]   = useState<string[]>([]);
   const { user }                 = useAuthStore();
 
-  const ratingsRef    = useRef(ratings);
-  ratingsRef.current  = ratings;
-  const poolRef       = useRef(pool);
-  poolRef.current     = pool;
-  const queueRef      = useRef(queue);
-  queueRef.current    = queue;
-  const targetRef     = useRef(target);
-  targetRef.current   = target;
-  const genreSeedsRef = useRef<string[]>([]);
-  const deepenedRef   = useRef(false);
-  const indexRef      = useRef(0);
-  indexRef.current    = currentIndex;
+  const ratingsRef       = useRef(ratings);
+  ratingsRef.current     = ratings;
+  const poolRef          = useRef(pool);
+  poolRef.current        = pool;
+  const queueRef         = useRef(queue);
+  queueRef.current       = queue;
+  const targetRef        = useRef(target);
+  targetRef.current      = target;
+  const coldCooldownRef  = useRef(coldCooldown);
+  coldCooldownRef.current = coldCooldown;
+  const recentHistoryRef = useRef(recentHistory);
+  recentHistoryRef.current = recentHistory;
+  // Consecutivos negativos por género (dislike + skip), reseteados al recibir positivo
+  const consecutiveNegsRef = useRef<Record<string, number>>({});
+  const genreSeedsRef    = useRef<string[]>([]);
+  const deepenedRef      = useRef(false);
+  const indexRef         = useRef(0);
+  indexRef.current       = currentIndex;
 
   // Fetch titles once genre step is done (or on mount when skipGenreStep=true)
   useEffect(() => {
@@ -334,7 +369,7 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
         const candidates = expanded.filter(t => !shownIds.has(t.tmdbId));
         const newProfile = computeLocalProfile(newRatings, expanded, genreSeedsRef.current);
         const ev         = computeGenreEvidence(newRatings, expanded);
-        setQueue(buildQueue(shown, candidates, newProfile, ev, targetRef.current - shown.length));
+        setQueue(buildQueue(shown, candidates, newProfile, ev, targetRef.current - shown.length, false, coldCooldownRef.current, recentHistoryRef.current));
       }
     } catch { /* silent — deepening is best-effort */ }
   }, [ageRange]);
@@ -347,6 +382,52 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
     const newRatings = { ...currentRatings, [title.tmdbId]: rating };
     setRatings(newRatings);
 
+    // ── Fatiga: acumular géneros de esta carta al historial reciente ──────────
+    const newHistory = [...recentHistoryRef.current, ...title.genres]
+      .slice(-CONFIG.FATIGUE_WINDOW);
+    setRecentHistory(newHistory);
+
+    // ── Cold-cooldown: actualizar consecutivos negativos por género ───────────
+    const updatedCooldown = { ...coldCooldownRef.current };
+    const consNegs        = { ...consecutiveNegsRef.current };
+
+    if (rating === 'loved' || rating === 'liked') {
+      // Positivo: resetear negativos y descongelar el género
+      for (const g of title.genres) {
+        consNegs[g] = 0;
+        delete updatedCooldown[g];
+      }
+    } else if (rating === 'seen_disliked') {
+      for (const g of title.genres) {
+        consNegs[g] = (consNegs[g] ?? 0) + 1;
+        if (consNegs[g] >= CONFIG.COLD_THRESHOLD && !updatedCooldown[g]) {
+          updatedCooldown[g] = CONFIG.COLD_COOLDOWN;
+        }
+      }
+    } else if (rating === 'not_seen') {
+      // Skip es señal más débil: acumula 0.5 hacia el congelamiento
+      for (const g of title.genres) {
+        const newVal = (consNegs[g] ?? 0) + 0.5;
+        consNegs[g] = newVal;
+        if (newVal >= CONFIG.COLD_THRESHOLD + 1 && !updatedCooldown[g]) {
+          updatedCooldown[g] = CONFIG.COLD_COOLDOWN;
+        }
+      }
+    }
+
+    // Decrementar cooldowns y descongelar cuando llegan a 0
+    for (const g of Object.keys(updatedCooldown)) {
+      updatedCooldown[g] -= 1;
+      if (updatedCooldown[g] <= 0) {
+        delete updatedCooldown[g];
+        consNegs[g] = 0;
+      }
+    }
+
+    consecutiveNegsRef.current = consNegs;
+    setColdCooldown(updatedCooldown);
+
+    // ── Reordenar cola ────────────────────────────────────────────────────────
     const nextIndex = indexRef.current + 1;
     const SEED_SIZE = 3;
     if (nextIndex >= SEED_SIZE && nextIndex < targetRef.current) {
@@ -355,7 +436,7 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
       const candidates = poolRef.current.filter(t => !shownIds.has(t.tmdbId));
       const profile    = computeLocalProfile(newRatings, poolRef.current, genreSeedsRef.current);
       const ev         = computeGenreEvidence(newRatings, poolRef.current);
-      setQueue(buildQueue(shown, candidates, profile, ev, targetRef.current - nextIndex));
+      setQueue(buildQueue(shown, candidates, profile, ev, targetRef.current - nextIndex, false, updatedCooldown, newHistory));
     }
 
     setTimeout(() => setIndex(nextIndex), 300);
@@ -390,7 +471,7 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
     const candidates = poolRef.current.filter(t => !shownIds.has(t.tmdbId));
     const profile    = computeLocalProfile(ratingsRef.current, poolRef.current, genreSeedsRef.current);
     const ev         = computeGenreEvidence(ratingsRef.current, poolRef.current);
-    setQueue(buildQueue(shown, candidates, profile, ev, newTarget - shown.length, true));
+    setQueue(buildQueue(shown, candidates, profile, ev, newTarget - shown.length, true, coldCooldownRef.current, recentHistoryRef.current));
   }, []);
 
   const declineExtend = useCallback(() => setExtendDeclined(true), []);
