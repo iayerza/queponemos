@@ -577,8 +577,6 @@ function franchiseKey(t: NormalizedTitle): string {
 // Estreno reciente garantizado en TODOS los rangos de edad — el de 70 también
 // quiere ver lo nuevo. La era es pista de reconocimiento, no jaula de gusto.
 const RECENT_CUTOFF = 2022;
-// Gateway internacional (no-inglés, no-español): mide tolerancia a subtítulos.
-const GATEWAY_LANGS = ['ko', 'ja', 'fr'];
 
 async function fetchRecognitionPool(
   ageRange: string,
@@ -604,20 +602,11 @@ async function fetchRecognitionPool(
     )
   );
 
-  // Gateway internacional: una request por idioma no-inglés
-  const gatewayReqs = GATEWAY_LANGS.map(lang =>
-    fetchTopVoted({
-      withoutGenres, genres: userGenres, minVotes: 4000,
-      language: lang, withoutKeywords: FRANCHISE_KEYWORDS,
-    }).catch(() => [] as NormalizedTitle[])
-  );
-
   const [
-    genreEraLists, gatewayLists, blockbusters, recentReleases,
+    genreEraLists, blockbusters, recentReleases,
     guiltyPleasures, cultClassics, localTop, localGenre,
   ] = await Promise.all([
     Promise.all(genreEraReqs),
-    Promise.all(gatewayReqs),
     // Blockbusters globales de su era — efecto "el algoritmo me conoce"
     fetchTopVoted({ withoutGenres, yearFrom, minVotes: 15000, language: 'en' })
       .catch(() => [] as NormalizedTitle[]),
@@ -669,12 +658,9 @@ async function fetchRecognitionPool(
 
   // ── Sondas de eje garantizadas (anchor): si no se muestran, el eje no se mide ──
   pickRandom(recentReleases, true, 8);                      // 1 estreno reciente garantizado
-  pickRandom(shuffle(gatewayLists.flat()), true, 10);       // 1 gateway internacional garantizado
 
   // ── Sondas de discriminación (no-anchor: el motor adaptativo decide mostrarlas) ──
-  const gatewayRest = shuffle(gatewayLists.flat());
   pickRandom(recentReleases,  false, 8);
-  pickRandom(gatewayRest,     false, 10);
   pickRandom(guiltyPleasures, false, 10);  // alimenta el feature t:palomitera
   pickRandom(guiltyPleasures, false, 10);
   pickRandom(cultClassics,    false, 8);   // alimenta el feature t:prestigio
