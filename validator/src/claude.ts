@@ -69,6 +69,9 @@ export async function generateRecommendations(
     `- Opción 2: Joya oculta — título poco comentado, gran factor sorpresa.\n` +
     `- Opción 3: Equilibrio — la más alineada al estado de ánimo de hoy.\n` +
     `Evitá las obviedades masivas que todo el mundo ya vio (ej: Inception, Titanic).\n\n` +
+    `REGLAS:\n` +
+    `1. ÉPOCA COMO PISTA, NO COMO JAULA: la época preferida sirve para desempatar, no para descartar. AL MENOS UNA recomendación debe ser un estreno reciente (últimos ~3 años). Nunca devuelvas las 3 de la misma década.\n` +
+    `2. No repetir siempre los mismos títulos populares del momento.\n\n` +
     `Respondé SOLO con JSON válido, sin texto extra:\n` +
     `{\n` +
     `  "recommendations": [\n` +
@@ -86,7 +89,7 @@ export async function generateRecommendations(
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     }),

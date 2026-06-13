@@ -116,6 +116,8 @@ const DEFAULT_GENRE_IDS = [28, 35, 18, 53, 10749, 878]; // acción, comedia, dra
 // todas las queries (un thriller-terror ES terror para quien odia el terror)
 export const STRONG_GENRES = [27, 16, 99, 10751]; // terror, animación, documental, familia
 
+const RECENT_CUTOFF = 2022;
+
 async function fetchTopVoted(opts: {
   genres?: number[];        // géneros (por defecto OR via pipe)
   genresJoin?: '|' | ',';   // ',' = AND, para pares de sabor
@@ -123,17 +125,20 @@ async function fetchTopVoted(opts: {
   yearFrom?: number;
   yearTo?: number;
   minVotes: number;
+  maxVotes?: number;        // techo de votos → culto/nicho
   minRating?: number;       // vote_average.gte (tono prestigio)
   maxRating?: number;       // vote_average.lte (tono palomitero)
+  sortBy?: 'vote_count.desc' | 'vote_average.desc';
   language?: string;        // with_original_language
   originCountry?: string;   // with_origin_country (ej: 'AR')
   withoutKeywords?: string; // keywords excluidas (pipe)
 }): Promise<NormalizedTitle[]> {
   const p: Record<string, string> = {
     'vote_count.gte': String(opts.minVotes),
-    sort_by: 'vote_count.desc',
+    sort_by: opts.sortBy ?? 'vote_count.desc',
     page: '1',
   };
+  if (opts.maxVotes) p['vote_count.lte'] = String(opts.maxVotes);
   if (opts.genres?.length)        p.with_genres = opts.genres.join(opts.genresJoin ?? '|');
   if (opts.withoutGenres?.length) p.without_genres = opts.withoutGenres.join(',');
   if (opts.minRating)        p['vote_average.gte'] = String(opts.minRating);
@@ -190,9 +195,21 @@ export async function fetchOnboardingPool(
     )
   );
 
-  const [genreEraLists, blockbusters, localTop, localGenre] = await Promise.all([
+  const [
+    genreEraLists, blockbusters, recentReleases,
+    guiltyPleasures, cultClassics, localTop, localGenre,
+  ] = await Promise.all([
     Promise.all(genreEraReqs),
     fetchTopVoted({ withoutGenres, yearFrom, minVotes: 15000, language: 'en' }).catch(() => [] as NormalizedTitle[]),
+    // Estrenos recientes — SIEMPRE, sin importar la edad
+    fetchTopVoted({ withoutGenres, genres: ids, yearFrom: RECENT_CUTOFF, minVotes: 800,
+      language: 'en', withoutKeywords: FRANCHISE_KEYWORDS }).catch(() => [] as NormalizedTitle[]),
+    // Palomitera: muy vista pero rating bajo → separa al exigente del que goza el blockbuster
+    fetchTopVoted({ withoutGenres, genres: ids, yearFrom, minVotes: 20000, maxRating: 6.6,
+      language: 'en' }).catch(() => [] as NormalizedTitle[]),
+    // Culto/prestigio: rating alto, votos medios → separa al cinéfilo del mainstream
+    fetchTopVoted({ withoutGenres, genres: ids, yearFrom, minVotes: 2000, maxVotes: 25000,
+      minRating: 7.8, sortBy: 'vote_average.desc', withoutKeywords: FRANCHISE_KEYWORDS }).catch(() => [] as NormalizedTitle[]),
     fetchTopVoted({ withoutGenres, originCountry: 'AR', yearFrom, minVotes: 300 }).catch(() => [] as NormalizedTitle[]),
     fetchTopVoted({ withoutGenres, originCountry: 'AR', genres: ids, yearFrom, minVotes: 100 }).catch(() => [] as NormalizedTitle[]),
   ]);
@@ -222,10 +239,20 @@ export async function fetchOnboardingPool(
   pickRandom(blockbusters, true);
   pickRandom(blockbusters, true);
 
+  // 1 estreno reciente garantizado
+  pickRandom(recentReleases, true, 8);
+
   // 3 argentinas: 1 top general + 2 top dentro de los géneros elegidos
   pickRandom(localTop, true, 3);
   pickRandom(localGenre, true);
   pickRandom(localGenre, true);
+
+  // Sondas de discriminación (no-anchor)
+  pickRandom(recentReleases,  false, 8);
+  pickRandom(guiltyPleasures, false, 10);
+  pickRandom(guiltyPleasures, false, 10);
+  pickRandom(cultClassics,    false, 8);
+  pickRandom(cultClassics,    false, 8);
 
   // Géneros × épocas: round-robin alternando época para cada género;
   // primera pasada por género = anchor de ese género
