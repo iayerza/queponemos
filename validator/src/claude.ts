@@ -64,6 +64,11 @@ export async function generateRecommendations(
     profileText +
     excludeBlock +
     `\nEstado de ánimo: ${mood}\n\n` +
+    `MATRIZ DE RAREZA — distribución obligatoria de las 3 opciones:\n` +
+    `- Opción 1: Éxito comercial accesible — entretenimiento de ritmo sólido y fácil de digerir.\n` +
+    `- Opción 2: Joya oculta — título poco comentado, gran factor sorpresa.\n` +
+    `- Opción 3: Equilibrio — la más alineada al estado de ánimo de hoy.\n` +
+    `Evitá las obviedades masivas que todo el mundo ya vio (ej: Inception, Titanic).\n\n` +
     `Respondé SOLO con JSON válido, sin texto extra:\n` +
     `{\n` +
     `  "recommendations": [\n` +
