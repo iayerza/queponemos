@@ -158,6 +158,38 @@ function toneLabel(tone?: number): string {
   return 'prefiere ligero y entretenido, evita el oscurantismo';
 }
 
+/**
+ * Para parejas: calcula géneros unificados con regla de veto + media armónica.
+ * - Si uno tiene aversión fuerte (< 0.2) → veto, el género se bloquea.
+ * - Para el resto: media armónica → premia géneros donde ambos tienen interés real.
+ */
+function buildVetoGenreBlock(users: UserProfile[]): string {
+  if (users.length < 2) return '';
+  const [u1, u2] = users;
+  const g1 = u1.tasteProfile?.genres ?? {};
+  const g2 = u2.tasteProfile?.genres ?? {};
+  const allGenres = new Set([...Object.keys(g1), ...Object.keys(g2)]);
+  const joint: Record<string, number> = {};
+  for (const g of allGenres) {
+    const w1 = g1[g] ?? 0.5;
+    const w2 = g2[g] ?? 0.5;
+    joint[g] = (w1 < 0.2 || w2 < 0.2)
+      ? 0
+      : (2 * w1 * w2) / (w1 + w2); // media armónica
+  }
+  const vetoed = Object.entries(joint).filter(([, v]) => v === 0).map(([g]) => g);
+  const top    = Object.entries(joint)
+    .filter(([, v]) => v > 0.3)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([g, v]) => `${g} (${v.toFixed(2)})`);
+
+  let block = `\nPERFIL UNIFICADO DE LA PAREJA (Algoritmo de Compromiso):\n`;
+  if (top.length > 0)    block += `  Géneros en común (por afinidad compartida): ${top.join(', ')}\n`;
+  if (vetoed.length > 0) block += `  GÉNEROS VETADOS — uno los odia, NO recomendarlos: ${vetoed.join(', ')}\n`;
+  return block;
+}
+
 function buildPrompt(input: MatchingInput): string {
   const userBlocks = input.users.map(u => {
     const entries = Object.entries(u.ratings ?? {});
@@ -223,6 +255,7 @@ function buildPrompt(input: MatchingInput): string {
     ? `Sos el motor de recomendación de Queponemos. Analizá el perfil y recomendá exactamente 3 títulos para ver esta noche.`
     : `Sos el motor de recomendación de Queponemos. Analizá los perfiles y recomendá exactamente 3 títulos para ver juntos esta noche.`;
 
+  const vetoBlock  = buildVetoGenreBlock(input.users);
   const recentBlock = (input.recentlyRecommended?.length ?? 0) > 0
     ? `\nTÍTULOS YA RECOMENDADOS RECIENTEMENTE (NO repetir estos): ${input.recentlyRecommended!.join(', ')}\n`
     : '';
@@ -231,6 +264,7 @@ function buildPrompt(input: MatchingInput): string {
 
 PERFILES:
 ${userBlocks}
+${vetoBlock}
 ${recentBlock}
 PLATAFORMAS DISPONIBLES — usá exactamente estos IDs en el campo "platform":
 ${input.platforms.map(id => {
@@ -239,20 +273,26 @@ ${input.platforms.map(id => {
 }).join('\n')}
 REGLA 0 — CRÍTICA: Los 3 títulos DEBEN estar en alguna de las plataformas listadas. El campo "platform" debe ser uno de los IDs entre comillas de arriba. Si hay más de una plataforma disponible, distribuí los títulos entre ellas (no pongas los 3 en la misma plataforma).
 
+MATRIZ DE RAREZA — distribución obligatoria de las 3 opciones:
+- Opción 1: Éxito comercial accesible — entretenimiento de ritmo sólido y fácil de digerir.
+- Opción 2: Joya oculta — título poco comentado, gran factor sorpresa, que no sea lo primero que se le venga a la mente.
+- Opción 3: Equilibrio — la opción más alineada al mood de esta noche.
+IMPORTANTE: Evitá las obviedades masivas que todo el mundo ya vio (ej: Inception, Titanic, Breaking Bad, Stranger Things).
+
 REGLAS:
 1. NUNCA recomendés títulos marcados como "ya visto" en los perfiles.
-2. ÉPOCA DEL USUARIO: si el perfil indica "época preferida", priorizá títulos de esa era como primera o segunda opción. Podés incluir un título de otra era, pero que sea la excepción, no la norma. No cambies la era solo por dar "variedad".
-3. TONO: respetá el tono del perfil. Si el usuario prefiere "oscuro y tenso", no pongas una comedia liviana como primera opción. Si prefiere "ligero y entretenido", evitá el terror y el drama pesado como primera opción. El mood de esta noche puede flexibilizar el tono, pero no lo ignorés.
-4. AFINIDADES ESTILÍSTICAS: si el perfil incluye "afinidades estilísticas" (ej: "psychological thriller", "dark humor", "coming of age"), priorizá títulos que compartan esos rasgos. Esos keywords son más específicos que los géneros: usalos.
-5. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos entre sí.
-6. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
-7. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
+2. GÉNEROS VETADOS: si el perfil unificado lista géneros vetados, NO incluyas ningún título de esos géneros.
+3. ÉPOCA DEL USUARIO: si el perfil indica "época preferida", priorizá títulos de esa era como primera o segunda opción. Podés incluir un título de otra era, pero que sea la excepción, no la norma. No cambies la era solo por dar "variedad".
+4. TONO: respetá el tono del perfil. Si el usuario prefiere "oscuro y tenso", no pongas una comedia liviana como primera opción. Si prefiere "ligero y entretenido", evitá el terror y el drama pesado como primera opción. El mood de esta noche puede flexibilizar el tono, pero no lo ignorés.
+5. AFINIDADES ESTILÍSTICAS: si el perfil incluye "afinidades estilísticas" (ej: "psychological thriller", "dark humor", "coming of age"), priorizá títulos que compartan esos rasgos. Esos keywords son más específicos que los géneros: usalos.
+6. VARIEDAD DE GÉNERO: los 3 títulos deben ser de géneros/tonos claramente distintos entre sí.
+7. VARIEDAD DE FORMATO: mezclar película y serie cuando sea posible.
+8. COMPATIBILIDAD HONESTA — no inflés los scores, usá la escala real:
    - 60-70: buena opción, aunque no es un match perfecto
    - 71-82: muy buena opción, varios puntos de coincidencia
    - 83-91: match excelente, coincidencia clara en gustos y mood
    - 92-100: solo para coincidencia casi perfecta y evidente
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
-8. No repetir siempre los mismos títulos populares del momento.
 9. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
 10. Considerá la edad de los usuarios al elegir referencias culturales y títulos.
 
