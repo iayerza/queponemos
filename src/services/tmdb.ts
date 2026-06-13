@@ -532,15 +532,22 @@ async function fetchTopVoted(opts: {
   yearFrom?: number;
   yearTo?: number;
   minVotes: number;
+  maxVotes?: number;        // techo de votos → culto/nicho
+  minRating?: number;       // vote_average.gte → prestigio
+  maxRating?: number;       // vote_average.lte → palomitera/guilty pleasure
   language?: string;        // with_original_language
   originCountry?: string;   // with_origin_country (ej: 'AR')
   withoutKeywords?: string; // keywords excluidas (pipe)
+  sortBy?: 'vote_count.desc' | 'vote_average.desc' | 'popularity.desc';
 }): Promise<NormalizedTitle[]> {
   const p: Record<string, string> = {
     'vote_count.gte': String(opts.minVotes),
-    sort_by: 'vote_count.desc',
+    sort_by: opts.sortBy ?? 'vote_count.desc',
     page: '1',
   };
+  if (opts.maxVotes)  p['vote_count.lte']   = String(opts.maxVotes);
+  if (opts.minRating) p['vote_average.gte'] = String(opts.minRating);
+  if (opts.maxRating) p['vote_average.lte'] = String(opts.maxRating);
   if (opts.genres?.length)        p.with_genres = opts.genres.join('|');
   if (opts.withoutGenres?.length) p.without_genres = opts.withoutGenres.join(',');
   if (opts.language)         p.with_original_language = opts.language;
@@ -567,19 +574,26 @@ function franchiseKey(t: NormalizedTitle): string {
   return words[0] ?? t.title.toLowerCase();
 }
 
+// Estreno reciente garantizado en TODOS los rangos de edad — el de 70 también
+// quiere ver lo nuevo. La era es pista de reconocimiento, no jaula de gusto.
+const RECENT_CUTOFF = 2022;
+// Gateway internacional (no-inglés, no-español): mide tolerancia a subtítulos.
+const GATEWAY_LANGS = ['ko', 'ja', 'fr'];
+
 async function fetchRecognitionPool(
   ageRange: string,
   genreIds: number[],
   poolSize: number,
 ): Promise<NormalizedTitle[]> {
-  const eras = ERAS[ageRange] ?? ERAS.adult;
-  const nE = eras.length;
+  const eras     = ERAS[ageRange] ?? ERAS.adult;
+  const nE       = eras.length;
   const yearFrom = eras[0][0];
-  const TARGET = poolSize;
+  const TARGET   = poolSize;
   // Excluir géneros fuertes no elegidos de TODAS las queries
   const withoutGenres = STRONG_GENRES.filter(g => !genreIds.includes(g));
+  const userGenres = genreIds.length > 0 ? genreIds : DEFAULT_GENRE_IDS;
 
-  // Una request por género × época, en paralelo con blockbusters y cine AR
+  // Reconocimiento por género × época (vote_count.desc = "cuánta gente la vio")
   const genreEraReqs = genreIds.flatMap(g =>
     eras.map(([from, to]) =>
       fetchTopVoted({
@@ -590,11 +604,40 @@ async function fetchRecognitionPool(
     )
   );
 
-  const [genreEraLists, blockbusters, localTop, localGenre] = await Promise.all([
+  // Gateway internacional: una request por idioma no-inglés
+  const gatewayReqs = GATEWAY_LANGS.map(lang =>
+    fetchTopVoted({
+      withoutGenres, genres: userGenres, minVotes: 4000,
+      language: lang, withoutKeywords: FRANCHISE_KEYWORDS,
+    }).catch(() => [] as NormalizedTitle[])
+  );
+
+  const [
+    genreEraLists, gatewayLists, blockbusters, recentReleases,
+    guiltyPleasures, cultClassics, localTop, localGenre,
+  ] = await Promise.all([
     Promise.all(genreEraReqs),
-    fetchTopVoted({ withoutGenres, yearFrom, minVotes: 15000, language: 'en' }).catch(() => [] as NormalizedTitle[]),
-    fetchTopVoted({ withoutGenres, originCountry: 'AR', yearFrom, minVotes: 300 }).catch(() => [] as NormalizedTitle[]),
-    fetchTopVoted({ withoutGenres, originCountry: 'AR', genres: genreIds, yearFrom, minVotes: 100 }).catch(() => [] as NormalizedTitle[]),
+    Promise.all(gatewayReqs),
+    // Blockbusters globales de su era — efecto "el algoritmo me conoce"
+    fetchTopVoted({ withoutGenres, yearFrom, minVotes: 15000, language: 'en' })
+      .catch(() => [] as NormalizedTitle[]),
+    // Estrenos recientes (2022+) — SIEMPRE, sin importar la edad
+    fetchTopVoted({ withoutGenres, genres: userGenres, yearFrom: RECENT_CUTOFF, minVotes: 800,
+      language: 'en', withoutKeywords: FRANCHISE_KEYWORDS })
+      .catch(() => [] as NormalizedTitle[]),
+    // Palomitera: muy vista pero rating bajo → separa al exigente del que goza el blockbuster
+    fetchTopVoted({ withoutGenres, genres: userGenres, yearFrom, minVotes: 20000, maxRating: 6.6,
+      language: 'en' })
+      .catch(() => [] as NormalizedTitle[]),
+    // Culto/prestigio: rating alto, votos medios → separa al cinéfilo del mainstream
+    fetchTopVoted({ withoutGenres, genres: userGenres, yearFrom, minVotes: 2000, maxVotes: 25000,
+      minRating: 7.8, sortBy: 'vote_average.desc', withoutKeywords: FRANCHISE_KEYWORDS })
+      .catch(() => [] as NormalizedTitle[]),
+    // Cine argentino — reconocimiento local
+    fetchTopVoted({ withoutGenres, originCountry: 'AR', yearFrom, minVotes: 300 })
+      .catch(() => [] as NormalizedTitle[]),
+    fetchTopVoted({ withoutGenres, originCountry: 'AR', genres: genreIds, yearFrom, minVotes: 100 })
+      .catch(() => [] as NormalizedTitle[]),
   ]);
 
   const seenIds = new Set<number>();
@@ -618,14 +661,24 @@ async function fetchRecognitionPool(
     return false;
   };
 
-  // 2 blockbusters globales: no perfilan, generan "el algoritmo me conoce"
+  // ── Anchors de reconocimiento (se muestran sí o sí) ──
   pickRandom(blockbusters, true);
   pickRandom(blockbusters, true);
+  pickRandom(localTop,  true, 3);   // 1 argentina general
+  pickRandom(localGenre, true, 3);  // 1 argentina de sus géneros
 
-  // 3 argentinas: 1 top general + 2 top dentro de los géneros elegidos
-  pickRandom(localTop, true, 3);
-  pickRandom(localGenre, true);
-  pickRandom(localGenre, true);
+  // ── Sondas de eje garantizadas (anchor): si no se muestran, el eje no se mide ──
+  pickRandom(recentReleases, true, 8);                      // 1 estreno reciente garantizado
+  pickRandom(shuffle(gatewayLists.flat()), true, 10);       // 1 gateway internacional garantizado
+
+  // ── Sondas de discriminación (no-anchor: el motor adaptativo decide mostrarlas) ──
+  const gatewayRest = shuffle(gatewayLists.flat());
+  pickRandom(recentReleases,  false, 8);
+  pickRandom(gatewayRest,     false, 10);
+  pickRandom(guiltyPleasures, false, 10);  // alimenta el feature t:palomitera
+  pickRandom(guiltyPleasures, false, 10);
+  pickRandom(cultClassics,    false, 8);   // alimenta el feature t:prestigio
+  pickRandom(cultClassics,    false, 8);
 
   // Géneros × épocas: round-robin alternando época para cada género;
   // primera pasada por género = anchor de ese género
