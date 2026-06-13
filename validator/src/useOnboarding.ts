@@ -48,6 +48,13 @@ const RATING_WEIGHTS: Record<Rating, number> = {
   loved: 2.0, liked: 1.0, seen_disliked: -0.8, not_seen: 0,
 };
 
+const CONFIG = {
+  COLD_THRESHOLD:  2,
+  COLD_COOLDOWN:   15,
+  FATIGUE_WINDOW:  12,
+  FATIGUE_PENALTY: 0.2,
+};
+
 // ─── Features ─────────────────────────────────────────────────────────────────
 // Cada título enseña más que su género: par de sabor, época y tono.
 //   g:Thriller        género            (peso 1.0)
@@ -159,14 +166,15 @@ function infoScore(
   return featureInfo + eraBonus;
 }
 
-// Género frío: 2+ "no la vi" y ninguna vista → dejar de gastar cartas ahí
-function coldGenres(ev: GenreEvidence): Set<string> {
+// Género frío: 2+ "no la vi" y ninguna vista, O congelado por consecutivos negativos
+function coldGenres(ev: GenreEvidence, activeCooldown: Record<string, number> = {}): Set<string> {
   const cold = new Set<string>();
   for (const f of Object.keys(ev.answered)) {
     if (!f.startsWith('g:')) continue;
     const notSeen = ev.answered[f] - (ev.seen[f] ?? 0);
     if (notSeen >= 2 && (ev.seen[f] ?? 0) === 0) cold.add(f.slice(2));
   }
+  for (const g of Object.keys(activeCooldown)) cold.add(g);
   return cold;
 }
 
@@ -178,17 +186,30 @@ function sortAdaptive(
   profile: Record<string, number>,
   ev: GenreEvidence,
   probeBias = false,
+  activeCooldown: Record<string, number> = {},
+  recentHistory: string[] = [],
 ): NormalizedTitle[] {
-  const cold    = coldGenres(ev);
-  const scored  = remaining.map(t => ({ t, score: scoreTitle(t, profile), info: infoScore(t, ev.answered, ev.answeredEras) }));
+  const cold = coldGenres(ev, activeCooldown);
+
+  const scored = remaining.map(t => {
+    const fatigue = t.genres.reduce(
+      (acc, g) => acc + recentHistory.filter(h => h === g).length * CONFIG.FATIGUE_PENALTY,
+      0,
+    );
+    return {
+      t,
+      score: scoreTitle(t, profile) - fatigue,
+      info:  infoScore(t, ev.answered, ev.answeredEras) - fatigue * 0.5,
+    };
+  });
+
   const penalty = scored.filter(s => s.score < 0).sort((a, b) => b.score - a.score).map(s => s.t);
-  // Frío sin evidencia positiva: el usuario no conoce ese género, no insistir
   const demoted = scored.filter(s => s.score >= 0 && s.score <= 0.001 && s.t.genres.some(g => cold.has(g))).map(s => s.t);
   const demotedIds = new Set(demoted.map(t => t.tmdbId));
   const active  = scored.filter(s => s.score >= 0 && !demotedIds.has(s.t.tmdbId));
 
   const byMatch = [...active].sort((a, b) => b.score - a.score);
-  const byInfo  = [...active].sort((a, b) => b.info - a.info);
+  const byInfo  = [...active].sort((a, b) => b.info  - a.info);
   const nMatch  = probeBias ? 1 : 2;
   const nInfo   = probeBias ? 2 : 1;
 
@@ -219,9 +240,11 @@ function buildQueue(
   ev: GenreEvidence,
   slots: number,
   probeBias = false,
+  activeCooldown: Record<string, number> = {},
+  recentHistory: string[] = [],
 ): NormalizedTitle[] {
   if (slots <= 0) return shown;
-  const ordered = sortAdaptive(candidates, profile, ev, probeBias);
+  const ordered = sortAdaptive(candidates, profile, ev, probeBias, activeCooldown, recentHistory);
   const anchorIds = new Set(
     candidates.filter(t => t.isAnchor && scoreTitle(t, profile) >= 0).map(t => t.tmdbId),
   );
@@ -260,16 +283,23 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
   const [genreStepDone, setGenreStepDone] = useState(false);
   const [target, setTarget]   = useState(BASE_TARGET);
   const [extendDeclined, setExtendDeclined] = useState(false);
-  const [deepened, setDeepened] = useState(false);
+  const [deepened, setDeepened]           = useState(false);
+  const [coldCooldown, setColdCooldown]   = useState<Record<string, number>>({});
+  const [recentHistory, setRecentHistory] = useState<string[]>([]);
 
-  const ratingsRef    = useRef(ratings);
-  ratingsRef.current  = ratings;
-  const poolRef       = useRef(pool);
-  poolRef.current     = pool;
-  const targetRef     = useRef(target);
-  targetRef.current   = target;
-  const genreSeedsRef = useRef<string[]>([]);
-  const deepenFiredRef = useRef(false);
+  const ratingsRef         = useRef(ratings);
+  ratingsRef.current       = ratings;
+  const poolRef            = useRef(pool);
+  poolRef.current          = pool;
+  const targetRef          = useRef(target);
+  targetRef.current        = target;
+  const coldCooldownRef    = useRef(coldCooldown);
+  coldCooldownRef.current  = coldCooldown;
+  const recentHistoryRef   = useRef(recentHistory);
+  recentHistoryRef.current = recentHistory;
+  const consecutiveNegsRef = useRef<Record<string, number>>({});
+  const genreSeedsRef      = useRef<string[]>([]);
+  const deepenFiredRef     = useRef(false);
 
   useEffect(() => {
     if (!genreStepDone) return;
@@ -355,17 +385,48 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     const newRatings = { ...ratingsRef.current, [title.tmdbId]: rating };
     setRatings(newRatings);
 
+    // ── Fatiga ────────────────────────────────────────────────────────────────
+    const newHistory = [...recentHistoryRef.current, ...title.genres]
+      .slice(-CONFIG.FATIGUE_WINDOW);
+    setRecentHistory(newHistory);
+
+    // ── Cold-cooldown ─────────────────────────────────────────────────────────
+    const updatedCooldown = { ...coldCooldownRef.current };
+    const consNegs        = { ...consecutiveNegsRef.current };
+
+    if (rating === 'loved' || rating === 'liked') {
+      for (const g of title.genres) { consNegs[g] = 0; delete updatedCooldown[g]; }
+    } else if (rating === 'seen_disliked') {
+      for (const g of title.genres) {
+        consNegs[g] = (consNegs[g] ?? 0) + 1;
+        if (consNegs[g] >= CONFIG.COLD_THRESHOLD && !updatedCooldown[g])
+          updatedCooldown[g] = CONFIG.COLD_COOLDOWN;
+      }
+    } else if (rating === 'not_seen') {
+      for (const g of title.genres) {
+        const v = (consNegs[g] ?? 0) + 0.5;
+        consNegs[g] = v;
+        if (v >= CONFIG.COLD_THRESHOLD + 1 && !updatedCooldown[g])
+          updatedCooldown[g] = CONFIG.COLD_COOLDOWN;
+      }
+    }
+    for (const g of Object.keys(updatedCooldown)) {
+      updatedCooldown[g] -= 1;
+      if (updatedCooldown[g] <= 0) { delete updatedCooldown[g]; consNegs[g] = 0; }
+    }
+    consecutiveNegsRef.current = consNegs;
+    setColdCooldown(updatedCooldown);
+
+    // ── Reordenar cola ────────────────────────────────────────────────────────
     const next = currentIndex + 1;
     const SEED = 3;
-    // Reconstruir la cola desde TODOS los candidatos no respondidos:
-    // fríos/penalizados salen, entran reemplazos frescos
     if (next >= SEED && next < targetRef.current) {
-      const shown    = queue.slice(0, next);
-      const shownIds = new Set(shown.map(t => t.tmdbId));
+      const shown      = queue.slice(0, next);
+      const shownIds   = new Set(shown.map(t => t.tmdbId));
       const candidates = poolRef.current.filter(t => !shownIds.has(t.tmdbId));
-      const profile  = computeLocalProfile(newRatings, poolRef.current, genreSeedsRef.current);
-      const ev       = computeGenreEvidence(newRatings, poolRef.current);
-      setQueue(buildQueue(shown, candidates, profile, ev, targetRef.current - next));
+      const profile    = computeLocalProfile(newRatings, poolRef.current, genreSeedsRef.current);
+      const ev         = computeGenreEvidence(newRatings, poolRef.current);
+      setQueue(buildQueue(shown, candidates, profile, ev, targetRef.current - next, false, updatedCooldown, newHistory));
     }
     maybeDeepen(newRatings, next);
     setTimeout(() => setIdx(next), 250);
@@ -406,8 +467,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     const candidates = poolRef.current.filter(t => !shownIds.has(t.tmdbId));
     const profile  = computeLocalProfile(ratingsRef.current, poolRef.current, genreSeedsRef.current);
     const ev       = computeGenreEvidence(ratingsRef.current, poolRef.current);
-    // probeBias: las cartas extra van mayormente a despejar dudas
-    setQueue(buildQueue(shown, candidates, profile, ev, newTarget - shown.length, true));
+    setQueue(buildQueue(shown, candidates, profile, ev, newTarget - shown.length, true, coldCooldownRef.current, recentHistoryRef.current));
   }, [queue]);
 
   const declineExtend = useCallback(() => setExtendDeclined(true), []);
