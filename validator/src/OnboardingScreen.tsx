@@ -4,7 +4,7 @@ import {
   ScrollView, ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useOnboarding, computeLocalProfile, type Rating, type AgeRange, type OnboardingState } from './useOnboarding';
+import { useOnboarding, computeLocalProfile, type Rating, type OnboardingState } from './useOnboarding';
 import { getPosterUrl } from './tmdb';
 
 const C = { bg:'#0D0D0F', s1:'#1C1C20', s2:'#252528', border:'#2A2A2E', accent:'#C8302A', accentFaint:'rgba(200,48,42,0.15)', accentBorder:'rgba(200,48,42,0.4)', text:'#FFFFFF', sub:'#888888', faint:'#555555', success:'#1D9E75' };
@@ -15,13 +15,12 @@ const GENRE_OPTIONS = [
 ];
 
 interface Props {
-  ageRange: AgeRange;
   onFinish: (state: Pick<OnboardingState, 'ratings' | 'liveProfile' | 'titles' | 'anchorPositions'>) => void;
 }
 
-export default function OnboardingScreen({ ageRange, onFinish }: Props) {
+export default function OnboardingScreen({ onFinish }: Props) {
   const insets = useSafeAreaInsets();
-  const ob     = useOnboarding(ageRange);
+  const ob     = useOnboarding();
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
   useEffect(() => {
@@ -39,7 +38,7 @@ export default function OnboardingScreen({ ageRange, onFinish }: Props) {
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.topBar}>
-          <Text style={s.tag}>PASO 1 DE 2 · {ageRange.toUpperCase()}</Text>
+          <Text style={s.tag}>PASO 1 DE 2</Text>
         </View>
         <ScrollView contentContainerStyle={[s.genreScroll, { paddingBottom: insets.bottom + 88 }]}>
           <Text style={s.bigTitle}>¿Qué géneros{'\n'}<Text style={{ color:C.accent }}>te gustan?</Text></Text>

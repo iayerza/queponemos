@@ -15,7 +15,6 @@ import SplashScreen   from '../screens/SplashScreen';
 import LoginScreen    from '../screens/LoginScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import OnboardingIntroScreen from '../screens/OnboardingIntroScreen';
-import AgeSelectScreen       from '../screens/AgeSelectScreen';
 import ToneSelectScreen      from '../screens/ToneSelectScreen';
 import GroupScreen    from '../screens/GroupScreen';
 import MoodScreen     from '../screens/MoodScreen';
@@ -119,7 +118,6 @@ export default function RootNavigator() {
       ) : !user.onboardingDone ? (
         <>
           <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
-          <Stack.Screen name="AgeSelect"   component={AgeSelectScreen} />
           <Stack.Screen name="ToneSelect"  component={ToneSelectScreen} />
           <Stack.Screen name="Onboarding"  component={OnboardingScreen} />
         </>
@@ -127,7 +125,6 @@ export default function RootNavigator() {
         <>
           <Stack.Screen name="App"             component={AppTabs} />
           <Stack.Screen name="OnboardingIntro" component={OnboardingIntroScreen} />
-          <Stack.Screen name="AgeSelect"   component={AgeSelectScreen} />
           <Stack.Screen name="ToneSelect"  component={ToneSelectScreen} />
           <Stack.Screen name="Onboarding"  component={OnboardingScreen} />
           <Stack.Screen name="Group"           component={GroupScreen} />

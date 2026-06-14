@@ -66,7 +66,6 @@ export interface UserProfile {
   tasteProfile: TasteProfile;
   onboardingDone: boolean;
   platforms: PlatformId[];
-  ageRange?: 'young' | 'mid' | 'adult' | 'senior';
 }
 
 export interface GroupDoc {
@@ -261,13 +260,9 @@ export async function updateTasteKeywords(
   });
 }
 
-export async function completeOnboarding(
-  uid: string,
-  ageRange?: UserProfile['ageRange'],
-): Promise<void> {
+export async function completeOnboarding(uid: string): Promise<void> {
   await updateDoc(doc(db(), 'users', uid), {
     onboardingDone: true,
-    ...(ageRange ? { ageRange } : {}),
     updatedAt: serverTimestamp(),
   });
 }

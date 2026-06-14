@@ -38,7 +38,7 @@ export default function OnboardingIntroScreen() {
         </Text>
       </View>
       <View style={[styles.actions, { paddingBottom: insets.bottom + 24 }]}>
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => nav.navigate('AgeSelect', {})} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => nav.navigate('ToneSelect', {})} activeOpacity={0.85}>
           <Text style={styles.primaryBtnText}>Dale</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} activeOpacity={0.8}>

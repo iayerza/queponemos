@@ -129,13 +129,6 @@ const MOOD_LABELS: Record<MoodId, string> = {
   scared:  'Asustarse — terror o suspenso',
 };
 
-const AGE_RANGE_LABELS: Record<string, string> = {
-  young:  'menos de 25 años',
-  mid:    '25 a 35 años',
-  adult:  '36 a 50 años',
-  senior: 'más de 50 años',
-};
-
 // Merges titleMap (from history) with ratedTitleNames (from onboarding/results ratings)
 function resolveName(id: number, input: MatchingInput): string {
   return input.ratedTitleNames?.[id] ?? input.titleMap?.[id] ?? '';

@@ -564,11 +564,10 @@ function franchiseKey(t: NormalizedTitle): string {
 const RECENT_CUTOFF = 2022;
 
 async function fetchRecognitionPool(
-  ageRange: string,
   genreIds: number[],
   poolSize: number,
 ): Promise<NormalizedTitle[]> {
-  const eras     = ERAS[ageRange] ?? ERAS.adult;
+  const eras     = ERAS.adult;
   const nE       = eras.length;
   const yearFrom = eras[0][0];
   const TARGET   = poolSize;
@@ -699,7 +698,6 @@ async function fetchRecognitionPool(
 }
 
 export async function fetchOnboardingPool(
-  ageRange?: string,
   tone?: string,
   selectedGenres: string[] = [],
   poolSize = 60, // lo define el caller: máximo de cartas + reserva para reemplazos
@@ -709,13 +707,11 @@ export async function fetchOnboardingPool(
     const genreIds = selectedGenres
       .map(g => GENRE_NAME_TO_ID[g])
       .filter((id): id is number => id !== undefined);
-    return fetchRecognitionPool(ageRange ?? 'adult', genreIds.length > 0 ? genreIds : DEFAULT_GENRE_IDS, poolSize);
+    return fetchRecognitionPool(genreIds.length > 0 ? genreIds : DEFAULT_GENRE_IDS, poolSize);
   }
 
-  const anchorSlots = ANCHOR_SLOTS[ageRange ?? 'mid'] ?? ANCHOR_SLOTS.mid;
-  const discSlots   = tone
-    ? (TONE_SLOTS[tone] ?? TONE_SLOTS.tension)
-    : (ONBOARDING_SLOTS[ageRange ?? 'mid'] ?? ONBOARDING_SLOTS.mid);
+  const anchorSlots = ANCHOR_SLOTS.adult;
+  const discSlots   = TONE_SLOTS[tone] ?? TONE_SLOTS.tension;
 
   const [anchorRes, discRes] = await Promise.all([
     Promise.allSettled(anchorSlots.map(fetchDiscoverSlot)),
@@ -866,7 +862,6 @@ async function fetchActorPair(
 export async function fetchDeepeningBatch(
   topGenreIds: number[],
   companionIds: number[],
-  ageRange = 'adult',
   excludeGenreIds: number[] = [],
   maxSize = 40,
 ): Promise<NormalizedTitle[]> {
@@ -891,8 +886,7 @@ export async function fetchDeepeningBatch(
     id => !topGenreIds.includes(id) && !companionIds.includes(id) && !excludeGenreIds.includes(id),
   );
 
-  const eras = ERAS[ageRange] ?? ERAS.adult;
-  const yearFrom = eras[0][0];
+  const yearFrom = 2000;
 
   // Main genre × companion AND joins (specific sub-genres)
   for (const mainId of topGenreIds.slice(0, 3)) {

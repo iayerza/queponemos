@@ -5,7 +5,6 @@ import {
 } from './tmdb';
 
 export type Rating   = 'loved' | 'liked' | 'seen_disliked' | 'not_seen';
-export type AgeRange = 'young' | 'mid' | 'adult' | 'senior';
 
 export interface AnchorInfo { idx: number; title: string; }
 
@@ -273,7 +272,7 @@ function positiveSeenByGenre(
   return pos;
 }
 
-export function useOnboarding(ageRange: AgeRange): OnboardingState {
+export function useOnboarding(): OnboardingState {
   const [pool, setPool]       = useState<NormalizedTitle[]>([]);
   const [queue, setQueue]     = useState<NormalizedTitle[]>([]);
   const [currentIndex, setIdx] = useState(0);
@@ -312,7 +311,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     setDeepened(false);
     deepenFiredRef.current = false;
 
-    fetchOnboardingPool(ageRange, genreSeedsRef.current, POOL_SIZE)
+    fetchOnboardingPool(genreSeedsRef.current, POOL_SIZE)
       .then(fetched => {
         if (cancelled) return;
         if (fetched.length === 0) {
@@ -331,7 +330,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
       });
 
     return () => { cancelled = true; };
-  }, [genreStepDone, ageRange]);
+  }, [genreStepDone]);
 
   const confirmGenres = useCallback((genres: string[]) => {
     genreSeedsRef.current = genres;
@@ -365,7 +364,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
     const companions = selIds.filter(id => !topIds.includes(id)).slice(0, 4);
     const exclude    = STRONG_GENRES.filter(id => !selIds.includes(id));
 
-    fetchDeepeningBatch(topIds, companions, ageRange, exclude)
+    fetchDeepeningBatch(topIds, companions, exclude)
       .then(batch => {
         const ids = new Set(poolRef.current.map(t => t.tmdbId));
         const fks = new Set(poolRef.current.map(franchiseKey));
@@ -377,7 +376,7 @@ export function useOnboarding(ageRange: AgeRange): OnboardingState {
         setDeepened(true);
       })
       .catch(() => { /* sin profundización; la fase 1 sigue funcionando */ });
-  }, [ageRange]);
+  }, []);
 
   const rate = useCallback((rating: Rating) => {
     const title = queue[currentIndex];

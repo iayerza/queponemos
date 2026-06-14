@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import HomeScreen from './src/HomeScreen';
 import OnboardingScreen from './src/OnboardingScreen';
 import ResultsScreen from './src/ResultsScreen';
-import type { AgeRange, OnboardingState, AnchorInfo } from './src/useOnboarding';
+import type { OnboardingState, AnchorInfo } from './src/useOnboarding';
 import type { NormalizedTitle } from './src/tmdb';
 
 type Screen = 'home' | 'onboarding' | 'results';
@@ -17,12 +17,10 @@ interface ResultsData {
 }
 
 export default function App() {
-  const [screen, setScreen]     = useState<Screen>('home');
-  const [ageRange, setAgeRange] = useState<AgeRange>('adult');
-  const [results, setResults]   = useState<ResultsData | null>(null);
+  const [screen, setScreen] = useState<Screen>('home');
+  const [results, setResults] = useState<ResultsData | null>(null);
 
-  function handleStart(age: AgeRange) {
-    setAgeRange(age);
+  function handleStart() {
     setResults(null);
     setScreen('onboarding');
   }
@@ -39,11 +37,7 @@ export default function App() {
         <HomeScreen onStart={handleStart} />
       )}
       {screen === 'onboarding' && (
-        <OnboardingScreen
-          key={ageRange}
-          ageRange={ageRange}
-          onFinish={handleFinish}
-        />
+        <OnboardingScreen onFinish={handleFinish} />
       )}
       {screen === 'results' && results && (
         <ResultsScreen

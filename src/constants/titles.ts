@@ -1,5 +1,4 @@
-import type { AgeRange } from '../navigation/types';
-
+type AgeRange = 'young' | 'mid' | 'adult' | 'senior';
 type TitleId = { tmdbId: number; type: 'movie' | 'tv' };
 
 // ─── Semillas: 10 títulos curados para cubrir géneros distintos ───────────────

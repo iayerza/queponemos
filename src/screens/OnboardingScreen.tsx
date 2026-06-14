@@ -46,9 +46,8 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const nav    = useNavigation<Nav>();
   const route  = useRoute<Route>();
-  const { user, updateRatings, markOnboardingDone, setAgeRange } = useAuthStore();
+  const { user, updateRatings, markOnboardingDone } = useAuthStore();
   const themeColors = useColors();
-  const ageRange    = route.params?.ageRange;
   const tone        = route.params?.tone;
   const fromProfile = route.params?.fromProfile === true;
 
@@ -57,7 +56,7 @@ export default function OnboardingScreen() {
     rate, canSkip, isFinished,
     genreStepDone, confirmGenres,
     canExtend, pendingDoubts, extend, declineExtend, target,
-  } = useOnboarding(ageRange, tone, fromProfile);
+  } = useOnboarding(tone, fromProfile);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -70,8 +69,7 @@ export default function OnboardingScreen() {
 
   function handleFinish() {
     if (!user) return;
-    if (ageRange) setAgeRange(ageRange);
-    if (!USE_MOCK) completeOnboarding(user.uid, ageRange).catch(() => {});
+    if (!USE_MOCK) completeOnboarding(user.uid).catch(() => {});
     if (fromProfile) nav.navigate('App');
     else markOnboardingDone();
   }

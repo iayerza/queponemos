@@ -8,7 +8,7 @@ import { Colors, Typography } from '../constants/colors';
 import { useColors } from '../context/ThemeContext';
 import type { RootStackParamList, ToneId, FormatPref } from '../navigation/types';
 
-type Nav   = NativeStackNavigationProp<RootStackParamList>;
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'ToneSelect'>;
 
 const TONE_OPTIONS: { id: ToneId; label: string; sub: string }[] = [
@@ -29,7 +29,7 @@ export default function ToneSelectScreen() {
   const nav    = useNavigation<Nav>();
   const route  = useRoute<Route>();
   const themeColors = useColors();
-  const { ageRange, fromProfile } = route.params;
+  const { fromProfile } = route.params;
 
   const [tone,   setTone]   = useState<ToneId | null>(null);
   const [format, setFormat] = useState<FormatPref | null>(null);
@@ -37,7 +37,6 @@ export default function ToneSelectScreen() {
   function handleNext() {
     if (!tone || !format) return;
     nav.navigate('Onboarding', {
-      ageRange,
       tone,
       format,
       fromProfile: fromProfile || undefined,

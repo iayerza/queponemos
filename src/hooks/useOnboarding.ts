@@ -7,7 +7,7 @@ import {
 } from '../services/tmdb';
 import { useAuthStore } from '../store/useAuthStore';
 import type { Rating } from '../services/firebase';
-import type { AgeRange, ToneId } from '../navigation/types';
+import type { ToneId } from '../navigation/types';
 
 export interface OnboardingState {
   titles: NormalizedTitle[];
@@ -231,7 +231,7 @@ function buildQueue(
   return [...shown, ...take];
 }
 
-export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep = false): OnboardingState {
+export function useOnboarding(tone?: ToneId, skipGenreStep = false): OnboardingState {
   const [pool, setPool]          = useState<NormalizedTitle[]>([]);
   const [queue, setQueue]        = useState<NormalizedTitle[]>([]);
   const [currentIndex, setIndex] = useState(0);
@@ -291,7 +291,7 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
       return () => { cancelled = true; };
     }
 
-    fetchOnboardingPool(ageRange, tone, genreSeedsRef.current, POOL_SIZE)
+    fetchOnboardingPool(tone, genreSeedsRef.current, POOL_SIZE)
       .then(fetched => {
         if (cancelled) return;
         initQueue(fetched.length >= 10 ? fetched : MOCK_FALLBACK);
@@ -302,7 +302,7 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
 
     if (user?.ratings) setRatings(user.ratings as Record<number, Rating>);
     return () => { cancelled = true; };
-  }, [genreStepDone, ageRange, tone]);
+  }, [genreStepDone, tone]);
 
   const confirmGenres = useCallback((genres: string[]) => {
     genreSeedsRef.current = genres;
@@ -352,7 +352,7 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
       if (topIds.length === 0) return;
 
       const excludeIds = STRONG_GENRES.filter(id => !topIds.includes(id) && !compIds.includes(id));
-      const batch = await fetchDeepeningBatch(topIds, compIds, ageRange ?? 'adult', excludeIds, 40);
+      const batch = await fetchDeepeningBatch(topIds, compIds, excludeIds, 40);
 
       const existingIds = new Set(poolRef.current.map(t => t.tmdbId));
       const fresh = batch.filter(t => !existingIds.has(t.tmdbId));
@@ -372,7 +372,7 @@ export function useOnboarding(ageRange?: AgeRange, tone?: ToneId, skipGenreStep 
         setQueue(buildQueue(shown, candidates, newProfile, ev, targetRef.current - shown.length, false, coldCooldownRef.current, recentHistoryRef.current));
       }
     } catch { /* silent — deepening is best-effort */ }
-  }, [ageRange]);
+  }, []);
 
   const rate = useCallback((rating: Rating) => {
     const currentRatings = ratingsRef.current;

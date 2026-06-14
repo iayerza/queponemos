@@ -218,7 +218,6 @@ async function fetchActorPair(
 }
 
 export async function fetchOnboardingPool(
-  ageRange = 'adult',
   selectedGenres: string[] = [],
   poolSize = 60, // lo define el caller: máximo de cartas + reserva para reemplazos
 ): Promise<NormalizedTitle[]> {
@@ -227,7 +226,7 @@ export async function fetchOnboardingPool(
     .filter((id): id is number => id !== undefined);
   const ids = genreIds.length > 0 ? genreIds : DEFAULT_GENRE_IDS;
 
-  const eras = ERAS[ageRange] ?? ERAS.adult;
+  const eras = ERAS.adult;
   const nE = eras.length;
   const yearFrom = eras[0][0];
   const TARGET = poolSize;
@@ -360,11 +359,10 @@ export async function fetchOnboardingPool(
 export async function fetchDeepeningBatch(
   topGenreIds: number[],      // 1-2 géneros ganadores
   companionIds: number[],     // con qué géneros formar pares
-  ageRange = 'adult',
   excludeGenreIds: number[] = [], // géneros fuertes no elegidos
   maxSize = 40,
 ): Promise<NormalizedTitle[]> {
-  const yearFrom = (ERAS[ageRange] ?? ERAS.adult)[0][0];
+  const yearFrom = ERAS.adult[0][0];
   const base = {
     withoutGenres: excludeGenreIds,
     yearFrom,
