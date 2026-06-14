@@ -232,8 +232,6 @@ function buildPrompt(input: MatchingInput): string {
       ? `\n  NO recomendar (ya visto): ${allSeenIds.map(id => resolveName(id, input) || `tmdbId:${id}`).join(', ')}`
       : '';
 
-    const age = u.ageRange ? ` (${AGE_RANGE_LABELS[u.ageRange]})` : '';
-
     const keywords = topKeywordLabels(u.tasteProfile ?? { genres: {}, intensity: 0.5, seriesVsMovies: 0.5, implicitGenres: [] });
     const profileLines = [
       `géneros dominantes: ${topGenres}`,
@@ -247,7 +245,7 @@ function buildPrompt(input: MatchingInput): string {
     const likedBlock   = likedNames.length   ? `\n  le gustó: ${likedNames.join(', ')}`     : '';
     const dislikBlock  = dislikedNames.length? `\n  no le gustó: ${dislikedNames.join(', ')}` : '';
 
-    return `- ${u.displayName}${age}: ${profileLines}${lovedBlock}${likedBlock}${dislikBlock}\n  mood esta noche: ${mood}${seenBlock}`;
+    return `- ${u.displayName}: ${profileLines}${lovedBlock}${likedBlock}${dislikBlock}\n  mood esta noche: ${mood}${seenBlock}`;
   }).join('\n');
 
   const isSolo = input.users.length === 1;
@@ -295,7 +293,6 @@ REGLAS:
    La mayoría de recomendaciones deberían estar entre 70-85. Scores de 90+ son la excepción, no la regla.
 9. No repetir siempre los mismos títulos populares del momento.
 10. TYPE CORRECTO — CRÍTICO: "movie" solo para largometrajes. Series de TV, miniseries, shows = "series". Ejemplos: The Last of Us → "series", Breaking Bad → "series", Inception → "movie".
-11. Considerá la edad de los usuarios al elegir referencias culturales y títulos.
 
 Respondé SOLO con JSON válido, sin texto extra, sin markdown, sin bloques de código:
 {

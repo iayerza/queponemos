@@ -32,6 +32,7 @@ export interface NormalizedTitle {
   runtime?: number;
   keywords?: string[]; // populated lazily via fetchKeywords()
   isAnchor?: boolean;  // set by placeAnchors — calibration titles that bypass genre filter
+  collectionId?: number; // TMDB collection ID — deduplicar sagas/secuelas
 }
 
 const GENRE_MAP: Record<number, string> = {
@@ -159,6 +160,7 @@ function parseDiscoverResult(r: Record<string, unknown>, type: 'movie' | 'tv'): 
     rating: parseFloat(((r.vote_average as number) ?? 0).toFixed(1)),
     posterPath: (r.poster_path as string | null) ?? null,
     synopsis: (r.overview as string) ?? '',
+    collectionId: (r.belongs_to_collection as { id: number } | null)?.id,
   };
 }
 
@@ -262,25 +264,22 @@ const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
 
   // 25–35 — nacidos ~1991-2001, conocen los 90s de chicos
   mid: [
-    // Pre-1990 (2) — algunos clásicos que quizás vieron en casa
-    { media: 'movie', genre: MG.drama,     yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
-    { media: 'movie', genre: MG.crime,     yearTo: 1989, minRating: 7.5, minVotes: 3000, pick: 1 },
-    // 1990–2009 (9)
-    { media: 'movie', genre: MG.drama,     yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.crime,     yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.comedy,    yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.romance,   yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.scifi,     yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.animation, yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
+    // 2000–2009 (9)
+    { media: 'movie', genre: MG.drama,     yearFrom: 2000, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2000, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.crime,     yearFrom: 2000, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.comedy,    yearFrom: 2000, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.romance,   yearFrom: 2000, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
+    { media: 'movie', genre: MG.scifi,     yearFrom: 2000, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 1 },
+    { media: 'movie', genre: MG.animation, yearFrom: 2000, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
     // 2010–2019 (6)
     { media: 'movie', genre: MG.drama,     yearFrom: 2010, yearTo: 2019, minRating: 7.5, minVotes: 1000,  pick: 2 },
     { media: 'movie', genre: MG.thriller,  yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 1000,  pick: 2 },
     { media: 'movie', genre: MG.action,    yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 20000, pick: 1 },
     { media: 'movie', genre: MG.romance,   yearFrom: 2010, yearTo: 2019, minRating: 7.0, minVotes: 1000,  pick: 1 },
-    // 2020+ (3)
-    { media: 'movie', genre: MG.drama,     yearFrom: 2020, minRating: 7.5, minVotes: 500, pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 1 },
+    // 2020+ (5)
+    { media: 'movie', genre: MG.drama,     yearFrom: 2020, minRating: 7.5, minVotes: 500, pick: 2 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 2 },
     { media: 'movie', genre: MG.scifi,     yearFrom: 2020, minRating: 7.0, minVotes: 500, pick: 1 },
     // Series (10)
     { media: 'tv', genre: TG.drama,        minRating: 8.0, minVotes: 500, pick: 3 },
@@ -288,19 +287,13 @@ const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
     { media: 'tv', genre: TG.comedy,       minRating: 7.5, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.scifiFantasy, minRating: 7.5, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.mystery,      minRating: 7.5, minVotes: 300, pick: 1 },
-  ], // 2+9+6+3+10 = 30
+  ], // 9+6+5+10 = 30
 
   // 36–50 — nacidos ~1976-1990, crecieron con los 80s/90s
   adult: [
-    // 1980–1999 (7) — su era de formación
-    { media: 'movie', genre: MG.drama,     yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.crime,     yearFrom: 1980, yearTo: 1999, minRating: 7.5, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.comedy,    yearFrom: 1980, yearTo: 1999, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.scifi,     yearFrom: 1980, yearTo: 1999, minRating: 7.0, minVotes: 2000, pick: 1 },
-    // 2000–2012 (8)
-    { media: 'movie', genre: MG.drama,     yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 2000,  pick: 2 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 2 },
+    // 2000–2012 (10)
+    { media: 'movie', genre: MG.drama,     yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 2000,  pick: 3 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 3 },
     { media: 'movie', genre: MG.crime,     yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 1000,  pick: 1 },
     { media: 'movie', genre: MG.comedy,    yearFrom: 2000, yearTo: 2012, minRating: 7.0, minVotes: 1000,  pick: 1 },
     { media: 'movie', genre: MG.action,    yearFrom: 2000, yearTo: 2012, minRating: 7.5, minVotes: 30000, pick: 1 },
@@ -310,45 +303,37 @@ const ONBOARDING_SLOTS: Record<string, DiscoverSlot[]> = {
     { media: 'movie', genre: MG.thriller,  yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 2000, pick: 2 },
     { media: 'movie', genre: MG.romance,   yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 1000, pick: 1 },
     { media: 'movie', genre: MG.action,    yearFrom: 2013, yearTo: 2021, minRating: 7.0, minVotes: 2000, pick: 1 },
-    // 2022+ (2)
-    { media: 'movie', genre: MG.drama,     yearFrom: 2022, minRating: 7.0, minVotes: 500, pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 2022, minRating: 7.0, minVotes: 500, pick: 1 },
-    // Series (7)
-    { media: 'tv', genre: TG.drama,        minRating: 8.0, minVotes: 500, pick: 2 },
+    // 2022+ (4)
+    { media: 'movie', genre: MG.drama,     yearFrom: 2022, minRating: 7.0, minVotes: 500, pick: 2 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2022, minRating: 7.0, minVotes: 500, pick: 2 },
+    // Series (10)
+    { media: 'tv', genre: TG.drama,        minRating: 8.0, minVotes: 500, pick: 3 },
     { media: 'tv', genre: TG.crime,        minRating: 8.0, minVotes: 300, pick: 2 },
-    { media: 'tv', genre: TG.comedy,       minRating: 7.5, minVotes: 300, pick: 1 },
-    { media: 'tv', genre: TG.scifiFantasy, minRating: 7.5, minVotes: 300, pick: 1 },
+    { media: 'tv', genre: TG.comedy,       minRating: 7.5, minVotes: 300, pick: 2 },
+    { media: 'tv', genre: TG.scifiFantasy, minRating: 7.5, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.mystery,      minRating: 7.5, minVotes: 300, pick: 1 },
-  ], // 7+8+6+2+7 = 30
+  ], // 10+6+4+10 = 30
 
   // 50+ — vieron todo: clásicos, 80s/90s, 2000s y cine de hoy
   senior: [
-    // Pre-1970 (3)
-    { media: 'movie', genre: MG.drama,    yearTo: 1969, minRating: 7.5, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.crime,    yearTo: 1969, minRating: 7.5, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.comedy,   yearTo: 1969, minRating: 7.5, minVotes: 1000, pick: 1 },
-    // 1970–1989 (7)
-    { media: 'movie', genre: MG.drama,    yearFrom: 1970, yearTo: 1989, minRating: 7.5, minVotes: 2000, pick: 3 },
-    { media: 'movie', genre: MG.thriller, yearFrom: 1970, yearTo: 1989, minRating: 7.5, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.crime,    yearFrom: 1970, yearTo: 1989, minRating: 7.5, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.comedy,   yearFrom: 1970, yearTo: 1989, minRating: 7.0, minVotes: 1000, pick: 1 },
-    // 1990–2009 (6)
-    { media: 'movie', genre: MG.drama,    yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
-    { media: 'movie', genre: MG.thriller, yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.comedy,   yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.romance,  yearFrom: 1990, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
-    { media: 'movie', genre: MG.crime,    yearFrom: 1990, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 1 },
-    // 2010–2024 (4)
-    { media: 'movie', genre: MG.drama,    yearFrom: 2010, minRating: 7.5, minVotes: 1000, pick: 2 },
-    { media: 'movie', genre: MG.thriller, yearFrom: 2010, minRating: 7.5, minVotes: 1000, pick: 1 },
-    { media: 'movie', genre: MG.comedy,   yearFrom: 2010, minRating: 7.0, minVotes: 1000, pick: 1 },
+    // 2000–2009 (10)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2000, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 3 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 2000, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.crime,    yearFrom: 2000, yearTo: 2009, minRating: 7.5, minVotes: 2000, pick: 2 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 2000, yearTo: 2009, minRating: 7.0, minVotes: 1000, pick: 2 },
+    { media: 'movie', genre: MG.romance,  yearFrom: 2000, yearTo: 2009, minRating: 7.0, minVotes: 2000, pick: 1 },
+    // 2010+ (10)
+    { media: 'movie', genre: MG.drama,    yearFrom: 2010, minRating: 7.5, minVotes: 1000, pick: 4 },
+    { media: 'movie', genre: MG.thriller, yearFrom: 2010, minRating: 7.5, minVotes: 1000, pick: 3 },
+    { media: 'movie', genre: MG.comedy,   yearFrom: 2010, minRating: 7.0, minVotes: 1000, pick: 2 },
+    { media: 'movie', genre: MG.crime,    yearFrom: 2010, minRating: 7.5, minVotes: 1000, pick: 1 },
     // Series (10)
     { media: 'tv', genre: TG.drama,       minRating: 8.0, minVotes: 500, pick: 3 },
     { media: 'tv', genre: TG.crime,       minRating: 8.0, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.comedy,      minRating: 7.5, minVotes: 300, pick: 2 },
     { media: 'tv', genre: TG.mystery,     minRating: 7.5, minVotes: 300, pick: 2 },
-    { media: 'tv', genre: TG.drama,       yearFrom: 1980, yearTo: 2005, minRating: 8.0, minVotes: 200, pick: 1 },
-  ], // 3+7+6+4+10 = 30
+    { media: 'tv', genre: TG.drama,       yearFrom: 2000, yearTo: 2010, minRating: 8.0, minVotes: 200, pick: 1 },
+  ], // 10+10+10 = 30
 };
 
 async function fetchDiscoverSlot(slot: DiscoverSlot): Promise<NormalizedTitle[]> {
@@ -385,24 +370,24 @@ const ANCHOR_SLOTS: Record<string, DiscoverSlot[]> = {
     { media: 'movie', genre: MG.drama,     yearFrom: 2005, minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
   ],
   mid: [
-    { media: 'movie', genre: MG.action,    yearFrom: 1993, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.drama,     yearFrom: 1993, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 1993, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.scifi,     yearFrom: 1993, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.action,    yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.scifi,     yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
     { media: 'movie', genre: MG.drama,                     minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
   ],
   adult: [
-    { media: 'movie', genre: MG.action,    yearFrom: 1985, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.drama,     yearFrom: 1985, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 1985, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.romance,   yearFrom: 1985, minVotes: 300000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.drama,     yearFrom: 1985, minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
+    { media: 'movie', genre: MG.action,    yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.romance,   yearFrom: 2000, minVotes: 300000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 2000, minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
   ],
   senior: [
-    { media: 'movie', genre: MG.drama,     yearFrom: 1970, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.thriller,  yearFrom: 1970, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.crime,     yearFrom: 1970, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
-    { media: 'movie', genre: MG.romance,   yearFrom: 1970, minVotes: 200000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.drama,     yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.thriller,  yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.crime,     yearFrom: 2000, minVotes: 500000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
+    { media: 'movie', genre: MG.romance,   yearFrom: 2000, minVotes: 200000, sortBy: 'popularity.desc', language: 'en', pick: 1 },
     { media: 'movie', genre: MG.drama,                     minVotes: 30000,  sortBy: 'popularity.desc', language: 'es', pick: 1 },
   ],
 };
@@ -483,10 +468,10 @@ export const GENRE_NAME_TO_ID: Record<string, number> = {
 // Épocas por edad: cada género se muestrea estratificado por época para que
 // un solo ranking (dominado por franquicias recientes) no capture todo el pool
 const ERAS: Record<string, [number, number | null][]> = {
-  young:  [[2003, 2012], [2013, null]],
-  mid:    [[1993, 2007], [2008, 2016], [2017, null]],
-  adult:  [[1982, 1999], [2000, 2012], [2013, null]],
-  senior: [[1975, 1990], [1991, 2005], [2006, null]],
+  young:  [[2000, 2012], [2013, null]],
+  mid:    [[2000, 2012], [2013, null]],
+  adult:  [[2000, 2012], [2013, null]],
+  senior: [[2000, 2012], [2013, null]],
 };
 
 // Keywords TMDB excluidas del relleno por género: universos de superhéroes
@@ -604,7 +589,7 @@ async function fetchRecognitionPool(
 
   const [
     genreEraLists, blockbusters, recentReleases,
-    guiltyPleasures, cultClassics, localTop, localGenre,
+    guiltyPleasures, cultClassics, localTop, localGenre, wildcardList,
   ] = await Promise.all([
     Promise.all(genreEraReqs),
     // Blockbusters globales de su era — efecto "el algoritmo me conoce"
@@ -627,18 +612,23 @@ async function fetchRecognitionPool(
       .catch(() => [] as NormalizedTitle[]),
     fetchTopVoted({ withoutGenres, originCountry: 'AR', genres: genreIds, yearFrom, minVotes: 100 })
       .catch(() => [] as NormalizedTitle[]),
+    fetchWildcards(withoutGenres).catch(() => [] as NormalizedTitle[]),
   ]);
 
   const seenIds = new Set<number>();
   const seenFranchise = new Set<string>();
   const pool: NormalizedTitle[] = [];
 
+  const seenCollections = new Set<number>();
+
   const push = (t: NormalizedTitle, isAnchor: boolean): boolean => {
     if (seenIds.has(t.tmdbId)) return false;
     const fk = franchiseKey(t);
-    if (seenFranchise.has(fk)) return false; // máx 1 por franquicia
+    if (seenFranchise.has(fk)) return false;
+    if (t.collectionId && seenCollections.has(t.collectionId)) return false;
     seenIds.add(t.tmdbId);
     seenFranchise.add(fk);
+    if (t.collectionId) seenCollections.add(t.collectionId);
     pool.push({ ...t, isAnchor });
     return true;
   };
@@ -665,6 +655,26 @@ async function fetchRecognitionPool(
   pickRandom(guiltyPleasures, false, 10);
   pickRandom(cultClassics,    false, 8);   // alimenta el feature t:prestigio
   pickRandom(cultClassics,    false, 8);
+
+  // ── Wildcards: 4 al azar entre las top-200 más votadas (en|es) ──
+  let wildcardCount = 0;
+  for (const t of shuffle(wildcardList)) {
+    if (wildcardCount >= 4) break;
+    if (push(t, false)) wildcardCount++;
+  }
+
+  // ── Actor-pair: 2 películas del mismo actor para calibrar "factor actoral" ──
+  const anchorForActor = shuffle([...blockbusters, ...recentReleases])[0];
+  if (anchorForActor) {
+    try {
+      const actorMovies = await fetchActorPair(anchorForActor.tmdbId, userGenres, withoutGenres);
+      let actorPicked = 0;
+      for (const t of actorMovies) {
+        if (actorPicked >= 2) break;
+        if (push(t, false)) actorPicked++;
+      }
+    } catch { /* ignorar */ }
+  }
 
   // Géneros × épocas: round-robin alternando época para cada género;
   // primera pasada por género = anchor de ese género
@@ -798,6 +808,54 @@ export async function fetchLightAnchorTitles(minYear: number, count: number): Pr
     + `&primary_release_date.lte=${isoDateDaysAgo(90)}`;
   const data = await tmdbGet(path) as { results: Record<string, unknown>[] };
   return (data.results ?? []).slice(0, count).map(r => parseDiscoverResult(r, 'movie'));
+}
+
+// 4 películas al azar entre las top-200 más votadas (en|es, desde 2000)
+async function fetchWildcards(withoutGenres: number[]): Promise<NormalizedTitle[]> {
+  const page = Math.floor(Math.random() * 10) + 1; // páginas 1-10 = top 200
+  const p: Record<string, string> = {
+    'vote_count.gte': '80000',
+    sort_by: 'vote_count.desc',
+    with_original_language: 'en|es',
+    'primary_release_date.gte': '2000-01-01',
+    without_keywords: FRANCHISE_KEYWORDS,
+    page: String(page),
+  };
+  if (withoutGenres.length) p.without_genres = withoutGenres.join(',');
+  const qs = Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const data = await tmdbGet(`/discover/movie?${qs}`) as { results: Record<string, unknown>[] };
+  return shuffle(
+    data.results.map(r => parseDiscoverResult(r, 'movie')).filter(t => t.posterPath && t.year >= 2000)
+  );
+}
+
+// Trae 1-2 películas de un actor popular de la lista, para calibrar el "factor actoral"
+async function fetchActorPair(
+  candidateMovieId: number,
+  userGenres: number[],
+  withoutGenres: number[],
+): Promise<NormalizedTitle[]> {
+  const credits = await tmdbGet(`/movie/${candidateMovieId}/credits`) as {
+    cast: { id: number; order: number }[];
+  };
+  const actorId = credits.cast.find(c => c.order < 3)?.id;
+  if (!actorId) return [];
+  const p: Record<string, string> = {
+    with_cast: String(actorId),
+    'vote_count.gte': '5000',
+    sort_by: 'vote_count.desc',
+    'primary_release_date.gte': '2000-01-01',
+    without_keywords: FRANCHISE_KEYWORDS,
+    page: '1',
+  };
+  if (userGenres.length)    p.with_genres    = userGenres.join('|');
+  if (withoutGenres.length) p.without_genres = withoutGenres.join(',');
+  const qs = Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const data = await tmdbGet(`/discover/movie?${qs}`) as { results: Record<string, unknown>[] };
+  return data.results
+    .map(r => parseDiscoverResult(r, 'movie'))
+    .filter(t => t.posterPath && t.year >= 2000)
+    .slice(0, 5);
 }
 
 // ─── Deepening batch ─────────────────────────────────────────────────────────

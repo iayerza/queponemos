@@ -24,6 +24,7 @@ export interface NormalizedTitle {
   posterPath: string | null;
   synopsis: string;
   isAnchor: boolean; // marcado en fetchOnboardingPool
+  collectionId?: number; // TMDB collection ID — deduplicar sagas/secuelas
 }
 
 export function getPosterUrl(p: string | null): string | null {
@@ -67,6 +68,7 @@ function parseDiscoverResult(r: Record<string, unknown>, type: 'movie' | 'tv'): 
     posterPath: (r.poster_path as string | null) ?? null,
     synopsis: (r.overview as string) ?? '',
     isAnchor: false,
+    collectionId: (r.belongs_to_collection as { id: number } | null)?.id,
   };
 }
 
@@ -98,10 +100,10 @@ export const GENRE_NAME_TO_ID: Record<string, number> = {
 // Épocas por edad: cada género se muestrea estratificado por época para que
 // un solo ranking (dominado por franquicias recientes) no capture todo el pool
 const ERAS: Record<string, [number, number | null][]> = {
-  young:  [[2003, 2012], [2013, null]],
-  mid:    [[1993, 2007], [2008, 2016], [2017, null]],
-  adult:  [[1982, 1999], [2000, 2012], [2013, null]],
-  senior: [[1975, 1990], [1991, 2005], [2006, null]],
+  young:  [[2000, 2012], [2013, null]],
+  mid:    [[2000, 2012], [2013, null]],
+  adult:  [[2000, 2012], [2013, null]],
+  senior: [[2000, 2012], [2013, null]],
 };
 
 // Keywords TMDB excluidas del relleno por género: universos de superhéroes
@@ -167,6 +169,54 @@ export function franchiseKey(t: NormalizedTitle): string {
   return words[0] ?? t.title.toLowerCase();
 }
 
+// 4 películas al azar entre las top-200 más votadas (en|es, desde 2000)
+async function fetchWildcards(withoutGenres: number[]): Promise<NormalizedTitle[]> {
+  const page = Math.floor(Math.random() * 10) + 1; // páginas 1-10 = top 200
+  const p: Record<string, string> = {
+    'vote_count.gte': '80000',
+    sort_by: 'vote_count.desc',
+    with_original_language: 'en|es',
+    'primary_release_date.gte': '2000-01-01',
+    without_keywords: FRANCHISE_KEYWORDS,
+    page: String(page),
+  };
+  if (withoutGenres.length) p.without_genres = withoutGenres.join(',');
+  const qs = Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const data = await tmdbGet(`/discover/movie?${qs}`) as { results: Record<string, unknown>[] };
+  return shuffle(
+    data.results.map(r => parseDiscoverResult(r, 'movie')).filter(t => t.posterPath && t.year >= 2000)
+  );
+}
+
+// Trae 1-2 películas de un actor popular de la lista, para calibrar el "factor actoral"
+async function fetchActorPair(
+  candidateMovieId: number,
+  userGenres: number[],
+  withoutGenres: number[],
+): Promise<NormalizedTitle[]> {
+  const credits = await tmdbGet(`/movie/${candidateMovieId}/credits`) as {
+    cast: { id: number; order: number }[];
+  };
+  const actorId = credits.cast.find(c => c.order < 3)?.id;
+  if (!actorId) return [];
+  const p: Record<string, string> = {
+    with_cast: String(actorId),
+    'vote_count.gte': '5000',
+    sort_by: 'vote_count.desc',
+    'primary_release_date.gte': '2000-01-01',
+    without_keywords: FRANCHISE_KEYWORDS,
+    page: '1',
+  };
+  if (userGenres.length)    p.with_genres    = userGenres.join('|');
+  if (withoutGenres.length) p.without_genres = withoutGenres.join(',');
+  const qs = Object.entries(p).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const data = await tmdbGet(`/discover/movie?${qs}`) as { results: Record<string, unknown>[] };
+  return data.results
+    .map(r => parseDiscoverResult(r, 'movie'))
+    .filter(t => t.posterPath && t.year >= 2000)
+    .slice(0, 5);
+}
+
 export async function fetchOnboardingPool(
   ageRange = 'adult',
   selectedGenres: string[] = [],
@@ -197,7 +247,7 @@ export async function fetchOnboardingPool(
 
   const [
     genreEraLists, blockbusters, recentReleases,
-    guiltyPleasures, cultClassics, localTop, localGenre,
+    guiltyPleasures, cultClassics, localTop, localGenre, wildcardList,
   ] = await Promise.all([
     Promise.all(genreEraReqs),
     fetchTopVoted({ withoutGenres, yearFrom, minVotes: 15000, language: 'en' }).catch(() => [] as NormalizedTitle[]),
@@ -212,18 +262,22 @@ export async function fetchOnboardingPool(
       minRating: 7.8, sortBy: 'vote_average.desc', withoutKeywords: FRANCHISE_KEYWORDS }).catch(() => [] as NormalizedTitle[]),
     fetchTopVoted({ withoutGenres, originCountry: 'AR', yearFrom, minVotes: 300 }).catch(() => [] as NormalizedTitle[]),
     fetchTopVoted({ withoutGenres, originCountry: 'AR', genres: ids, yearFrom, minVotes: 100 }).catch(() => [] as NormalizedTitle[]),
+    fetchWildcards(withoutGenres).catch(() => [] as NormalizedTitle[]),
   ]);
 
   const seenIds = new Set<number>();
   const seenFranchise = new Set<string>();
+  const seenCollections = new Set<number>();
   const pool: NormalizedTitle[] = [];
 
   const push = (t: NormalizedTitle, isAnchor: boolean): boolean => {
     if (seenIds.has(t.tmdbId)) return false;
     const fk = franchiseKey(t);
     if (seenFranchise.has(fk)) return false; // máx 1 por franquicia
+    if (t.collectionId && seenCollections.has(t.collectionId)) return false;
     seenIds.add(t.tmdbId);
     seenFranchise.add(fk);
+    if (t.collectionId) seenCollections.add(t.collectionId);
     pool.push({ ...t, isAnchor });
     return true;
   };
@@ -253,6 +307,26 @@ export async function fetchOnboardingPool(
   pickRandom(guiltyPleasures, false, 10);
   pickRandom(cultClassics,    false, 8);
   pickRandom(cultClassics,    false, 8);
+
+  // ── Wildcards: 4 al azar entre las top-200 más votadas (en|es) ──
+  let wildcardCount = 0;
+  for (const t of shuffle(wildcardList)) {
+    if (wildcardCount >= 4) break;
+    if (push(t, false)) wildcardCount++;
+  }
+
+  // ── Actor-pair: 2 películas del mismo actor para calibrar "factor actoral" ──
+  const anchorForActor = shuffle([...blockbusters, ...recentReleases])[0];
+  if (anchorForActor) {
+    try {
+      const actorMovies = await fetchActorPair(anchorForActor.tmdbId, ids, withoutGenres);
+      let actorPicked = 0;
+      for (const t of actorMovies) {
+        if (actorPicked >= 2) break;
+        if (push(t, false)) actorPicked++;
+      }
+    } catch { /* ignorar */ }
+  }
 
   // Géneros × épocas: round-robin alternando época para cada género;
   // primera pasada por género = anchor de ese género
